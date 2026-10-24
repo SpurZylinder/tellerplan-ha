@@ -1,0 +1,41 @@
+name: Tellerplan
+version: "0.1.0"
+slug: tellerplan
+description: Kalorien zählen, Rezepte verwalten und die Woche planen
+url: https://github.com/SpurZylinder/tellerplan-ha
+arch:
+  - aarch64
+image: ghcr.io/spurzylinder/tellerplan-{arch}
+init: false
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8000
+panel_icon: mdi:silverware-fork-knife
+panel_title: Tellerplan
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: JSON-API für Kurzbefehle und Skripte (nur mit Token)
+backup: hot
+options:
+  daily_kcal_limit: 2000
+  protein_goal_g: 150
+  fat_goal_g: 70
+  carbs_goal_g: 200
+  meal_names:
+    - Frühstück
+    - Mittag
+    - Abendessen
+    - Snacks
+  api_token: ""
+  database_path: /data/app.db
+schema:
+  daily_kcal_limit: int(500,10000)
+  protein_goal_g: int(0,500)
+  fat_goal_g: int(0,500)
+  carbs_goal_g: int(0,1000)
+  meal_names:
+    - str
+  api_token: password
+  database_path: str

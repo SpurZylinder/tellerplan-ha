@@ -1,0 +1,44 @@
+/* Grundlayout: schmale Spalte, mobil zuerst. Farben und Maße nur aus tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+}
+
+main {
+  max-width: var(--column-width);
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  line-height: 1.2;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-m);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.kcal {
+  color: var(--color-kcal);
+  font-family: var(--font-mono);
+}

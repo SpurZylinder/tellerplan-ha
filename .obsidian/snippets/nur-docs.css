@@ -1,0 +1,8 @@
+/*
+ * Tellerplan-Vault: Der Vault ist das ganze Repo, der Dateibaum zeigt aber nur docs/.
+ * Ergänzt den Ausschlussfilter in app.json (der wirkt auf Suche, Graph und Schnellwechsler).
+ */
+.nav-files-container .nav-folder:not(.mod-root):has(> .nav-folder-title:not([data-path="docs"]):not([data-path^="docs/"])),
+.nav-files-container .nav-file:has(> .nav-file-title:not([data-path^="docs/"])) {
+  display: none;
+}

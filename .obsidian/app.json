@@ -1,0 +1,12 @@
+{
+  "userIgnoreFilters": [
+    "/^(?!docs(\/|$)).*/"
+  ],
+  "newFileLocation": "folder",
+  "newFileFolderPath": "docs",
+  "attachmentFolderPath": "docs/assets",
+  "alwaysUpdateLinks": true,
+  "showUnsupportedFiles": false,
+  "useMarkdownLinks": false,
+  "newLinkFormat": "shortest"
+}

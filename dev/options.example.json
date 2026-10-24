@@ -1,0 +1,9 @@
+{
+  "daily_kcal_limit": 2000,
+  "protein_goal_g": 150,
+  "fat_goal_g": 70,
+  "carbs_goal_g": 200,
+  "meal_names": ["Frühstück", "Mittag", "Abendessen", "Snacks"],
+  "api_token": "lokal-geheim",
+  "database_path": "app.db"
+}

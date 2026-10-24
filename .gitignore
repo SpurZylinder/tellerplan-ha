@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Lokale Konfiguration, Datenbanken, Exporte – niemals committen
+dev/*
+!dev/options.example.json
+options.json
+*.db
+*.db-*
+*.db.bak
+*.sqlite
+exports/
+
+# Obsidian: nur geteilte Einstellungen versionieren
+.obsidian/workspace*.json
+.obsidian/cache
+.obsidian/plugins/*/main.js
+.obsidian/plugins/*/styles.css
+.trash/
+
+# Editor/OS
+.DS_Store
+Thumbs.db

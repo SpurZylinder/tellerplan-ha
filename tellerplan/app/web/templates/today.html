@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Heute · Tellerplan{% endblock %}
+
+{% block content %}
+  <h1>Heute</h1>
+  <p class="muted">Tageslimit: <span class="kcal">{{ daily_kcal_limit }} kcal</span></p>
+
+  {% for meal in meal_names %}
+    <section class="card">
+      <h2>{{ meal }}</h2>
+      <p class="muted">Noch keine Einträge.</p>
+    </section>
+  {% endfor %}
+{% endblock %}
