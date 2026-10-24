@@ -8,6 +8,9 @@ from fastapi.responses import RedirectResponse
 
 from web.templating import path_for
 
+# Vorschläge für Einheitenfelder (datalist); umgerechnet wird über food_unit.
+COMMON_UNITS = ("g", "kg", "ml", "EL", "TL", "Stück", "Prise", "Becher", "Dose", "Packung")
+
 
 class FormError(ValueError):
     """Eingabefehler mit einer Meldung für die Oberfläche."""

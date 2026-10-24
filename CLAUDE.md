@@ -15,10 +15,10 @@ Die vollständige Architektur steht in `docs/Architektur.md`. Lies sie vor jeder
 2. **Importer liefern nie Nährwerte.** Ein Import erzeugt nur Titel, Standardportionen, Quell-Link, Quell-ID und rohe Zutatenzeilen. Nährwertangaben der Quelle (Cookidoo, Chefkoch …) werden verworfen.
 3. **Nur `modules/nutrition` rechnet Nährwerte.** Alle anderen Module fragen es.
 4. **`diary_entry` speichert einen Nährwert-Snapshot.** Spätere Rezeptänderungen dürfen vergangene Tage nicht verändern.
-5. **Portionen:** Rezept = Standardportionen; `plan_entry` = geplante Portionen (änderbar); `diary_entry` = gegessene Portionen. Nur das Tagebuch zählt für die Tageswerte.
+5. **Portionen:** Rezept = Standardportionen; `plan_entry` = Rezept an einem Tag, immer mit seinen Standardportionen (keine Mahlzeit, keine eigenen Portionen); `diary_entry` = gegessene Portionen. Nur das Tagebuch zählt für die Tageswerte, eingetragen wird nur auf „Heute“.
 6. **Zentrale Parameter:** Alle konfigurierbaren Werte (kcal-Limit, Makro-Ziele, Mahlzeitnamen, API-Token, DB-Pfad) kommen ausschließlich über `app/settings.py` aus `options.json`. Keine verstreuten Konstanten oder Magic Numbers im Code.
 7. **Ein Repo, eine App, eine Datenbank.** Modulgrenzen einhalten, keine Querimporte an der Abhängigkeitsrichtung vorbei:
-   `foods` ← `nutrition` ← `recipes` ← `importers`, `recipes` ← `planner`, (`nutrition`, `planner`) ← `diary`
+   `foods` ← `nutrition` ← `recipes` ← `importers`, `recipes` ← `planner`, (`nutrition`, `recipes`, `planner`) ← `diary`
 
 ## Stil
 
@@ -105,9 +105,9 @@ Lokale Konfiguration und Datenbank liegen in `dev/` (in `.gitignore`); Vorlage i
 ## Ausbaustufen
 
 1. **Kern:** Gerüst, CI/Release, UI-Rahmen (Tab-Leiste), Lebensmittel manuell + Demo-Set, Nährwertrechnung
-2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan mit Portionen je Eintrag
-3. **Tagebuch:** vier Mahlzeiten, Tageslimit, Balken, Übernahme aus dem Plan mit gegessenen Portionen
+2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan als Tagesliste
+3. **Tagebuch:** vier Mahlzeiten, Tageslimit als Halbkreis, Makro-Balken, Übernahme aus dem Plan mit gegessenen Portionen
 4. **Importe:** BLS-Import, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl
 
-Aktuelle Stufe: **2**
+Aktuelle Stufe: **3**

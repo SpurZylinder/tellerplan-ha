@@ -1,31 +1,25 @@
 {% extends "base.html" %}
-{% from "_macros.html" import nutrient_pills, error_message %}
+{% from "_macros.html" import error_message %}
 
 {% block title %}Einplanen · Tellerplan{% endblock %}
 
+{% block head %}
+  <script src="{{ url('static', path='picker.js') }}" defer></script>
+{% endblock %}
+
 {% block content %}
   <header>
-    <a class="back" href="{{ url('plan_page') }}?start={{ day }}">← Plan</a>
+    <a class="back" href="{{ url('plan_page') }}?start={{ day }}&weeks={{ weeks }}">← Plan</a>
     <h1>Einplanen</h1>
+    <p class="lede">Das Rezept wird mit seinen Standardportionen eingeplant.</p>
   </header>
 
   <form class="form card" method="post" action="{{ url('plan_create') }}">
     {{ error_message(error) }}
-    <div class="field-row">
-      <label class="field">Tag
-        <input class="input" type="date" name="day" value="{{ day }}" required>
-      </label>
-      <label class="field">Mahlzeit
-        <select class="input" name="meal" required>
-          {% for name in meal_names %}
-            <option value="{{ name }}"{% if name == meal %} selected{% endif %}>{{ name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="field">Portionen
-        <input class="input" name="servings" inputmode="decimal" placeholder="Standard des Rezepts">
-      </label>
-    </div>
+    <input type="hidden" name="weeks" value="{{ weeks }}">
+    <label class="field">Tag
+      <input class="input" type="date" name="day" value="{{ day }}" required>
+    </label>
 
     <h3>Rezept</h3>
     {% if summaries %}
@@ -51,14 +45,4 @@
     </div>
   </form>
 
-  <script>
-    // Rezeptliste beim Tippen filtern (ohne Serveranfrage).
-    document.querySelector("[data-filter-picker]")?.addEventListener("input", (event) => {
-      const query = event.target.value.trim().toLowerCase();
-      document.querySelectorAll(".picker label[data-title]").forEach((label) => {
-        label.hidden = query && !label.dataset.title.includes(query);
-      });
-    });
-    document.querySelector(".picker input:checked")?.scrollIntoView({ block: "center" });
-  </script>
 {% endblock %}

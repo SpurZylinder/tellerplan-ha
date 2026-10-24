@@ -298,15 +298,42 @@ a.chip { text-decoration: none; display: inline-block; }
 
 /* Wochenplan */
 .plan-day.is-today { border-color: var(--accent); }
-.plan-meal { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
-.plan-meal-head { display: flex; align-items: center; justify-content: space-between; }
-.plan-meal-head h3 { font-size: .9rem; color: var(--muted); }
-.plan-dish { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.servings { display: flex; align-items: center; gap: 6px; }
-.servings form { margin: 0; }
-.servings-value {
-  min-width: 2.2rem;
-  text-align: center;
-  font-family: var(--mono);
+.plan-dish {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* Tageslimit als Halbkreis */
+.gauge-card { justify-items: center; text-align: center; }
+.gauge { width: min(100%, 320px); display: block; }
+.gauge-track, .gauge-fill { fill: none; stroke-width: 16; stroke-linecap: round; }
+.gauge-track { stroke: var(--line); }
+.gauge-fill  { stroke: var(--kcal); }
+.gauge-center { display: grid; margin-top: -64px; }
+.gauge-value {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.2rem, 11vw, 3rem);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+.gauge-label { color: var(--muted); font-size: .85rem; }
+.is-over .gauge-value, .is-over .gauge-label { color: var(--kcal); }
+.gauge-scale {
+  width: min(100%, 320px);
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+.gauge-scale b { color: var(--fg); font-family: var(--mono); font-weight: 500; }
+
+/* Makro-Balken unter dem Halbkreis */
+.macros { width: 100%; display: grid; gap: 8px; text-align: left; }
+.macro { display: grid; gap: 3px; font-size: .82rem; }
+.macro-head { display: flex; justify-content: space-between; font-weight: 600; }
+.macro-p .macro-head > span:first-child { color: var(--accent); }
+.macro-d .bar span { background: var(--muted); }

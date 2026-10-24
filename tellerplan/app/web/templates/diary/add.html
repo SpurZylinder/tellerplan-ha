@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}Eintragen · Tellerplan{% endblock %}
+
+{% macro meal_select() %}
+  <label class="field">Mahlzeit
+    <select class="input" name="meal" required>
+      <option value="" disabled{% if not meal %} selected{% endif %}>Bitte wählen</option>
+      {% for name in meal_names %}
+        <option value="{{ name }}"{% if name == meal %} selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+{% endmacro %}
+
+{% block head %}
+  <script src="{{ url('static', path='picker.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('today_page') }}?day={{ day }}">← {{ day|day }}</a>
+    <h1>Eintragen</h1>
+  </header>
+
+  <div class="nums" role="tablist">
+    {% for key, label in (("recipe", "Rezept"), ("food", "Lebensmittel")) %}
+      <a class="chip" role="tab" aria-pressed="{{ 'true' if mode == key else 'false' }}"
+         href="{{ url('diary_add') }}?day={{ day }}&mode={{ key }}{% if meal %}&meal={{ meal|urlencode }}{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {% if mode == "recipe" %}
+    <form class="form card" method="post" action="{{ url('diary_log_recipe') }}">
+      {{ error_message(error) }}
+      <input type="hidden" name="day" value="{{ day }}">
+      {% if plan_entry_id %}<input type="hidden" name="plan_entry_id" value="{{ plan_entry_id }}">{% endif %}
+      <div class="field-row">
+        {{ meal_select() }}
+        <label class="field">Gegessene Portionen
+          <input class="input" type="number" name="servings" value="1" min="{{ step }}" step="{{ step }}"
+                 inputmode="decimal" required>
+        </label>
+      </div>
+
+      {% if summaries %}
+        <input class="search input" type="search" placeholder="Rezept suchen" data-filter-picker>
+        <div class="picker">
+          {% for summary in summaries %}
+            {% set recipe = summary.recipe %}
+            <label data-title="{{ recipe.title|lower }}">
+              <input type="radio" name="recipe_id" value="{{ recipe.id }}" required{% if recipe.id == recipe_id %} checked{% endif %}>
+              <span class="grow">
+                <span>{% if recipe.is_favorite %}★ {% endif %}{{ recipe.title }}</span>
+                <span class="meta">{{ summary.per_serving.kcal|num }} kcal · {{ summary.per_serving.protein_g|num }} g Eiweiß pro Portion</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="meta">Noch keine Rezepte. <a href="{{ url('recipe_new') }}">Rezept anlegen</a></p>
+      {% endif %}
+
+      <div class="form-actions"><button class="btn" type="submit">Eintragen</button></div>
+    </form>
+  {% else %}
+    <form class="form card" method="post" action="{{ url('diary_log_food') }}">
+      {{ error_message(error) }}
+      <input type="hidden" name="day" value="{{ day }}">
+      {{ meal_select() }}
+      <input class="input" type="search" name="q" placeholder="Lebensmittel suchen" autocomplete="off" autofocus
+             hx-get="{{ url('foods_picker') }}" hx-trigger="input changed delay:250ms, search"
+             hx-target="#food-picker">
+      <div id="food-picker"></div>
+      <div class="field-row">
+        <label class="field">Menge
+          <input class="input" name="quantity" inputmode="decimal" placeholder="150" required>
+        </label>
+        <label class="field">Einheit
+          <input class="input" name="unit" value="g" list="units">
+        </label>
+      </div>
+      <datalist id="units">
+        {% for unit in units %}<option value="{{ unit }}">{% endfor %}
+      </datalist>
+      <div class="form-actions"><button class="btn" type="submit">Eintragen</button></div>
+    </form>
+  {% endif %}
+
+{% endblock %}

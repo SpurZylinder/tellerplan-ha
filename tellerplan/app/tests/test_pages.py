@@ -81,53 +81,149 @@ def test_favorite_toggle_returns_star(ingress_client: TestClient) -> None:
     assert 'aria-pressed="true"' in response.text
 
 
-def test_plan_entry_lifecycle(ingress_client: TestClient) -> None:
-    recipe_id = _create_recipe(ingress_client, title="Linsen-Bolognese", servings="4").rsplit(
-        "/", 1
-    )[1]
-    today = date.today()
-
-    created = ingress_client.post(
+def _plan(client: TestClient, recipe_id: str, day: date, weeks: str = "1") -> str:
+    response = client.post(
         "/plan/add",
-        data={"day": today.isoformat(), "meal": "Mittag", "recipe_id": recipe_id, "servings": ""},
+        data={"day": day.isoformat(), "recipe_id": recipe_id, "weeks": weeks},
         follow_redirects=False,
     )
-    assert created.status_code == 303
-    assert f"start={week_start(today).isoformat()}" in created.headers["location"]
+    assert response.status_code == 303
+    return response.headers["location"]
 
-    page = ingress_client.get(f"/plan?start={today.isoformat()}")
+
+def test_plan_entry_lifecycle(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Linsen-Bolognese", servings="4"))
+    today = date.today()
+
+    location = _plan(ingress_client, recipe_id, today, weeks="2")
+    assert f"start={week_start(today).isoformat()}" in location
+    assert "weeks=2" in location
+
+    page = ingress_client.get(location)
     assert "Linsen-Bolognese" in page.text
-    assert '<span class="servings-value" title="Portionen">4</span>' in page.text
+    assert "4 Portionen" in page.text
 
     entry_id = page.text.split("/plan/entries/")[1].split("/")[0]
-    ingress_client.post(f"/plan/entries/{entry_id}/servings", data={"change": "-0.5"})
-    page = ingress_client.get(f"/plan?start={today.isoformat()}")
-    assert '<span class="servings-value" title="Portionen">3,5</span>' in page.text
-
-    ingress_client.post(f"/plan/entries/{entry_id}/delete")
+    deleted = ingress_client.post(
+        f"/plan/entries/{entry_id}/delete", data={"weeks": "2"}, follow_redirects=False
+    )
+    assert "weeks=2" in deleted.headers["location"]
     assert "Linsen-Bolognese" not in ingress_client.get("/plan").text
     assert "Linsen-Bolognese" in ingress_client.get("/recipes").text
 
 
-def test_plan_rejects_unknown_meal(ingress_client: TestClient) -> None:
+def test_plan_requires_recipe(ingress_client: TestClient) -> None:
+    response = ingress_client.post("/plan/add", data={"day": date.today().isoformat()})
+
+    assert "Bitte ein Rezept auswählen." in response.text
+
+
+def test_today_shows_gauge_with_remaining_kcal(ingress_client: TestClient) -> None:
+    page = ingress_client.get("/")
+
+    assert 'class="gauge"' in page.text
+    assert "2.000" in page.text  # Rest = Limit, noch nichts gegessen
+    assert "kcal übrig" in page.text
+
+
+def test_log_food_updates_gauge(ingress_client: TestClient) -> None:
+    food_id = _last_id(_create_food(ingress_client, name="Skyr", kcal="60"))
+
+    response = ingress_client.post(
+        "/diary/food",
+        data={
+            "day": date.today().isoformat(),
+            "meal": "Frühstück",
+            "food_id": food_id,
+            "quantity": "250",
+            "unit": "g",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    page = ingress_client.get("/")
+    assert "Skyr" in page.text
+    assert "1.850" in page.text  # 2.000 − 150 kcal
+    assert 'stroke-dasharray="7.5 100"' in page.text
+
+
+def test_log_food_reports_unknown_unit(ingress_client: TestClient) -> None:
+    food_id = _last_id(_create_food(ingress_client, name="Skyr"))
+
+    response = ingress_client.post(
+        "/diary/food",
+        data={
+            "day": date.today().isoformat(),
+            "meal": "Frühstück",
+            "food_id": food_id,
+            "quantity": "1",
+            "unit": "Becher",
+        },
+    )
+
+    assert "Einheit „Becher“ nicht hinterlegt" in response.text
+
+
+def test_log_planned_recipe_marks_it(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Rührei"))
+    today = date.today()
+    _plan(ingress_client, recipe_id, today)
+
+    page = ingress_client.get("/")
+    assert "Rührei" in page.text
+    plan_entry_id = page.text.split("plan_entry_id=")[1].split('"')[0]
+
+    ingress_client.post(
+        "/diary/recipe",
+        data={
+            "day": today.isoformat(),
+            "meal": "Frühstück",
+            "recipe_id": recipe_id,
+            "servings": "1,5",
+            "plan_entry_id": plan_entry_id,
+        },
+    )
+
+    page = ingress_client.get("/")
+    assert "✓ eingetragen" in page.text
+    assert "1,5 Portionen" in page.text
+
+
+def test_log_requires_meal(ingress_client: TestClient) -> None:
     recipe_id = _last_id(_create_recipe(ingress_client))
 
     response = ingress_client.post(
-        "/plan/add",
-        data={"day": date.today().isoformat(), "meal": "Mitternacht", "recipe_id": recipe_id},
+        "/diary/recipe",
+        data={"day": date.today().isoformat(), "recipe_id": recipe_id, "servings": "1"},
     )
 
-    assert "Unbekannte Mahlzeit." in response.text
+    assert "Bitte eine Mahlzeit wählen." in response.text
 
 
-def test_today_shows_planned_dish(ingress_client: TestClient) -> None:
-    recipe_id = _last_id(_create_recipe(ingress_client, title="Rührei"))
+def test_over_limit_is_shown(ingress_client: TestClient) -> None:
+    food_id = _last_id(_create_food(ingress_client, name="Öl", kcal="900"))
     ingress_client.post(
-        "/plan/add",
-        data={"day": date.today().isoformat(), "meal": "Frühstück", "recipe_id": recipe_id},
+        "/diary/food",
+        data={
+            "day": date.today().isoformat(),
+            "meal": "Abendessen",
+            "food_id": food_id,
+            "quantity": "250",
+            "unit": "g",
+        },
     )
 
-    assert "Rührei" in ingress_client.get("/").text
+    page = ingress_client.get("/")
+    assert "kcal über dem Limit" in page.text
+    assert "250" in page.text  # 2.250 − 2.000
+
+
+def test_diary_add_page_renders_both_modes(ingress_client: TestClient) -> None:
+    for mode in ("recipe", "food"):
+        response = ingress_client.get(f"/diary/add?mode={mode}&meal=Mittag")
+        assert response.status_code == 200
+        assert '<option value="Mittag" selected>' in response.text
 
 
 def test_links_carry_ingress_prefix(ingress_client: TestClient) -> None:

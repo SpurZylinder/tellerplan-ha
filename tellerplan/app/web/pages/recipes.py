@@ -22,13 +22,18 @@ from modules.recipes.service import (
     toggle_favorite,
     update_recipe,
 )
-from web.forms import FormError, clean_text, parse_number, redirect_to, required_number
+from web.forms import (
+    COMMON_UNITS,
+    FormError,
+    clean_text,
+    parse_number,
+    redirect_to,
+    required_number,
+)
 from web.templating import render
 
 router = APIRouter(prefix="/recipes")
 SessionDep = Annotated[Session, Depends(get_session)]
-
-COMMON_UNITS = ("g", "kg", "ml", "EL", "TL", "Stück", "Prise", "Becher", "Dose", "Packung")
 
 
 def _recipe_or_404(session: Session, recipe_id: int) -> Recipe:

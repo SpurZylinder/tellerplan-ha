@@ -1,6 +1,9 @@
-"""Wochenplan: Einträge anlegen, Portionen ändern, Tage mit Vorschau liefern."""
+"""Wochenplan: Rezepte an Tage hängen, Tage mit Vorschau liefern.
 
-from collections.abc import Sequence
+Ein Planeintrag umfasst immer das ganze Rezept (alle Standardportionen).
+Was davon gegessen wird, hält erst das Tagebuch fest.
+"""
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -18,20 +21,15 @@ DAYS_PER_WEEK = 7
 @dataclass(frozen=True)
 class PlannedDish:
     entry: PlanEntry
-    nutrients: Nutrients
+    per_serving: Nutrients
+    total: Nutrients
     complete: bool
-
-
-@dataclass(frozen=True)
-class PlanMeal:
-    name: str
-    dishes: list[PlannedDish]
 
 
 @dataclass(frozen=True)
 class PlanDay:
     day: date
-    meals: list[PlanMeal]
+    dishes: list[PlannedDish]
     total: Nutrients
     complete: bool
 
@@ -41,8 +39,8 @@ def week_start(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
-def add_entry(session: Session, day: date, meal: str, recipe: Recipe, servings: float) -> PlanEntry:
-    entry = PlanEntry(day=day, meal=meal, recipe=recipe, servings=servings)
+def add_entry(session: Session, day: date, recipe: Recipe) -> PlanEntry:
+    entry = PlanEntry(day=day, recipe=recipe)
     session.add(entry)
     session.flush()
     return entry
@@ -50,12 +48,6 @@ def add_entry(session: Session, day: date, meal: str, recipe: Recipe, servings: 
 
 def get_entry(session: Session, entry_id: int) -> PlanEntry | None:
     return session.get(PlanEntry, entry_id)
-
-
-def set_servings(session: Session, entry: PlanEntry, servings: float) -> PlanEntry:
-    entry.servings = servings
-    session.flush()
-    return entry
 
 
 def delete_entry(session: Session, entry: PlanEntry) -> None:
@@ -77,13 +69,14 @@ def _dish(entry: PlanEntry) -> PlannedDish:
     summary = summarize(entry.recipe)
     return PlannedDish(
         entry=entry,
-        nutrients=summary.per_serving.scaled(entry.servings),
+        per_serving=summary.per_serving,
+        total=summary.per_serving.scaled(entry.recipe.servings),
         complete=summary.match.complete,
     )
 
 
-def plan_days(session: Session, first: date, days: int, meal_names: Sequence[str]) -> list[PlanDay]:
-    """Tage ab `first` mit allen Mahlzeiten (auch leeren) und Tagessummen."""
+def plan_days(session: Session, first: date, days: int) -> list[PlanDay]:
+    """Tage ab `first` (auch leere) mit ihren Rezepten und Tagessummen."""
     last = first + timedelta(days=days - 1)
     dishes = [_dish(entry) for entry in _entries_between(session, first, last)]
 
@@ -91,11 +84,12 @@ def plan_days(session: Session, first: date, days: int, meal_names: Sequence[str
     for offset in range(days):
         day = first + timedelta(days=offset)
         day_dishes = [dish for dish in dishes if dish.entry.day == day]
-        meals = [
-            PlanMeal(name=name, dishes=[d for d in day_dishes if d.entry.meal == name])
-            for name in meal_names
-        ]
-        total = sum((dish.nutrients for dish in day_dishes), Nutrients())
-        complete = all(dish.complete for dish in day_dishes)
-        result.append(PlanDay(day=day, meals=meals, total=total, complete=complete))
+        result.append(
+            PlanDay(
+                day=day,
+                dishes=day_dishes,
+                total=sum((dish.total for dish in day_dishes), Nutrients()),
+                complete=all(dish.complete for dish in day_dishes),
+            )
+        )
     return result

@@ -10,7 +10,7 @@ Einstieg in die Projektdoku. Dieser Ordner ist der sichtbare Teil des Obsidian-V
 
 ## Stand
 
-Stufe 1 ist fertig, Stufe 2 steht in einer Grundversion. Als Nächstes: Feinschliff nach dem iPhone-Test, danach Stufe 3. Reihenfolge siehe [[Architektur#Ausbaustufen und offene Punkte]].
+Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: Feinschliff nach dem iPhone-Test, danach Stufe 4 (Importe). Reihenfolge siehe [[Architektur#Ausbaustufen und offene Punkte]].
 
 - [x] Repo-Gerüst, Home-Assistant-Add-on-Struktur
 - [x] FastAPI-App mit zentralen Einstellungen (`settings.py`)
@@ -20,6 +20,6 @@ Stufe 1 ist fertig, Stufe 2 steht in einer Grundversion. Als Nächstes: Feinschl
 - [x] Lebensmittel anlegen, suchen, Einheiten pflegen; Demo-Set
 - [x] Nährwertrechnung (`modules/nutrition`)
 - [x] Rezepte: Liste im Ranking-Look, Detail, Anlegen, Zutaten aus den Lebensmitteln
-- [x] Wochenplan: 1 oder 2 Wochen, Portionen je Eintrag, Tagesvorschau
-- [ ] Tagebuch mit vier Mahlzeiten, Tageslimit und Balken (Stufe 3)
+- [x] Wochenplan: 1 oder 2 Wochen als Tagesliste, Rezepte mit Standardportionen
+- [x] Heute als Tages-Dashboard: Halbkreis mit Rest kcal, Makro-Balken, Eintragen pro Mahlzeit, Übernahme aus dem Plan
 - [ ] Importe: BLS, Freitext, Cookidoo (Stufe 4)

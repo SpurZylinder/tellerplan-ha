@@ -12,8 +12,9 @@ Tellerplan ist eine selbst gehostete App, die Kalorienzählen und Rezeptverwaltu
 | Maßgebliche Nährwerte | Immer aus der eigenen Lebensmitteldatenbank berechnet | Zutaten werden manuell präzisiert (z. B. welche Sahne) |
 | Quell-Nährwerte | Werden beim Import **nicht** übernommen | Keine zweite Wahrheit, keine Abweichungen zu pflegen |
 | Rolle des Imports | Liefert nur Titel, Portionen, Link und rohe Zutatenliste | Rezepte sind jederzeit editierbar und werden schrittweise gematcht |
-| Portionen | Rezept hat Standardportionen; Plan kann sie ändern; Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen |
+| Portionen | Rezept hat Standardportionen; der Plan übernimmt sie unverändert; das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen |
 | Historie | Tagebucheinträge speichern einen Nährwert-Snapshot | Spätere Rezeptänderungen verändern keine vergangenen Tage |
+| Eintragen | Nur auf der Seite „Heute“; der Plan kennt keine Mahlzeiten | Ein Ort für das, was wirklich gegessen wurde |
 | Cookidoo-Planung | Link zur Rezeptseite wird gespeichert, Planung dort per Link | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt |
 
 ## Systemüberblick
@@ -55,8 +56,8 @@ Sechs Fachmodule mit klaren Grenzen; nur `nutrition` rechnet Nährwerte, alle an
 | `nutrition` | Menge + Einheit → Gramm → Nährwerte; Summen für Rezept, Portion, Tag | `foods` |
 | `recipes` | Rezepte, Zutatenlisten, Zuordnung Zutat → Lebensmittel, Alias-Lernen, Matching-Status | `foods`, `nutrition` |
 | `importers` | Quelle → Rezeptentwurf (Titel, Portionen, Link, rohe Zutatenzeilen); keine Nährwerte | `recipes` |
-| `planner` | Wochenplan über 1–2 Wochen: Tag × Mahlzeit → Rezept mit geplanten Portionen | `recipes` |
-| `diary` | Tagebuch mit vier Mahlzeiten, Tageslimit, Balken; Übernahme aus dem Plan mit gegessenen Portionen | `nutrition`, `planner` |
+| `planner` | Wochenplan über 1–2 Wochen: Tag → Rezepte, jeweils mit den Standardportionen des Rezepts | `recipes` |
+| `diary` | Tagebuch mit vier Mahlzeiten, Tageslimit als Halbkreis, Makro-Balken; Übernahme aus dem Plan mit gegessenen Portionen | `nutrition`, `recipes`, `planner` |
 
 Querschnitt: `settings` (zentrale Parameter aus `options.json`), `api` (JSON für UI und Kurzbefehle), `web` (Seiten und UI-Komponenten).
 
@@ -71,8 +72,8 @@ Zehn Tabellen; Nährwerte existieren nur an `food`, alles andere verweist darauf
 | `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz | Keine Nährwertfelder |
 | `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Menge, Einheit, food_id (leer = offen), Gramm, optional-Flag | Jede Zeile frei editierbar, auch nach dem Matching |
 | `ingredient_alias` | normalisierter Zutatentext → food_id, Treffer-Anzahl | Wird bei jeder manuellen Zuordnung gelernt |
-| `plan_entry` | Datum, Mahlzeit, recipe_id, geplante Portionen | Vorbelegt mit Standardportionen, im Plan änderbar |
-| `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge bzw. gegessene Portionen, plan_entry_id, Nährwert-Snapshot | Nur diese Einträge zählen für den Tag |
+| `plan_entry` | Datum, recipe_id | Ohne Mahlzeit und ohne eigene Portionen; zählt immer das ganze Rezept |
+| `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge + Einheit + Gramm bzw. gegessene Portionen, plan_entry_id, Bezeichnung und Nährwert-Snapshot (kcal, Eiweiß, Fett, KH), Vollständigkeit | Nur diese Einträge zählen für den Tag |
 | `goal` | gültig ab, kcal-Limit, Eiweiß-, Fett-, KH-Ziel | Historisiert, damit alte Tage gegen das damalige Ziel laufen |
 | `weight` | Datum, kg, Quelle (manuell / Health) | Später per Kurzbefehl |
 | `import_job` | Quelle, Eingabe (URL/ID), Status, Fehlertext | Nachvollziehbarer Massenimport |
@@ -100,19 +101,19 @@ Vier Abläufe tragen die App: Rezept anlegen, Zutaten zuordnen, planen, loggen.
 
 **Planen**
 
-1. In der Rezeptauswahl (Ranking) „Einplanen“ tippen.
-2. Tag und Mahlzeit wählen; Portionen sind mit dem Rezeptstandard vorbelegt und änderbar.
-3. Der Plan zeigt 1 oder 2 Wochen, je Tag die geplanten kcal und Eiweiß als Vorschau.
+1. Im Rezept „Einplanen“ tippen oder im Plan beim Tag auf „+“.
+2. Tag wählen. Das Rezept wird mit seinen Standardportionen eingeplant, ohne Mahlzeit.
+3. Der Plan zeigt 1 oder 2 Wochen als Tagesliste, je Tag die Rezepte und die kcal-Summe aller Portionen.
 4. Cookidoo-Rezepte haben einen Button „In Cookidoo öffnen“, um sie dort einzuplanen.
 
 **Loggen**
 
-1. Das Tagebuch hat vier Bereiche: Frühstück, Mittag, Abendessen, Snacks. Oben in jedem Bereich steht angepinnt das für diesen Tag und diese Mahlzeit geplante Gericht; ein Tipp übernimmt es.
-2. „Gegessen“ fragt die Portionen ab (Vorgabe 1, Schritte 0,25).
-3. Darunter drei Wege zum Hinzufügen:
-   - **Text:** freie Eingabe wie „200 g Skyr, 1 Banane“, zeilenweise geparst und gegen `foods` gematcht
-   - **Rezept:** Suche in der Rezeptliste mit Ranking-Filtern, Portionen wählen
-   - **Zutat:** einzelnes Lebensmittel aus BLS, Open Food Facts oder eigenen, Menge in g oder als Einheit
+1. Eingetragen wird nur auf „Heute“. Ganz oben zeigt ein Halbkreis den Stand gegen das Tageslimit: gefüllt ist das Gegessene, in der Mitte steht der Rest (oder die Überschreitung). Darunter Balken für Eiweiß, Fett und KH gegen die Ziele.
+2. Darunter stehen die für den Tag geplanten Rezepte; „Eintragen“ übernimmt eines mit Mahlzeit und gegessenen Portionen (Vorgabe 1, Schritte 0,25) und markiert es als eingetragen.
+3. Dann die vier Bereiche Frühstück, Mittag, Abendessen, Snacks, je mit „+“ zum Hinzufügen:
+   - **Rezept:** Auswahl aus der Rezeptliste, Portionen wählen
+   - **Lebensmittel:** einzelnes Lebensmittel, Menge in g oder als Einheit
+   - **Text** (Stufe 4): freie Eingabe wie „200 g Skyr, 1 Banane“, zeilenweise geparst und gegen `foods` gematcht
 4. Jeder Eintrag wird ein `diary_entry` mit Nährwert-Snapshot; nur diese Einträge zählen für den Tagesbalken.
 
 ## Importer
@@ -151,10 +152,10 @@ Das Widget „Protein-Ranking Fürth“ wird die Rezeptauswahl der App, und sein
 
 | Seite | Inhalt |
 | --- | --- |
-| Heute | Tagesbalken kcal gegen Limit, Makro-Balken, vier Mahlzeiten mit Einträgen und angepinnten Plangerichten |
+| Heute | Tages-Dashboard: Halbkreis kcal gegen Limit, Makro-Balken, geplante Rezepte zum Übernehmen, vier Mahlzeiten mit Einträgen; einziger Ort zum Eintragen |
 | Rezepte | Ranking-Ansicht mit Filtern |
 | Rezept | Zutatenliste mit Matching-Status, Bearbeiten, Nährwerte pro Portion |
-| Plan | 1 oder 2 Wochen, Tag × Mahlzeit, Portionen je Eintrag |
+| Plan | 1 oder 2 Wochen als Tagesliste, Rezepte mit ihren Standardportionen |
 | Lebensmittel | Suche in BLS/OFF/eigenen, eigenes Lebensmittel anlegen, Einheiten pflegen |
 | Einstellungen | kcal-Limit, Makro-Ziele, Mahlzeitnamen |
 
@@ -201,8 +202,8 @@ tellerplan-ha/
 Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestellt: erst die Funktionen mit eigenen Daten (Lebensmittel, Rezepte, Plan, Tagebuch), danach die Importe.
 
 1. **Kern:** Repo, Add-on-Gerüst, CI/Release, UI-Rahmen mit Tab-Leiste, Lebensmittel manuell und als Demo-Set, Nährwertrechnung
-2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan mit Portionen je Eintrag
-3. **Tagebuch:** vier Mahlzeiten, Tageslimit und Balken, Übernahme aus dem Plan mit gegessenen Portionen
+2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan als Tagesliste
+3. **Tagebuch:** vier Mahlzeiten, Tageslimit als Halbkreis und Makro-Balken, Übernahme aus dem Plan mit gegessenen Portionen
 4. **Importe:** BLS-Import, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health
 

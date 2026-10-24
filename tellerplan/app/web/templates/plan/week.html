@@ -9,7 +9,7 @@
       <p class="meta">{{ days[0].day|day }} – {{ days[-1].day|day }}</p>
       <h1>Plan</h1>
     </div>
-    <a class="btn small" href="{{ url('plan_add') }}">+ Einplanen</a>
+    <a class="btn small" href="{{ url('plan_add') }}?weeks={{ weeks }}">+ Einplanen</a>
   </header>
 
   <div class="controls">
@@ -28,43 +28,29 @@
     <section class="card plan-day{% if plan_day.day == today %} is-today{% endif %}" id="day-{{ plan_day.day }}">
       <div class="page-head">
         <h2>{{ plan_day.day|day }}{% if plan_day.day == today %} · Heute{% endif %}</h2>
-        {% if plan_day.total.kcal %}
-          <span class="nums">
-            {{ nutrient_pills(plan_day.total) }}
+        <span class="nums">
+          {% if plan_day.dishes %}
+            <span class="pill k">{{ plan_day.total.kcal|num }} kcal</span>
             {% if not plan_day.complete %}<span class="pill d" title="Mindestens ein Rezept hat offene Zutaten">unvollständig</span>{% endif %}
-          </span>
-        {% endif %}
+          {% endif %}
+          <a class="icon-btn" href="{{ url('plan_add') }}?day={{ plan_day.day }}&weeks={{ weeks }}"
+             aria-label="Rezept für {{ plan_day.day|day }} einplanen">+</a>
+        </span>
       </div>
 
-      {% for meal in plan_day.meals %}
-        <div class="plan-meal">
-          <div class="plan-meal-head">
-            <h3>{{ meal.name }}</h3>
-            <a class="icon-btn" href="{{ url('plan_add') }}?day={{ plan_day.day }}&meal={{ meal.name|urlencode }}"
-               aria-label="{{ meal.name }} am {{ plan_day.day|day }} einplanen">+</a>
+      {% for dish in plan_day.dishes %}
+        <div class="plan-dish">
+          <div class="grow">
+            <a class="title" href="{{ url('recipe_detail', recipe_id=dish.entry.recipe.id) }}">{{ dish.entry.recipe.title }}</a>
+            <span class="meta">
+              {{ dish.entry.recipe.servings|amount }} Portion{{ "en" if dish.entry.recipe.servings != 1 }}
+              · {{ dish.per_serving.kcal|num }} kcal / {{ dish.per_serving.protein_g|num }} g Eiweiß pro Portion
+            </span>
           </div>
-          {% for dish in meal.dishes %}
-            <div class="plan-dish">
-              <div class="grow">
-                <a class="title" href="{{ url('recipe_detail', recipe_id=dish.entry.recipe.id) }}">{{ dish.entry.recipe.title }}</a>
-                {{ nutrient_pills(dish.nutrients) }}
-              </div>
-              <div class="servings">
-                <form method="post" action="{{ url('plan_servings', entry_id=dish.entry.id) }}">
-                  <input type="hidden" name="change" value="-{{ step }}">
-                  <button class="icon-btn" type="submit" aria-label="Weniger Portionen">−</button>
-                </form>
-                <span class="servings-value" title="Portionen">{{ dish.entry.servings|amount }}</span>
-                <form method="post" action="{{ url('plan_servings', entry_id=dish.entry.id) }}">
-                  <input type="hidden" name="change" value="{{ step }}">
-                  <button class="icon-btn" type="submit" aria-label="Mehr Portionen">+</button>
-                </form>
-                <form method="post" action="{{ url('plan_delete', entry_id=dish.entry.id) }}">
-                  <button class="icon-btn" type="submit" aria-label="Aus dem Plan entfernen">×</button>
-                </form>
-              </div>
-            </div>
-          {% endfor %}
+          <form method="post" action="{{ url('plan_delete', entry_id=dish.entry.id) }}">
+            <input type="hidden" name="weeks" value="{{ weeks }}">
+            <button class="icon-btn" type="submit" aria-label="Aus dem Plan entfernen">×</button>
+          </form>
         </div>
       {% endfor %}
     </section>
