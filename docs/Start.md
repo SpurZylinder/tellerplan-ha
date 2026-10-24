@@ -7,6 +7,7 @@ Einstieg in die Projektdoku. Dieser Ordner ist der sichtbare Teil des Obsidian-V
 - [[Architektur]] – Ziele, Module, Datenmodell, Abläufe, Ausbaustufen
 - [[Entwicklung]] – lokal einrichten, starten, prüfen, migrieren, veröffentlichen
 - [[Obsidian]] – wie dieser Vault eingerichtet ist
+- [[Sichtbarkeit]] – warum Repo und Image öffentlich sind und wie es privat ginge
 
 ## Stand
 

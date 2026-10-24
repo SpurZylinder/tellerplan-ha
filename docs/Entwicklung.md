@@ -76,6 +76,8 @@ CI führt beides bei jedem Push und Pull Request aus (`.github/workflows/ci.yml`
 
 Beim ersten Release muss das Paket in GitHub unter *Packages* auf **public** gestellt werden, damit Home Assistant es ohne Login laden kann.
 
+Warum Repo und Image öffentlich sind und welche privaten Varianten es gäbe, steht in [[Sichtbarkeit]].
+
 ## Add-on in Home Assistant einbinden
 
 *Einstellungen → Add-ons → Add-on Store → ⋮ → Repositories* und `https://github.com/SpurZylinder/tellerplan-ha` hinzufügen.
