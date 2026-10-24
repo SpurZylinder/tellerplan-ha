@@ -1,7 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import nutrient_pills %}
 
 {% block title %}Plan · Tellerplan{% endblock %}
+
+{% block head %}
+  <script src="{{ url('static', path='plan.js') }}" defer></script>
+{% endblock %}
 
 {% block content %}
   <header class="page-head">
@@ -9,50 +12,55 @@
       <p class="meta">{{ days[0].day|day }} – {{ days[-1].day|day }}</p>
       <h1>Plan</h1>
     </div>
-    <a class="btn small" href="{{ url('plan_add') }}?weeks={{ weeks }}">+ Einplanen</a>
+    <div class="nums">
+      <a class="chip" href="{{ url('plan_page') }}?layout={{ other_layout }}"
+         title="{{ 'Tage untereinander anzeigen' if layout == 'columns' else 'Tage nebeneinander anzeigen' }}">
+        {{ "☰ Liste" if layout == "columns" else "▥ Spalten" }}
+      </a>
+      <a class="btn small" href="{{ url('plan_add') }}">+ Einplanen</a>
+    </div>
   </header>
 
-  <div class="controls">
-    <div class="nums">
-      <a class="chip" href="{{ url('plan_page') }}?start={{ previous }}&weeks={{ weeks }}" aria-label="Zurück">←</a>
-      <a class="chip" href="{{ url('plan_page') }}?weeks={{ weeks }}">Diese Woche</a>
-      <a class="chip" href="{{ url('plan_page') }}?start={{ following }}&weeks={{ weeks }}" aria-label="Weiter">→</a>
-      {% for option in week_options %}
-        <a class="chip" href="{{ url('plan_page') }}?start={{ first }}&weeks={{ option }}"
-           aria-pressed="{{ 'true' if option == weeks else 'false' }}">{{ option }} {{ "Woche" if option == 1 else "Wochen" }}</a>
-      {% endfor %}
-    </div>
-  </div>
-
-  {% for plan_day in days %}
-    <section class="card plan-day{% if plan_day.day == today %} is-today{% endif %}" id="day-{{ plan_day.day }}">
-      <div class="page-head">
-        <h2>{{ plan_day.day|day }}{% if plan_day.day == today %} · Heute{% endif %}</h2>
-        <span class="nums">
-          {% if plan_day.dishes %}
-            <span class="pill k">{{ plan_day.total.kcal|num }} kcal</span>
-            {% if not plan_day.complete %}<span class="pill d" title="Mindestens ein Rezept hat offene Zutaten">unvollständig</span>{% endif %}
-          {% endif %}
-          <a class="icon-btn" href="{{ url('plan_add') }}?day={{ plan_day.day }}&weeks={{ weeks }}"
+  <div class="plan plan-{{ layout }}" data-plan>
+    {% for plan_day in days %}
+      {% set is_today = plan_day.day == today %}
+      <section class="plan-day{% if is_today %} is-today{% elif plan_day.day < today %} is-past{% endif %}"
+               id="day-{{ plan_day.day }}"{% if is_today %} data-today{% endif %}>
+        <div class="plan-day-head">
+          <h2>{{ plan_day.day|day }}</h2>
+          {% if is_today %}<span class="pill p">Heute</span>{% endif %}
+          <a class="icon-btn" href="{{ url('plan_add') }}?day={{ plan_day.day }}"
              aria-label="Rezept für {{ plan_day.day|day }} einplanen">+</a>
-        </span>
-      </div>
-
-      {% for dish in plan_day.dishes %}
-        <div class="plan-dish">
-          <div class="grow">
-            <a class="title" href="{{ url('recipe_detail', recipe_id=dish.entry.recipe.id) }}">{{ dish.entry.recipe.title }}</a>
-            <span class="meta">
-              {{ dish.entry.recipe.servings|amount }} Portion{{ "en" if dish.entry.recipe.servings != 1 }}
-              · {{ dish.per_serving.kcal|num }} kcal / {{ dish.per_serving.protein_g|num }} g Eiweiß pro Portion
-            </span>
-          </div>
-          <form method="post" action="{{ url('plan_delete', entry_id=dish.entry.id) }}">
-            <input type="hidden" name="weeks" value="{{ weeks }}">
-            <button class="icon-btn" type="submit" aria-label="Aus dem Plan entfernen">×</button>
-          </form>
         </div>
-      {% endfor %}
-    </section>
-  {% endfor %}
+
+        <ul class="plan-recipes">
+          {% for dish in plan_day.dishes %}
+            {% set entry = dish.entry %}
+            <li>
+              <details class="plan-recipe">
+                <summary>{{ entry.recipe.title }}</summary>
+                <div class="plan-actions">
+                  <a href="{{ url('recipe_detail', recipe_id=entry.recipe.id) }}">Rezept öffnen</a>
+                  {% if plan_day.day < today %}
+                    <form method="post" action="{{ url('plan_move', entry_id=entry.id) }}">
+                      <input type="hidden" name="day" value="{{ today }}">
+                      <button class="btn small" type="submit">Auf heute</button>
+                    </form>
+                  {% endif %}
+                  <form class="plan-move" method="post" action="{{ url('plan_move', entry_id=entry.id) }}">
+                    <input class="input" type="date" name="day" aria-label="Neuer Tag"
+                           value="{{ today if plan_day.day < today else plan_day.day|add_days(1) }}" required>
+                    <button class="btn ghost small" type="submit">Verschieben</button>
+                  </form>
+                  <form method="post" action="{{ url('plan_delete', entry_id=entry.id) }}">
+                    <button class="btn danger small" type="submit">Entfernen</button>
+                  </form>
+                </div>
+              </details>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  </div>
 {% endblock %}

@@ -9,14 +9,13 @@
 
 {% block content %}
   <header>
-    <a class="back" href="{{ url('plan_page') }}?start={{ day }}&weeks={{ weeks }}">← Plan</a>
+    <a class="back" href="{{ url('plan_page') }}#day-{{ day }}">← Plan</a>
     <h1>Einplanen</h1>
     <p class="lede">Das Rezept wird mit seinen Standardportionen eingeplant.</p>
   </header>
 
   <form class="form card" method="post" action="{{ url('plan_create') }}">
     {{ error_message(error) }}
-    <input type="hidden" name="weeks" value="{{ weeks }}">
     <label class="field">Tag
       <input class="input" type="date" name="day" value="{{ day }}" required>
     </label>

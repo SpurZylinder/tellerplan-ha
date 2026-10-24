@@ -1,12 +1,10 @@
 """Abläufe über die Weboberfläche: Formulare absenden und Ergebnis prüfen."""
 
 import html
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-
-from modules.planner.service import week_start
 
 
 def _last_id(url: str) -> str:
@@ -82,35 +80,65 @@ def test_favorite_toggle_returns_star(ingress_client: TestClient) -> None:
     assert 'aria-pressed="true"' in response.text
 
 
-def _plan(client: TestClient, recipe_id: str, day: date, weeks: str = "1") -> str:
+def _plan(client: TestClient, recipe_id: str, day: date) -> str:
     response = client.post(
         "/plan/add",
-        data={"day": day.isoformat(), "recipe_id": recipe_id, "weeks": weeks},
+        data={"day": day.isoformat(), "recipe_id": recipe_id},
         follow_redirects=False,
     )
     assert response.status_code == 303
     return response.headers["location"]
 
 
-def test_plan_entry_lifecycle(ingress_client: TestClient) -> None:
+def _entry_ids(page: str) -> list[str]:
+    return [part.split("/")[0] for part in page.split('action="/plan/entries/')[1:]]
+
+
+def test_plan_shows_week_back_and_titles_only(ingress_client: TestClient) -> None:
     recipe_id = _last_id(_create_recipe(ingress_client, title="Linsen-Bolognese", servings="4"))
     today = date.today()
 
-    location = _plan(ingress_client, recipe_id, today, weeks="2")
-    assert f"start={week_start(today).isoformat()}" in location
-    assert "weeks=2" in location
+    location = _plan(ingress_client, recipe_id, today)
+    assert location.endswith(f"#day-{today.isoformat()}")
 
-    page = ingress_client.get(location)
-    assert "Linsen-Bolognese" in page.text
-    assert "4 Portionen" in page.text
+    page = ingress_client.get("/plan").text
+    assert f'id="day-{(today - timedelta(days=7)).isoformat()}"' in page
+    assert f'id="day-{(today + timedelta(days=14)).isoformat()}"' in page
+    assert f'id="day-{today.isoformat()}" data-today' in page
+    assert "<summary>Linsen-Bolognese</summary>" in page
+    assert "kcal" not in page
 
-    entry_id = page.text.split("/plan/entries/")[1].split("/")[0]
-    deleted = ingress_client.post(
-        f"/plan/entries/{entry_id}/delete", data={"weeks": "2"}, follow_redirects=False
+
+def test_plan_move_and_delete(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Rührei"))
+    yesterday = date.today() - timedelta(days=1)
+    _plan(ingress_client, recipe_id, yesterday)
+
+    page = ingress_client.get("/plan").text
+    assert "Auf heute" in page
+    entry_id = _entry_ids(page)[0]
+
+    moved = ingress_client.post(
+        f"/plan/entries/{entry_id}/move",
+        data={"day": date.today().isoformat()},
+        follow_redirects=False,
     )
-    assert "weeks=2" in deleted.headers["location"]
-    assert "Linsen-Bolognese" not in ingress_client.get("/plan").text
-    assert "Linsen-Bolognese" in ingress_client.get("/recipes").text
+    assert moved.headers["location"].endswith(f"#day-{date.today().isoformat()}")
+    assert "Auf heute" not in ingress_client.get("/plan").text
+
+    ingress_client.post(f"/plan/entries/{entry_id}/delete")
+    assert "Rührei" not in ingress_client.get("/plan").text
+    assert "Rührei" in ingress_client.get("/recipes").text
+
+
+def test_plan_layout_toggle_is_remembered(ingress_client: TestClient) -> None:
+    assert 'class="plan plan-columns"' in ingress_client.get("/plan").text
+
+    switched = ingress_client.get("/plan?layout=list")
+    assert 'class="plan plan-list"' in switched.text
+    assert "plan_layout=list" in switched.headers["set-cookie"]
+
+    assert 'class="plan plan-list"' in ingress_client.get("/plan").text
 
 
 def test_plan_requires_recipe(ingress_client: TestClient) -> None:

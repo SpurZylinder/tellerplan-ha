@@ -296,16 +296,51 @@ textarea.input { min-height: 80px; resize: vertical; }
 /* Chips auch als Links */
 a.chip { text-decoration: none; display: inline-block; }
 
-/* Wochenplan */
-.plan-day.is-today { border-color: var(--accent); }
-.plan-dish {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
+/* Wochenplan: Tage als Spalten (waagerecht scrollbar) oder als Liste */
+.plan { display: grid; gap: 10px; }
+.plan-columns {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(160px, 44%);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  padding-bottom: 8px;
 }
+.plan-columns .plan-day { scroll-snap-align: start; min-height: 200px; }
+.plan-day {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  scroll-margin-top: 12px;
+}
+.plan-day.is-today { border-color: var(--accent); }
+.plan-day.is-past h2 { color: var(--muted); }
+.plan-day-head { display: flex; align-items: center; gap: 6px; }
+.plan-day-head h2 { margin: 0; font-size: 1rem; }
+.plan-day-head .icon-btn { margin-left: auto; }
+.plan-recipes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.plan-recipe summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--fg);
+  font-weight: 600;
+  font-size: .9rem;
+  overflow-wrap: anywhere;
+}
+.plan-recipe summary::-webkit-details-marker { display: none; }
+.plan-recipe[open] summary { outline: 1px solid var(--accent); }
+.plan-actions { display: grid; gap: 6px; padding: 8px 2px 2px; font-size: .85rem; }
+.plan-actions form { margin: 0; }
+.plan-actions a { color: var(--accent); font-weight: 600; }
+.plan-move { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-move .input { flex: 1 1 130px; min-width: 0; padding: 5px 8px; }
 
 /* Tageslimit als Halbkreis */
 .gauge-card { justify-items: center; text-align: center; }

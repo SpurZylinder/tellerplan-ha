@@ -15,8 +15,6 @@ from modules.planner.models import PlanEntry
 from modules.recipes.models import Recipe
 from modules.recipes.service import load_recipe_details, summarize
 
-DAYS_PER_WEEK = 7
-
 
 @dataclass(frozen=True)
 class PlannedDish:
@@ -34,11 +32,6 @@ class PlanDay:
     complete: bool
 
 
-def week_start(day: date) -> date:
-    """Montag der Woche, in der `day` liegt."""
-    return day - timedelta(days=day.weekday())
-
-
 def add_entry(session: Session, day: date, recipe: Recipe) -> PlanEntry:
     entry = PlanEntry(day=day, recipe=recipe)
     session.add(entry)
@@ -48,6 +41,13 @@ def add_entry(session: Session, day: date, recipe: Recipe) -> PlanEntry:
 
 def get_entry(session: Session, entry_id: int) -> PlanEntry | None:
     return session.get(PlanEntry, entry_id)
+
+
+def move_entry(session: Session, entry: PlanEntry, day: date) -> PlanEntry:
+    """Verschiebt ein Rezept auf einen anderen Tag, z. B. wenn es nicht gekocht wurde."""
+    entry.day = day
+    session.flush()
+    return entry
 
 
 def delete_entry(session: Session, entry: PlanEntry) -> None:

@@ -4,14 +4,9 @@ import pytest
 from sqlalchemy.orm import Session
 
 from factories import make_food, make_recipe
-from modules.planner.service import add_entry, delete_entry, plan_days, week_start
+from modules.planner.service import add_entry, delete_entry, move_entry, plan_days
 
 MONDAY = date(2026, 10, 19)
-
-
-def test_week_start_is_monday() -> None:
-    assert week_start(date(2026, 10, 24)) == MONDAY
-    assert week_start(MONDAY) == MONDAY
 
 
 def test_plan_days_include_empty_days(session: Session) -> None:
@@ -58,3 +53,14 @@ def test_delete_entry(session: Session) -> None:
     delete_entry(session, entry)
 
     assert not plan_days(session, MONDAY, 1)[0].dishes
+
+
+def test_move_entry_to_another_day(session: Session) -> None:
+    entry = add_entry(session, MONDAY, make_recipe(session, title="Bolognese"))
+    tuesday = date(2026, 10, 20)
+
+    move_entry(session, entry, tuesday)
+
+    monday, next_day = plan_days(session, MONDAY, 2)
+    assert not monday.dishes
+    assert next_day.dishes[0].entry.recipe.title == "Bolognese"

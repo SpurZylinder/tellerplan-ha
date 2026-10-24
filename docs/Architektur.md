@@ -103,8 +103,9 @@ Vier Abläufe tragen die App: Rezept anlegen, Zutaten zuordnen, planen, loggen.
 
 1. Im Rezept „Einplanen“ tippen oder im Plan beim Tag auf „+“.
 2. Tag wählen. Das Rezept wird mit seinen Standardportionen eingeplant, ohne Mahlzeit.
-3. Der Plan zeigt 1 oder 2 Wochen als Tagesliste, je Tag die Rezepte und die kcal-Summe aller Portionen.
-4. Cookidoo-Rezepte haben einen Button „In Cookidoo öffnen“, um sie dort einzuplanen.
+3. Der Plan zeigt eine Woche zurück und zwei Wochen voraus, wahlweise als waagerecht scrollbare Spalten (heute ganz links) oder als Liste (heute ganz oben); je Tag nur die Rezepttitel.
+4. Ein Tipp auf ein Rezept öffnet Aktionen: Rezept öffnen, auf einen anderen Tag verschieben (bei vergangenen Tagen „Auf heute“), entfernen.
+5. Cookidoo-Rezepte haben einen Button „In Cookidoo öffnen“, um sie dort einzuplanen.
 
 **Loggen**
 
@@ -155,7 +156,7 @@ Das Widget „Protein-Ranking Fürth“ wird die Rezeptauswahl der App, und sein
 | Heute | Tages-Dashboard: Halbkreis kcal gegen Limit, Makro-Balken, geplante Rezepte zum Übernehmen, vier Mahlzeiten mit Einträgen; einziger Ort zum Eintragen |
 | Rezepte | Ranking-Ansicht mit Filtern |
 | Rezept | Zutatenliste mit Matching-Status, Bearbeiten, Nährwerte pro Portion |
-| Plan | 1 oder 2 Wochen als Tagesliste, Rezepte mit ihren Standardportionen |
+| Plan | −1 bis +2 Wochen, Spalten oder Liste (Umschalter oben rechts), nur Rezepttitel, Verschieben auf andere Tage |
 | Lebensmittel | Suche in BLS/OFF/eigenen, eigenes Lebensmittel anlegen, Einheiten pflegen |
 | Einstellungen | kcal-Limit, Makro-Ziele, Mahlzeitnamen |
 

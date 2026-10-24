@@ -4,7 +4,7 @@ Links entstehen über `url(name, **params)`: ein Pfad mit Ingress-Präfix, aber 
 Host. Absolute URLs (`url_for`) würden hinter dem Home-Assistant-Proxy brechen.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -51,11 +51,16 @@ def _format_day(value: date) -> str:
     return f"{WEEKDAYS[value.weekday()]} {value:%d.%m.}"
 
 
+def _add_days(value: date, days: int) -> date:
+    return value + timedelta(days=days)
+
+
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.globals["url"] = _url
 templates.env.filters["num"] = _format_number
 templates.env.filters["day"] = _format_day
 templates.env.filters["amount"] = _format_amount
+templates.env.filters["add_days"] = _add_days
 
 
 def render(request: Request, template: str, tab: str | None = None, **context: Any) -> Any:
