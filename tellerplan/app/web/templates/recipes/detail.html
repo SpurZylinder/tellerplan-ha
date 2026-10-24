@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import nutrient_pills, match_badge, error_message %}
+{% from "_macros.html" import nutrient_pills, match_badge, error_message, source_button %}
 
 {% set recipe = summary.recipe %}
 
@@ -30,8 +30,9 @@
     {% endif %}
     <div class="form-actions">
       <a class="btn" href="{{ url('plan_add') }}?recipe_id={{ recipe.id }}">Einplanen</a>
+      <a class="btn" href="{{ url('recipe_cook', recipe_id=recipe.id) }}">Kochen</a>
       <a class="btn ghost" href="{{ url('recipe_edit', recipe_id=recipe.id) }}">Bearbeiten</a>
-      {% if recipe.source_url %}<a class="btn ghost" href="{{ recipe.source_url }}" target="_blank" rel="noopener">Quelle öffnen</a>{% endif %}
+      {{ source_button(recipe) }}
     </div>
     {% if recipe.note %}<p class="lede">{{ recipe.note }}</p>{% endif %}
   </section>

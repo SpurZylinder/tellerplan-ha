@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import source_button %}
+
+{% block title %}Kochen: {{ recipe.title }} · Tellerplan{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <div>
+      <a class="back" href="{{ url('recipe_detail', recipe_id=recipe.id) }}">← Rezept</a>
+      <h1>{{ recipe.title }}</h1>
+      <p class="meta">{{ recipe.servings|amount }} Portion{{ "en" if recipe.servings != 1 }}</p>
+    </div>
+    {{ source_button(recipe) }}
+  </header>
+
+  <div class="cook">
+    <aside class="cook-ingredients" aria-label="Zutaten">
+      <h2>Zutaten</h2>
+      {% if recipe.ingredients %}
+        <ul>
+          {% for ingredient in recipe.ingredients %}
+            <li{% if ingredient.is_optional %} class="optional"{% endif %}>
+              {{ ingredient.raw_text }}{% if ingredient.is_optional %} (optional){% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="meta">Keine Zutaten erfasst.</p>
+      {% endif %}
+    </aside>
+
+    <section aria-label="Kochschritte">
+      {% if steps %}
+        <ol class="cook-steps">
+          {% for step in steps %}<li>{{ step }}</li>{% endfor %}
+        </ol>
+      {% else %}
+        <p class="empty">
+          Noch keine Kochschritte.
+          <a href="{{ url('recipe_edit', recipe_id=recipe.id) }}">Unter „Bearbeiten“ ergänzen</a>{% if recipe.source_url %} oder die Quelle öffnen{% endif %}.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

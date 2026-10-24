@@ -16,3 +16,11 @@
 {% macro error_message(error) %}
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% endmacro %}
+
+{% macro source_button(recipe) %}
+  {% if recipe.source_url %}
+    <a class="btn ghost push-right" href="{{ recipe.source_url }}" target="_blank" rel="noopener">
+      {{ "In Cookidoo öffnen" if "cookidoo." in recipe.source_url else "Quelle öffnen" }} ↗
+    </a>
+  {% endif %}
+{% endmacro %}

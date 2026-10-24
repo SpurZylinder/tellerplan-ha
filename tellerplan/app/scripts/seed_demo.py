@@ -163,6 +163,24 @@ RECIPES: dict[str, tuple[str, float, str, list[tuple[str, float, str, bool]]]] =
     ),
 }
 
+# slug: Kochschritte, ein Schritt pro Zeile
+STEPS: dict[str, str] = {
+    "haehnchen_reis": """Reis nach Packungsangabe garen.
+Hähnchen in Streifen schneiden, Brokkoli in kleine Röschen teilen, Knoblauch fein hacken.
+Öl in einer Pfanne erhitzen, Hähnchen 5–6 Minuten rundum anbraten.
+Brokkoli und Knoblauch zugeben, 4 Minuten mitbraten, dabei 2–3 EL Wasser angießen.
+Mit Sojasauce ablöschen, Reis unterheben und kurz durchschwenken.""",
+    "linsen_bolognese": """Zwiebel und Möhren fein würfeln.
+Olivenöl im Topf erhitzen, Zwiebel und Möhren 5 Minuten andünsten.
+Rote Linsen und passierte Tomaten zugeben, mit 300 ml Wasser aufgießen.
+Offen 15 Minuten köcheln lassen, bis die Linsen weich sind; mit Salz und Pfeffer abschmecken.
+Spaghetti nach Packungsangabe kochen und mit der Sauce servieren, nach Wunsch mit Parmesan.""",
+    "protein_pancakes": """Haferflocken fein mahlen.
+Eier, Magerquark und die zerdrückte Banane mit den Haferflocken zu einem dicken Teig verrühren.
+5 Minuten quellen lassen.
+Pfanne mit wenig Öl erhitzen, je 2 EL Teig hineingeben und von jeder Seite 2 Minuten backen.""",
+}
+
 
 def seed_foods(session: Session) -> dict[str, Food]:
     foods: dict[str, Food] = {}
@@ -183,9 +201,14 @@ def seed_recipes(session: Session, foods: dict[str, Food]) -> int:
     created = 0
     for slug, (title, servings, category, ingredients) in RECIPES.items():
         source_id = f"{DEMO_PREFIX}{slug}"
-        if session.scalar(select(Recipe).where(Recipe.source_id == source_id)):
+        existing = session.scalar(select(Recipe).where(Recipe.source_id == source_id))
+        if existing is not None:
+            if not existing.instructions:
+                existing.instructions = STEPS.get(slug)
             continue
-        recipe = create_recipe(session, RecipeInput(title, servings, category))
+        recipe = create_recipe(
+            session, RecipeInput(title, servings, category, instructions=STEPS.get(slug))
+        )
         recipe.source = DEMO_SOURCE
         recipe.source_id = source_id
         for food_slug, quantity, unit, optional in ingredients:

@@ -8,6 +8,7 @@ from modules.recipes.service import (
     IngredientIssue,
     add_ingredient,
     describe_ingredient,
+    instruction_steps,
     remove_ingredient,
     summarize,
     toggle_favorite,
@@ -79,3 +80,10 @@ def test_toggle_favorite(session: Session) -> None:
 
     assert toggle_favorite(session, recipe).is_favorite
     assert not toggle_favorite(session, recipe).is_favorite
+
+
+def test_instruction_steps_split_lines_and_skip_blanks(session: Session) -> None:
+    recipe = make_recipe(session)
+    recipe.instructions = "Zwiebel würfeln.\n\n  Anbraten.  \nAblöschen."
+
+    assert instruction_steps(recipe) == ["Zwiebel würfeln.", "Anbraten.", "Ablöschen."]

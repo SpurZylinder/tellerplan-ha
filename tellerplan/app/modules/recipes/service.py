@@ -20,6 +20,7 @@ class RecipeInput:
     category: str | None = None
     source_url: str | None = None
     note: str | None = None
+    instructions: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,12 @@ def toggle_favorite(session: Session, recipe: Recipe) -> Recipe:
     recipe.is_favorite = not recipe.is_favorite
     session.flush()
     return recipe
+
+
+def instruction_steps(recipe: Recipe) -> list[str]:
+    """Kochschritte als Liste: jede nicht leere Zeile ist ein Schritt."""
+    lines = (recipe.instructions or "").splitlines()
+    return [line.strip() for line in lines if line.strip()]
 
 
 def describe_ingredient(quantity: float | None, unit: str | None, food_name: str) -> str:

@@ -382,3 +382,47 @@ a.chip { text-decoration: none; display: inline-block; }
 .macro-head { display: flex; justify-content: space-between; font-weight: 600; }
 .macro-p .macro-head > span:first-child { color: var(--accent); }
 .macro-d .bar span { background: var(--muted); }
+
+/* Button in einer Aktionszeile nach rechts schieben */
+.push-right { margin-left: auto; }
+textarea.steps-input { min-height: 160px; }
+
+/* Kochansicht: Zutaten links schmal und mitlaufend, Schritte rechts */
+.cook {
+  display: grid;
+  grid-template-columns: minmax(110px, 34%) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.cook-ingredients {
+  position: sticky;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: .78rem;
+  line-height: 1.35;
+}
+.cook-ingredients h2 { font-size: .85rem; margin: 0 0 6px; }
+.cook-ingredients ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cook-ingredients .optional { color: var(--muted); }
+.cook-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 14px; }
+.cook-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 1.8rem 1fr;
+  gap: 8px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.cook-steps li::before {
+  content: counter(step);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--accent);
+  line-height: 1.3;
+}

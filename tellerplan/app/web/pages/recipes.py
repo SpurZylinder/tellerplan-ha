@@ -15,6 +15,7 @@ from modules.recipes.service import (
     create_recipe,
     delete_recipe,
     get_recipe,
+    instruction_steps,
     list_categories,
     recipe_summaries,
     remove_ingredient,
@@ -45,12 +46,15 @@ def _recipe_or_404(session: Session, recipe_id: int) -> Recipe:
 
 async def _recipe_input(request: Request) -> tuple[RecipeInput | None, dict[str, str], str | None]:
     form = await request.form()
-    keys = ("title", "servings", "category", "source_url", "note")
+    keys = ("title", "servings", "category", "source_url", "note", "instructions")
     values = {key: str(form.get(key, "")) for key in keys}
     try:
         title = clean_text(values["title"])
         if title is None:
             raise FormError("Titel fehlt.")
+        source_url = clean_text(values["source_url"])
+        if source_url and not source_url.startswith(("https://", "http://")):
+            raise FormError("Der Link muss mit https:// beginnen.")
         servings = required_number(values["servings"], "Portionen")
         if servings <= 0:
             raise FormError("Portionen müssen größer als 0 sein.")
@@ -58,8 +62,9 @@ async def _recipe_input(request: Request) -> tuple[RecipeInput | None, dict[str,
             title=title,
             servings=servings,
             category=clean_text(values["category"]),
-            source_url=clean_text(values["source_url"]),
+            source_url=source_url,
             note=clean_text(values["note"]),
+            instructions=clean_text(values["instructions"]),
         )
     except FormError as error:
         return None, values, str(error)
@@ -73,6 +78,7 @@ def _form_values(recipe: Recipe) -> dict[str, str]:
         "category": recipe.category or "",
         "source_url": recipe.source_url or "",
         "note": recipe.note or "",
+        "instructions": recipe.instructions or "",
     }
 
 
@@ -137,6 +143,15 @@ async def recipe_create(request: Request, session: SessionDep) -> Response:
 @router.get("/{recipe_id}", response_class=HTMLResponse)
 def recipe_detail(request: Request, session: SessionDep, recipe_id: int) -> HTMLResponse:
     return _render_detail(request, _recipe_or_404(session, recipe_id))
+
+
+@router.get("/{recipe_id}/cook", response_class=HTMLResponse)
+def recipe_cook(request: Request, session: SessionDep, recipe_id: int) -> HTMLResponse:
+    """Kochansicht: Schritte, daneben die Zutaten zum Mitlesen."""
+    recipe = _recipe_or_404(session, recipe_id)
+    return render(
+        request, "recipes/cook.html", tab="recipes", recipe=recipe, steps=instruction_steps(recipe)
+    )
 
 
 @router.get("/{recipe_id}/edit", response_class=HTMLResponse)

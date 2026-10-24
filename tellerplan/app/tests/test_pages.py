@@ -259,6 +259,50 @@ def test_diary_add_page_renders_both_modes(ingress_client: TestClient) -> None:
         assert '<option value="Mittag" selected>' in response.text
 
 
+def test_cook_view_shows_steps_only_there(ingress_client: TestClient) -> None:
+    food_id = _last_id(_create_food(ingress_client, name="Zwiebel"))
+    response = ingress_client.post(
+        "/recipes/new",
+        data={
+            "title": "Linsen-Bolognese",
+            "servings": "4",
+            "source_url": "https://cookidoo.de/recipes/recipe/de-DE/r123",
+            "instructions": "Zwiebel würfeln.\n\nAnbraten.",
+        },
+        follow_redirects=False,
+    )
+    recipe_url = response.headers["location"]
+    ingress_client.post(
+        f"{recipe_url}/ingredients", data={"food_id": food_id, "quantity": "80", "unit": "g"}
+    )
+
+    detail = ingress_client.get(recipe_url).text
+    assert "In Cookidoo öffnen" in detail
+    assert f'href="{recipe_url}/cook"' in detail
+    assert "Zwiebel würfeln." not in detail
+
+    cook = ingress_client.get(f"{recipe_url}/cook").text
+    assert "<li>Zwiebel würfeln.</li>" in cook
+    assert "<li>Anbraten.</li>" in cook
+    assert "80 g Zwiebel" in cook
+    assert "In Cookidoo öffnen" in cook
+
+
+def test_cook_view_without_steps_points_to_edit(ingress_client: TestClient) -> None:
+    recipe_url = _create_recipe(ingress_client)
+
+    assert "Noch keine Kochschritte." in ingress_client.get(f"{recipe_url}/cook").text
+
+
+def test_source_url_must_be_http(ingress_client: TestClient) -> None:
+    response = ingress_client.post(
+        "/recipes/new",
+        data={"title": "X", "servings": "1", "source_url": "javascript:alert(1)"},
+    )
+
+    assert "Der Link muss mit https:// beginnen." in response.text
+
+
 def test_links_carry_ingress_prefix(ingress_client: TestClient) -> None:
     response = ingress_client.get("/recipes", headers={"X-Ingress-Path": "/api/hassio_ingress/x"})
 

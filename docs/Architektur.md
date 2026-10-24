@@ -69,7 +69,7 @@ Zehn Tabellen; Nährwerte existieren nur an `food`, alles andere verweist darauf
 | --- | --- | --- |
 | `food` | Name, Quelle (bls / off / custom), Quell-ID, Nährwerte pro 100 g (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz, weitere als JSON) | Einzige Stelle mit Nährwerten |
 | `food_unit` | food_id, Einheit (EL, TL, Stück, Becher, Prise), Gramm | Umrechnung pro Lebensmittel; Dichte für ml |
-| `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz | Keine Nährwertfelder |
+| `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
 | `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Menge, Einheit, food_id (leer = offen), Gramm, optional-Flag | Jede Zeile frei editierbar, auch nach dem Matching |
 | `ingredient_alias` | normalisierter Zutatentext → food_id, Treffer-Anzahl | Wird bei jeder manuellen Zuordnung gelernt |
 | `plan_entry` | Datum, recipe_id | Ohne Mahlzeit und ohne eigene Portionen; zählt immer das ganze Rezept |
@@ -155,7 +155,8 @@ Das Widget „Protein-Ranking Fürth“ wird die Rezeptauswahl der App, und sein
 | --- | --- |
 | Heute | Tages-Dashboard: Halbkreis kcal gegen Limit, Makro-Balken, geplante Rezepte zum Übernehmen, vier Mahlzeiten mit Einträgen; einziger Ort zum Eintragen |
 | Rezepte | Ranking-Ansicht mit Filtern |
-| Rezept | Zutatenliste mit Matching-Status, Bearbeiten, Nährwerte pro Portion |
+| Rezept | Zutatenliste mit Matching-Status, Nährwerte pro Portion; Buttons Einplanen, Kochen, Bearbeiten und rechts „In Cookidoo öffnen“ |
+| Kochen | Unterseite eines Rezepts: nummerierte Kochschritte, links schmal die mitlaufende Zutatenliste; die Schritte erscheinen nur hier |
 | Plan | 3 Tage zurück bis 2 Wochen voraus, Spalten oder Liste (Umschalter oben rechts), nur Rezepttitel, Verschieben auf andere Tage |
 | Lebensmittel | Suche in BLS/OFF/eigenen, eigenes Lebensmittel anlegen, Einheiten pflegen |
 | Einstellungen | kcal-Limit, Makro-Ziele, Mahlzeitnamen |
@@ -212,6 +213,7 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
 - [ ] Welche Nährstoffe außer kcal, Eiweiß, Fett und KH sollen sichtbar sein (z. B. Ballaststoffe, Zucker)?
+- [ ] Sollen Importer auch Kochschritte übernehmen (bisher nur von Hand)? Regel 2 erlaubt aktuell nur Titel, Portionen, Link, Quell-ID und Zutatenzeilen.
 - [ ] Wie groß ist die Sammlung „Fürth“, und soll sie komplett oder schrittweise importiert werden?
 
 ## Quellen

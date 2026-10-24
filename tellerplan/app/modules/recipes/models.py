@@ -24,6 +24,8 @@ class Recipe(Base):
     tags: Mapped[list[str] | None] = mapped_column(JSON)
     is_favorite: Mapped[bool] = mapped_column(default=False)
     note: Mapped[str | None] = mapped_column(Text)
+    # Kochschritte, ein Schritt pro Zeile
+    instructions: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

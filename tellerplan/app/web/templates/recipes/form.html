@@ -27,8 +27,11 @@
     <datalist id="categories">
       {% for category in categories %}<option value="{{ category }}">{% endfor %}
     </datalist>
-    <label class="field">Link zur Quelle <span class="meta">optional</span>
+    <label class="field">Link zur Quelle <span class="meta">optional, z. B. Cookidoo-Rezeptseite</span>
       <input class="input" name="source_url" value="{{ values.source_url or '' }}" type="url" inputmode="url">
+    </label>
+    <label class="field">Kochschritte <span class="meta">optional, ein Schritt pro Zeile</span>
+      <textarea class="input steps-input" name="instructions">{{ values.instructions or '' }}</textarea>
     </label>
     <label class="field">Notiz <span class="meta">optional</span>
       <textarea class="input" name="note">{{ values.note or '' }}</textarea>
