@@ -1,6 +1,6 @@
 """Seite „Plan“: Tage als Spalten (waagerecht scrollbar) oder als Liste.
 
-Gezeigt wird eine Woche zurück und zwei Wochen voraus; beim Öffnen steht
+Gezeigt werden drei Tage zurück und zwei Wochen voraus; beim Öffnen steht
 heute vorn. Rezepte erscheinen nur mit Titel und lassen sich verschieben.
 """
 
@@ -21,7 +21,7 @@ from web.templating import render
 router = APIRouter(prefix="/plan")
 SessionDep = Annotated[Session, Depends(get_session)]
 
-PAST_DAYS = 7
+PAST_DAYS = 3
 FUTURE_DAYS = 14
 LAYOUTS = ("columns", "list")
 LAYOUT_COOKIE = "plan_layout"

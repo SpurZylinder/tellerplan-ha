@@ -102,7 +102,7 @@ def test_plan_shows_week_back_and_titles_only(ingress_client: TestClient) -> Non
     assert location.endswith(f"#day-{today.isoformat()}")
 
     page = ingress_client.get("/plan").text
-    assert f'id="day-{(today - timedelta(days=7)).isoformat()}"' in page
+    assert f'id="day-{(today - timedelta(days=3)).isoformat()}"' in page
     assert f'id="day-{(today + timedelta(days=14)).isoformat()}"' in page
     assert f'id="day-{today.isoformat()}" data-today' in page
     assert "<summary>Linsen-Bolognese</summary>" in page

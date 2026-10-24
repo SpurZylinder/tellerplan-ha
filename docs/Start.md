@@ -21,6 +21,6 @@ Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: F
 - [x] Lebensmittel anlegen, suchen, Einheiten pflegen; Demo-Set
 - [x] Nährwertrechnung (`modules/nutrition`)
 - [x] Rezepte: Liste im Ranking-Look, Detail, Anlegen, Zutaten aus den Lebensmitteln
-- [x] Plan: Spalten oder Liste, eine Woche zurück und zwei voraus, Rezepte verschieben
+- [x] Plan: Spalten oder Liste, drei Tage zurück und zwei Wochen voraus, Rezepte verschieben
 - [x] Heute als Tages-Dashboard: Halbkreis mit Rest kcal, Makro-Balken, Eintragen pro Mahlzeit, Übernahme aus dem Plan
 - [ ] Importe: BLS, Freitext, Cookidoo (Stufe 4)

@@ -297,6 +297,16 @@ textarea.input { min-height: 80px; resize: vertical; }
 a.chip { text-decoration: none; display: inline-block; }
 
 /* Wochenplan: Tage als Spalten (waagerecht scrollbar) oder als Liste */
+.plan-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  margin-top: -20px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
 .plan { display: grid; gap: 10px; }
 .plan-columns {
   grid-auto-flow: column;
