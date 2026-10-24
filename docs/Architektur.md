@@ -213,6 +213,7 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
 - [ ] Welche Nährstoffe außer kcal, Eiweiß, Fett und KH sollen sichtbar sein (z. B. Ballaststoffe, Zucker)?
+- [ ] HTTPS für die API auf Port 8099, vor dem Cookidoo-Kurzbefehl in Stufe 4: Bisher spricht der Port direkt HTTP, ein Token von unterwegs ginge unverschlüsselt. Optionen: Zertifikate von Home Assistant einbinden (`map: ssl` in `config.yaml`, uvicorn mit `/ssl/fullchain.pem` und `/ssl/privkey.pem`) oder Zugriff über einen vorhandenen Reverse Proxy. Ingress ist nicht betroffen, dort übernimmt Home Assistant HTTPS. Lokal bleibt HTTP; Browser-Funktionen wie Kamera (Barcode, Stufe 5) oder Bildschirm wach halten brauchen auf dem iPhone eine HTTPS-Verbindung, also Ingress.
 - [ ] Sollen Importer auch Kochschritte übernehmen (bisher nur von Hand)? Regel 2 erlaubt aktuell nur Titel, Portionen, Link, Quell-ID und Zutatenzeilen.
 - [ ] Wie groß ist die Sammlung „Fürth“, und soll sie komplett oder schrittweise importiert werden?
 
