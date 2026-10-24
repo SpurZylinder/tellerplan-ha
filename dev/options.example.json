@@ -9,6 +9,7 @@
     "Abendessen",
     "Snacks"
   ],
+  "plan_default_meal": "Abendessen",
   "ranking_protein_weight": 0.7,
   "api_token": "lokal-geheim",
   "database_path": "app.db"

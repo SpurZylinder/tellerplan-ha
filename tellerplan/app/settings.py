@@ -10,7 +10,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 OPTIONS_ENV_VAR = "TELLERPLAN_OPTIONS"
 DEFAULT_OPTIONS_PATH = Path("/data/options.json")
@@ -26,6 +26,7 @@ class Settings(BaseModel):
     fat_goal_g: int = Field(ge=0)
     carbs_goal_g: int = Field(ge=0)
     meal_names: list[str] = Field(min_length=1)
+    plan_default_meal: str
     ranking_protein_weight: float = Field(ge=0, le=1)
     api_token: str
     database_path: Path
@@ -33,6 +34,12 @@ class Settings(BaseModel):
     # Technische Ports, durch config.yaml des Add-ons festgelegt.
     ingress_port: int = 8000
     api_port: int = 8099
+
+    @model_validator(mode="after")
+    def _plan_default_meal_exists(self) -> "Settings":
+        if self.plan_default_meal not in self.meal_names:
+            raise ValueError("plan_default_meal muss einer der meal_names sein")
+        return self
 
     @property
     def database_url(self) -> str:

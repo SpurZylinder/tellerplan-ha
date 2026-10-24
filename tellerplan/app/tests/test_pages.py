@@ -1,5 +1,6 @@
 """Abläufe über die Weboberfläche: Formulare absenden und Ergebnis prüfen."""
 
+import html
 from datetime import date
 
 import pytest
@@ -172,7 +173,11 @@ def test_log_planned_recipe_marks_it(ingress_client: TestClient) -> None:
 
     page = ingress_client.get("/")
     assert "Rührei" in page.text
-    plan_entry_id = page.text.split("plan_entry_id=")[1].split('"')[0]
+    link = html.unescape(page.text.split('<a class="btn small" href="')[1].split('"')[0])
+    plan_entry_id = link.split("plan_entry_id=")[1].split("&")[0]
+
+    add_page = ingress_client.get(link)
+    assert '<option value="Abendessen" selected>' in add_page.text
 
     ingress_client.post(
         "/diary/recipe",

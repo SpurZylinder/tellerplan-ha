@@ -99,6 +99,7 @@ def today_page(request: Request, session: SessionDep, day: date | None = None) -
         gauge=KcalGauge(eaten=log.total.kcal, limit=settings.daily_kcal_limit),
         macros=_macro_bars(log.total, settings),
         planned=planned_for_day(session, day),
+        planned_meal=settings.plan_default_meal,
         is_today=day == date.today(),
         previous=day - timedelta(days=1),
         following=day + timedelta(days=1),

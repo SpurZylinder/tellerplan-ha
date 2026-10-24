@@ -60,7 +60,7 @@
             {% if item.logged %}
               <span class="pill p">✓ eingetragen</span>
             {% else %}
-              <a class="btn small" href="{{ url('diary_add') }}?day={{ log.day }}&recipe_id={{ dish.entry.recipe.id }}&plan_entry_id={{ dish.entry.id }}">Eintragen</a>
+              <a class="btn small" href="{{ url('diary_add') }}?day={{ log.day }}&recipe_id={{ dish.entry.recipe.id }}&plan_entry_id={{ dish.entry.id }}&meal={{ planned_meal|urlencode }}">Eintragen</a>
             {% endif %}
           </li>
         {% endfor %}

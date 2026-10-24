@@ -17,6 +17,7 @@ TEST_OPTIONS = {
     "fat_goal_g": 70,
     "carbs_goal_g": 200,
     "meal_names": ["Frühstück", "Mittag", "Abendessen", "Snacks"],
+    "plan_default_meal": "Abendessen",
     "ranking_protein_weight": 0.7,
     "api_token": "test-token",
     "database_path": "app.db",

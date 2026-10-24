@@ -41,3 +41,11 @@ def test_options_path_comes_from_environment(
     assert options_path() == options_file
     assert get_settings().api_token == "test-token"
     get_settings.cache_clear()
+
+
+def test_plan_default_meal_must_be_a_meal(tmp_path: Path) -> None:
+    path = tmp_path / "options.json"
+    path.write_text(json.dumps({**TEST_OPTIONS, "plan_default_meal": "Brunch"}), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="plan_default_meal"):
+        load_settings(path)
