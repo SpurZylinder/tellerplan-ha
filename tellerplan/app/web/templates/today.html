@@ -1,17 +1,35 @@
 {% extends "base.html" %}
+{% from "_macros.html" import nutrient_pills %}
 
 {% block title %}Heute · Tellerplan{% endblock %}
 
 {% block content %}
   <header>
+    <p class="meta">{{ today.day|day }}</p>
     <h1>Heute</h1>
-    <p class="lede">Tageslimit <span class="pill k">{{ daily_kcal_limit }} kcal</span></p>
+    <p class="lede">Tageslimit <span class="pill k">{{ daily_kcal_limit|num }} kcal</span></p>
   </header>
 
-  {% for meal in meal_names %}
-    <section>
-      <h2>{{ meal }}</h2>
-      <p class="empty">Noch keine Einträge.</p>
+  {% for meal in today.meals %}
+    <section class="card">
+      <h2>{{ meal.name }}</h2>
+      {% if meal.dishes %}
+        <ul class="list">
+          {% for dish in meal.dishes %}
+            <li>
+              <div class="grow">
+                <span class="meta">Geplant · {{ dish.entry.servings|amount }} Portion(en)</span>
+                <a href="{{ url('recipe_detail', recipe_id=dish.entry.recipe.id) }}">{{ dish.entry.recipe.title }}</a>
+                {{ nutrient_pills(dish.nutrients) }}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="meta">Noch nichts geplant oder gegessen.</p>
+      {% endif %}
     </section>
   {% endfor %}
+
+  <p class="meta">Das Tagebuch mit Tagesbalken folgt in Stufe 3. Geplante Gerichte erscheinen hier schon zur Vorschau.</p>
 {% endblock %}

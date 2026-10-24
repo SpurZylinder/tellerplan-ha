@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Lebensmittel · Tellerplan{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <h1>Lebensmittel</h1>
+    <a class="btn small" href="{{ url('food_new') }}">+ Neu</a>
+  </header>
+
+  <div class="controls">
+    <input class="search input" type="search" name="q" value="{{ q }}"
+           placeholder="Suchen, z. B. Skyr" autocomplete="off"
+           hx-get="{{ url('foods_search') }}" hx-trigger="input changed delay:250ms, search"
+           hx-target="#food-results">
+  </div>
+
+  <div id="food-results">
+    {% include "foods/_results.html" %}
+  </div>
+{% endblock %}

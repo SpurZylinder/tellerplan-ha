@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nutrient_pills, match_badge, error_message %}
+
+{% set recipe = summary.recipe %}
+
+{% block title %}{{ recipe.title }} · Tellerplan{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <div>
+      <a class="back" href="{{ url('recipes_page') }}">← Rezepte</a>
+      <h1>{{ recipe.title }}</h1>
+    </div>
+    {% include "recipes/_star.html" %}
+  </header>
+
+  <section class="card">
+    <div class="page-head">
+      <h2>Pro Portion</h2>
+      <span class="meta">{{ recipe.servings|amount }} Portionen{% if recipe.category %} · {{ recipe.category }}{% endif %}</span>
+    </div>
+    {{ nutrient_pills(summary.per_serving) }}
+    <span class="nums">
+      <span class="pill d">{{ summary.per_serving.fat_g|num }} g Fett</span>
+      <span class="pill d">{{ summary.per_serving.carbs_g|num }} g KH</span>
+      {{ match_badge(summary.match) }}
+    </span>
+    {% if not summary.match.complete %}
+      <p class="note">Unvollständig: Nicht alle Zutaten haben ein Lebensmittel mit Grammangabe.</p>
+    {% endif %}
+    <div class="form-actions">
+      <a class="btn" href="{{ url('plan_add') }}?recipe_id={{ recipe.id }}">Einplanen</a>
+      <a class="btn ghost" href="{{ url('recipe_edit', recipe_id=recipe.id) }}">Bearbeiten</a>
+      {% if recipe.source_url %}<a class="btn ghost" href="{{ recipe.source_url }}" target="_blank" rel="noopener">Quelle öffnen</a>{% endif %}
+    </div>
+    {% if recipe.note %}<p class="lede">{{ recipe.note }}</p>{% endif %}
+  </section>
+
+  <section class="card" id="ingredients">
+    <h2>Zutaten</h2>
+    {% if recipe.ingredients %}
+      <ul class="list">
+        {% for ingredient in recipe.ingredients %}
+          <li>
+            <div class="grow">
+              <span>{{ ingredient.raw_text }}{% if ingredient.is_optional %} <span class="meta">(optional)</span>{% endif %}</span>
+              {% set issue = summary.issues.get(ingredient.id) %}
+              {% if issue == "no_food" %}
+                <span class="note">Kein Lebensmittel zugeordnet</span>
+              {% elif issue == "unknown_unit" %}
+                <span class="note">Grammzahl für „{{ ingredient.unit or 'ohne Menge' }}“ fehlt – <a href="{{ url('food_detail', food_id=ingredient.food.id) }}#units">beim Lebensmittel pflegen</a></span>
+              {% endif %}
+            </div>
+            <form method="post" action="{{ url('ingredient_delete', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">
+              <button class="icon-btn" type="submit" aria-label="Zutat entfernen">×</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="meta">Noch keine Zutaten.</p>
+    {% endif %}
+
+    <form class="form" method="post" action="{{ url('ingredient_add', recipe_id=recipe.id) }}">
+      <h3>Zutat hinzufügen</h3>
+      {{ error_message(ingredient_error) }}
+      <input class="input" type="search" name="q" placeholder="Lebensmittel suchen" autocomplete="off"
+             hx-get="{{ url('foods_picker') }}" hx-trigger="input changed delay:250ms, search"
+             hx-target="#ingredient-picker">
+      <div id="ingredient-picker"></div>
+      <div class="field-row">
+        <label class="field">Menge
+          <input class="input" name="quantity" inputmode="decimal" placeholder="200">
+        </label>
+        <label class="field">Einheit
+          <input class="input" name="unit" value="g" list="units">
+        </label>
+      </div>
+      <datalist id="units">
+        {% for unit in units %}<option value="{{ unit }}">{% endfor %}
+      </datalist>
+      <label class="check"><input type="checkbox" name="is_optional" value="true"> optional (zählt nicht zu den Nährwerten)</label>
+      <div class="form-actions"><button class="btn ghost" type="submit">Hinzufügen</button></div>
+    </form>
+  </section>
+{% endblock %}

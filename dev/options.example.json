@@ -3,7 +3,13 @@
   "protein_goal_g": 150,
   "fat_goal_g": 70,
   "carbs_goal_g": 200,
-  "meal_names": ["Frühstück", "Mittag", "Abendessen", "Snacks"],
+  "meal_names": [
+    "Frühstück",
+    "Mittag",
+    "Abendessen",
+    "Snacks"
+  ],
+  "ranking_protein_weight": 0.7,
   "api_token": "lokal-geheim",
   "database_path": "app.db"
 }

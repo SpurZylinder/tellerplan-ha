@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}{{ food.name }} · Tellerplan{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <div>
+      <a class="back" href="{{ url('foods_page') }}">← Lebensmittel</a>
+      <h1>{{ food.name }}</h1>
+    </div>
+    <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
+  </header>
+
+  <section class="card">
+    <h2>Nährwerte je 100 g</h2>
+    <ul class="list">
+      {% for field, label in fields %}
+        <li><span>{{ label }}</span><span class="meta">{{ food[field]|num(1) }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="card" id="units">
+    <h2>Einheiten</h2>
+    <p class="meta">Wie viel Gramm sind z. B. 1 EL oder 1 Stück? Damit lassen sich Zutaten ohne Grammangabe umrechnen.</p>
+    {% if food.units %}
+      <ul class="list">
+        {% for unit in food.units %}
+          <li>
+            <span>1 {{ unit.name }} = {{ unit.grams|amount }} g</span>
+            <form method="post" action="{{ url('unit_delete', food_id=food.id, unit_id=unit.id) }}">
+              <button class="btn danger small" type="submit">Entfernen</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form class="form" method="post" action="{{ url('unit_add', food_id=food.id) }}">
+      {{ error_message(unit_error) }}
+      <div class="field-row">
+        <label class="field">Einheit
+          <input class="input" name="name" placeholder="EL, Stück …" list="unit-names" required>
+        </label>
+        <label class="field">Gramm
+          <input class="input" name="grams" inputmode="decimal" required>
+        </label>
+      </div>
+      <datalist id="unit-names">
+        {% for name in ("EL", "TL", "Stück", "Prise", "Becher", "Scheibe", "ml") %}<option value="{{ name }}">{% endfor %}
+      </datalist>
+      <div class="form-actions"><button class="btn ghost small" type="submit">Einheit speichern</button></div>
+    </form>
+  </section>
+{% endblock %}

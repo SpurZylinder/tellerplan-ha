@@ -1,9 +1,11 @@
 """Datenbankzugang: Engine, Sessions und deklarative Basis für alle Module."""
 
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 from sqlite3 import Connection as SQLiteConnection
 
+from fastapi import Request
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import ConnectionPoolEntry
@@ -17,7 +19,13 @@ class Base(DeclarativeBase):
     """Gemeinsame Basis aller ORM-Modelle."""
 
 
+def _casefold(value: str | None) -> str | None:
+    return value.casefold() if value is not None else None
+
+
 def _configure_sqlite(connection: SQLiteConnection, _record: ConnectionPoolEntry) -> None:
+    # SQLites lower() kennt keine Umlaute; casefold() für Suchen ohne Groß/klein.
+    connection.create_function("casefold", 1, _casefold, deterministic=True)
     cursor = connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -34,6 +42,12 @@ def create_db_engine(settings: Settings) -> Engine:
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def get_session(request: Request) -> Iterator[Session]:
+    """FastAPI-Abhängigkeit: eine Session pro Anfrage."""
+    with request.app.state.session_factory() as session:
+        yield session
 
 
 def backup_database(database_path: Path) -> Path | None:

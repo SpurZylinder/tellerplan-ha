@@ -28,6 +28,7 @@ options:
     - Mittag
     - Abendessen
     - Snacks
+  ranking_protein_weight: 0.7
   api_token: ""
   database_path: /data/app.db
 schema:
@@ -37,5 +38,6 @@ schema:
   carbs_goal_g: int(0,1000)
   meal_names:
     - str
+  ranking_protein_weight: float(0,1)
   api_token: password
   database_path: str

@@ -26,6 +26,7 @@ class Settings(BaseModel):
     fat_goal_g: int = Field(ge=0)
     carbs_goal_g: int = Field(ge=0)
     meal_names: list[str] = Field(min_length=1)
+    ranking_protein_weight: float = Field(ge=0, le=1)
     api_token: str
     database_path: Path
 

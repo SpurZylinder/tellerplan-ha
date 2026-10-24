@@ -1,0 +1,19 @@
+{# Auswahl eines Lebensmittels in Formularen (Radio-Buttons name="food_id"). #}
+{% if foods %}
+  <div class="picker">
+    {% for food in foods %}
+      <label>
+        <input type="radio" name="food_id" value="{{ food.id }}" required{% if loop.first %} checked{% endif %}>
+        <span class="grow">
+          <span>{{ food.name }}</span>
+          <span class="meta">
+            {{ food.kcal|num }} kcal · {{ food.protein_g|num(1) }} g Eiweiß je 100 g
+            {%- if food.units %} · Einheiten: {{ food.units|map(attribute="name")|join(", ") }}{% endif %}
+          </span>
+        </span>
+      </label>
+    {% endfor %}
+  </div>
+{% elif q %}
+  <p class="meta">Nichts gefunden. <a href="{{ url('food_new') }}">Lebensmittel anlegen</a></p>
+{% endif %}

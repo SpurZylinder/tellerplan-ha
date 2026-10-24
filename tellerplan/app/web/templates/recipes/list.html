@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nutrient_pills, match_badge %}
+
+{% block title %}Rezepte · Tellerplan{% endblock %}
+
+{% block head %}
+  <script src="{{ url('static', path='ranking.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <h1>Rezepte</h1>
+    <a class="btn small" href="{{ url('recipe_new') }}">+ Neu</a>
+  </header>
+
+  {% if summaries %}
+    <div class="controls" data-ranking-controls>
+      <div class="weight">
+        <div class="weight-labels"><span class="p">Eiweiß</span><span class="k">wenig kcal</span></div>
+        <input type="range" min="0" max="100" step="5" value="{{ (protein_weight * 100)|round|int }}"
+               aria-label="Gewichtung Eiweiß gegen Kalorien" data-weight>
+      </div>
+      <div class="nums">
+        <button class="chip" type="button" aria-pressed="true" data-category="">Alle</button>
+        <button class="chip" type="button" aria-pressed="false" data-favorites>★ Favoriten</button>
+        {% for category in categories %}
+          <button class="chip" type="button" aria-pressed="false" data-category="{{ category }}">{{ category }}</button>
+        {% endfor %}
+      </div>
+      <input class="search" type="search" placeholder="Rezept suchen" data-search>
+    </div>
+
+    <ol class="rank-list" data-ranking-list>
+      {% for summary in summaries %}
+        {% set recipe = summary.recipe %}
+        <li data-title="{{ recipe.title|lower }}"
+            data-category="{{ recipe.category or '' }}"
+            data-kcal="{{ summary.per_serving.kcal|round(1) }}"
+            data-protein="{{ summary.per_serving.protein_g|round(1) }}"
+            data-rankable="{{ 'true' if summary.match.matched else 'false' }}">
+          <span class="rank" data-rank></span>
+          <div class="main">
+            <a class="title" href="{{ url('recipe_detail', recipe_id=recipe.id) }}">{{ recipe.title }}</a>
+            <span class="nums">
+              {{ nutrient_pills(summary.per_serving, " / Portion") }}
+              {{ match_badge(summary.match) }}
+              {% if recipe.category %}<span class="pill d">{{ recipe.category }}</span>{% endif %}
+            </span>
+            <div class="bar"><span data-bar style="width: 0"></span></div>
+          </div>
+          <div class="side">
+            <span class="score" data-score>–</span>
+            {% include "recipes/_star.html" %}
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+    <p class="formula">Score = w · Eiweiß + (1 − w) · (1 − kcal), beides auf die gezeigten Rezepte normiert.</p>
+  {% else %}
+    <p class="empty">Noch keine Rezepte. <a href="{{ url('recipe_new') }}">Erstes Rezept anlegen</a></p>
+  {% endif %}
+{% endblock %}

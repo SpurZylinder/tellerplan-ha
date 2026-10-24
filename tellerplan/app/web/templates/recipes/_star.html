@@ -1,0 +1,5 @@
+<button class="star" type="button"
+        aria-pressed="{{ 'true' if recipe.is_favorite else 'false' }}"
+        aria-label="Favorit"
+        hx-post="{{ url('recipe_favorite', recipe_id=recipe.id) }}"
+        hx-swap="outerHTML">★</button>

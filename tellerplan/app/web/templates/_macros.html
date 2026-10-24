@@ -1,0 +1,18 @@
+{# Wiederverwendbare Bausteine für alle Seiten. #}
+
+{% macro nutrient_pills(nutrients, suffix="") %}
+  <span class="nums">
+    <span class="pill k">{{ nutrients.kcal|num }} kcal{{ suffix }}</span>
+    <span class="pill p">{{ nutrients.protein_g|num }} g Eiweiß</span>
+  </span>
+{% endmacro %}
+
+{% macro match_badge(match) %}
+  {% if not match.complete %}
+    <span class="pill d" title="Zutaten mit Lebensmittel und Gramm">{{ match.matched }}/{{ match.total }} Zutaten</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro error_message(error) %}
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% endmacro %}

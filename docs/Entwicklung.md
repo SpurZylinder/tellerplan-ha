@@ -30,6 +30,12 @@ uvicorn main:create_app --factory --reload --host 0.0.0.0 --port 8000
 
 Danach `http://localhost:8000` öffnen, am iPhone über die PC-IP im WLAN.
 
+Zum Ausprobieren ein Demo-Set laden: 35 Lebensmittel mit gerundeten Näherungswerten und 8 Rezepte. Das Skript ist mehrfach ausführbar, alle Einträge tragen `source_id` mit dem Präfix `demo:`.
+
+```bash
+python -m scripts.seed_demo
+```
+
 Wie im Add-on, mit Backup, Migration und beiden Ports: `python -m serve`.
 
 ## Ports und Zugriff

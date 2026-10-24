@@ -2,17 +2,41 @@
 <html lang="de">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Tellerplan">
+    <meta name="theme-color" content="#f3f5f2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
     <title>{% block title %}Tellerplan{% endblock %}</title>
+    <link rel="icon" href="{{ url('static', path='icon.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', path='tokens.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+    <link rel="stylesheet" href="{{ url('static', path='tokens.css') }}">
+    <link rel="stylesheet" href="{{ url('static', path='app.css') }}">
+    <script src="{{ url('static', path='vendor/htmx.min.js') }}" defer></script>
+    {% block head %}{% endblock %}
   </head>
   <body>
     <main class="wrap">
       {% block content %}{% endblock %}
     </main>
+
+    <nav class="tabbar" aria-label="Hauptnavigation">
+      <div class="tabbar-in">
+        {% set tabs = [
+          ("today", "today_page", "Heute", "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4v5l3 2"),
+          ("recipes", "recipes_page", "Rezepte", "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Zm0 13a3 3 0 0 1 3-3h11M9 8h6"),
+          ("plan", "plan_page", "Plan", "M4 6h16v14H4V6Zm0 4h16M8 3v5m8-5v5"),
+          ("foods", "foods_page", "Lebensmittel", "M7 3v8a3 3 0 0 0 6 0V3M10 3v18m7-18c-2 1-3 4-3 7h3v11"),
+        ] %}
+        {% for key, route, label, icon in tabs %}
+          <a href="{{ url(route) }}" class="tab"{% if tab == key %} aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ icon }}"/></svg>
+            <span>{{ label }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </nav>
   </body>
 </html>

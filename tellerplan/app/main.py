@@ -12,7 +12,7 @@ from api.v1 import router as api_v1_router
 from db import create_db_engine, create_session_factory
 from security import PortAccessMiddleware
 from settings import Settings, get_settings
-from web import create_web_router
+from web import router as web_router
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -30,5 +30,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(PortAccessMiddleware, settings=settings)
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
     app.include_router(api_v1_router, prefix="/api/v1")
-    app.include_router(create_web_router(WEB_DIR / "templates"))
+    app.include_router(web_router)
     return app

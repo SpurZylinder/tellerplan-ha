@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}{{ "Rezept bearbeiten" if recipe else "Neues Rezept" }} · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('recipe_detail', recipe_id=recipe.id) if recipe else url('recipes_page') }}">← Zurück</a>
+    <h1>{{ "Bearbeiten" if recipe else "Neues Rezept" }}</h1>
+    {% if not recipe %}<p class="lede">Zutaten fügst du im nächsten Schritt hinzu.</p>{% endif %}
+  </header>
+
+  <form class="form card" method="post"
+        action="{{ url('recipe_update', recipe_id=recipe.id) if recipe else url('recipe_create') }}">
+    {{ error_message(error) }}
+    <label class="field">Titel
+      <input class="input" name="title" value="{{ values.title or '' }}" required autofocus>
+    </label>
+    <div class="field-row">
+      <label class="field">Portionen
+        <input class="input" name="servings" value="{{ values.servings or '' }}" inputmode="decimal" required>
+      </label>
+      <label class="field">Kategorie
+        <input class="input" name="category" value="{{ values.category or '' }}" list="categories" placeholder="z. B. Hauptgericht">
+      </label>
+    </div>
+    <datalist id="categories">
+      {% for category in categories %}<option value="{{ category }}">{% endfor %}
+    </datalist>
+    <label class="field">Link zur Quelle <span class="meta">optional</span>
+      <input class="input" name="source_url" value="{{ values.source_url or '' }}" type="url" inputmode="url">
+    </label>
+    <label class="field">Notiz <span class="meta">optional</span>
+      <textarea class="input" name="note">{{ values.note or '' }}</textarea>
+    </label>
+    <div class="form-actions">
+      <button class="btn" type="submit">Speichern</button>
+    </div>
+  </form>
+
+  {% if recipe %}
+    <form method="post" action="{{ url('recipe_delete', recipe_id=recipe.id) }}"
+          onsubmit="return confirm('Rezept wirklich löschen? Planeinträge damit werden ebenfalls entfernt.')">
+      <button class="btn danger small" type="submit">Rezept löschen</button>
+    </form>
+  {% endif %}
+{% endblock %}

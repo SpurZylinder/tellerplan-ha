@@ -15,7 +15,7 @@ ignore = ["ANN401"]
 "migrations/versions/*" = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "db", "main", "migrate", "modules", "security", "serve", "settings", "web", "conftest"]
+known-first-party = ["api", "db", "main", "migrate", "modules", "scripts", "security", "serve", "settings", "web", "conftest", "factories"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

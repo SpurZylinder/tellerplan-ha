@@ -7,6 +7,7 @@
    Basis
    ========================================================================== */
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -156,3 +157,156 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 /* Formel-/Erklärzeile */
 .formula      { font-size: .78rem; color: var(--muted); }
 .formula code { font-family: var(--mono); font-size: .76rem; }
+
+/* ==========================================================================
+   Tellerplan-Ergänzungen (gleiche Tokens wie oben)
+   ========================================================================== */
+
+/* Tab-Leiste unten */
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 7;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tabbar-in {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.tab {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: .72rem;
+  font-weight: 500;
+}
+.tab svg {
+  width: 24px; height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tab[aria-current="page"] { color: var(--accent); font-weight: 600; }
+
+/* Kopfzeile einer Seite mit Aktion rechts */
+.page-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.back { color: var(--muted); text-decoration: none; font-size: .85rem; }
+
+/* Karten */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+.card h2, .card h3 { margin: 0; }
+h3 { font-family: var(--display); font-weight: 600; font-size: 1rem; margin: 0; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn.ghost { background: var(--surface); color: var(--accent); }
+.btn.small { padding: 4px 10px; font-size: .8rem; }
+.btn.danger { background: var(--surface); border-color: var(--line); color: var(--kcal); }
+.icon-btn {
+  width: 30px; height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Formulare */
+.form { display: grid; gap: 12px; }
+.field { display: grid; gap: 4px; font-size: .85rem; font-weight: 500; }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+.input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 1rem; /* 16px verhindert das Zoomen in iOS-Safari */
+}
+textarea.input { min-height: 80px; resize: vertical; }
+.check { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
+.form-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.error { color: var(--kcal); font-size: .85rem; margin: 0; }
+
+/* Einfache Listen mit Trennlinie */
+.list { list-style: none; margin: 0; padding: 0; display: grid; }
+.list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.list > li:last-child { border-bottom: 0; }
+.list a { color: var(--fg); text-decoration: none; font-weight: 600; }
+.grow { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+
+/* Auswahlliste (Lebensmittel / Rezept wählen) */
+.picker { display: grid; gap: 4px; max-height: 280px; overflow-y: auto; }
+.picker label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.picker label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Chips auch als Links */
+a.chip { text-decoration: none; display: inline-block; }
+
+/* Wochenplan */
+.plan-day.is-today { border-color: var(--accent); }
+.plan-meal { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.plan-meal-head { display: flex; align-items: center; justify-content: space-between; }
+.plan-meal-head h3 { font-size: .9rem; color: var(--muted); }
+.plan-dish { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.servings { display: flex; align-items: center; gap: 6px; }
+.servings form { margin: 0; }
+.servings-value {
+  min-width: 2.2rem;
+  text-align: center;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
