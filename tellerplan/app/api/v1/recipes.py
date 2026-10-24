@@ -25,7 +25,7 @@ class RecipeOut(BaseModel):
     ingredients_total: int
 
     @classmethod
-    def from_summary(cls, summary: RecipeSummary) -> "RecipeOut":
+    def from_summary(cls, summary: RecipeSummary) -> RecipeOut:
         recipe = summary.recipe
         return cls(
             id=recipe.id,

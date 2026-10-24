@@ -36,7 +36,7 @@ class Settings(BaseModel):
     api_port: int = 8099
 
     @model_validator(mode="after")
-    def _plan_default_meal_exists(self) -> "Settings":
+    def _plan_default_meal_exists(self) -> Settings:
         if self.plan_default_meal not in self.meal_names:
             raise ValueError("plan_default_meal muss einer der meal_names sein")
         return self

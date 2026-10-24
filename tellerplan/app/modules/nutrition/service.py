@@ -17,12 +17,12 @@ class Nutrients:
     fat_g: float = 0.0
     carbs_g: float = 0.0
 
-    def __add__(self, other: "Nutrients") -> "Nutrients":
+    def __add__(self, other: Nutrients) -> Nutrients:
         return Nutrients(
             **{f.name: getattr(self, f.name) + getattr(other, f.name) for f in fields(self)}
         )
 
-    def scaled(self, factor: float) -> "Nutrients":
+    def scaled(self, factor: float) -> Nutrients:
         return Nutrients(**{f.name: getattr(self, f.name) * factor for f in fields(self)})
 
 

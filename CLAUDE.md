@@ -29,7 +29,7 @@ Die vollständige Architektur steht in `docs/Architektur.md`. Lies sie vor jeder
 
 ## Stack
 
-- Python 3.12, FastAPI, SQLAlchemy 2, Alembic, SQLite (FTS5), rapidfuzz
+- Python 3.14, FastAPI, SQLAlchemy 2, Alembic, SQLite (FTS5), rapidfuzz
 - Jinja-Templates + HTMX, Vanilla JS für Ranking und Wochenplan, **kein Frontend-Build**
 - Design-Tokens in `web/static/tokens.css` (aus dem Widget „Protein-Ranking Fürth“: Grün = Eiweiß, Orange = kcal, Hell/Dunkel, Bricolage Grotesque / IBM Plex)
 - pytest, Ruff

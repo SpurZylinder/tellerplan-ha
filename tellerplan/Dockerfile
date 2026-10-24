@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-trixie
 
 ARG BUILD_VERSION
 ARG BUILD_ARCH=aarch64

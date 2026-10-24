@@ -165,7 +165,7 @@ Python mit FastAPI und SQLite, serverseitig gerendert, ohne Frontend-Build; Ver�
 
 | Ebene | Wahl |
 | --- | --- |
-| Backend | Python 3.12, FastAPI, SQLAlchemy 2, Alembic für Migrationen |
+| Backend | Python 3.14, FastAPI, SQLAlchemy 2, Alembic für Migrationen |
 | Datenbank | SQLite in `/data/app.db`, Volltextsuche über SQLite FTS5 |
 | Frontend | Jinja-Templates, HTMX für Formulare, Vanilla JS für Ranking und Plan |
 | Matching | `rapidfuzz` für Ähnlichkeitssuche, eigener Zeilenparser für Menge/Einheit |

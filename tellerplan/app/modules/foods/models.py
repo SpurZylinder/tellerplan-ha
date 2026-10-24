@@ -40,7 +40,7 @@ class Food(Base):
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
-    units: Mapped[list["FoodUnit"]] = relationship(
+    units: Mapped[list[FoodUnit]] = relationship(
         back_populates="food", cascade="all, delete-orphan", order_by="FoodUnit.name"
     )
 
