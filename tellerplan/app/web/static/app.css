@@ -1,44 +1,158 @@
-/* Grundlayout: schmale Spalte, mobil zuerst. Farben und Maße nur aus tokens.css. */
+/* ==========================================================================
+   Tellerplan – Basis und Komponenten (aus dem Widget „Protein-Ranking Fürth“)
+   Farben und Schriften nur über tokens.css.
+   ========================================================================== */
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+/* ==========================================================================
+   Basis
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  line-height: 1.5;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.45;
+  padding-left:  max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 120px;
 }
 
-main {
-  max-width: var(--column-width);
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
+
+h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(1.7rem, 6vw, 2.4rem);
+  line-height: 1.05;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+  margin: 0;
+}
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.1rem; margin: 16px 0 0; }
+
+.lede  { color: var(--muted); margin: 0; max-width: 60ch; }
+.meta  { font-size: .76rem; color: var(--muted); }
+.note  { font-size: .76rem; color: var(--kcal); }
+.empty { color: var(--muted); padding: 20px 0; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ==========================================================================
+   Komponenten
+   ========================================================================== */
+
+/* Sticky-Filterleiste */
+.controls {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  background: var(--bg);
+  padding-block: 10px;
+  display: grid;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Gewichtungsregler Eiweiß / Kalorien */
+.weight { display: grid; gap: 4px; }
+.weight-labels { display: flex; justify-content: space-between; font-size: .82rem; font-weight: 600; }
+.weight-labels .p { color: var(--accent); }
+.weight-labels .k { color: var(--kcal); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+
+/* Chips (Filter, Umschalter) */
+.chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+/* Suchfeld */
+.search {
+  flex: 1 1 160px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: .9rem;
+}
+
+/* Rangliste */
+.rank-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.rank-list > li {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr auto;
+  gap: 4px 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+.rank  { font-family: var(--mono); color: var(--muted); font-size: .9rem; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.main  { min-width: 0; display: grid; gap: 5px; }
+.title { font-weight: 600; color: var(--fg); text-decoration: none; overflow-wrap: anywhere; }
+.title:hover { text-decoration: underline; }
+.side  { display: grid; justify-items: end; gap: 6px; }
+.score { font-family: var(--display); font-weight: 800; font-size: 1.35rem; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* Werte-Pills */
+.nums { display: flex; flex-wrap: wrap; gap: 6px; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.pill   { border-radius: 6px; padding: 1px 7px; font-weight: 600; white-space: nowrap; }
+.pill.p { background: var(--accent-soft); color: var(--accent); }   /* Eiweiß */
+.pill.k { background: var(--kcal-soft);   color: var(--kcal); }     /* kcal */
+.pill.d { border: 1px solid var(--line);  color: var(--muted); font-weight: 500; }  /* neutral */
+
+/* Fortschritts-/Score-Balken */
+.bar      { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+
+/* Favoriten-Stern */
+.star { background: none; border: 0; cursor: pointer; font-size: 1.3rem; line-height: 1; color: var(--line); padding: 2px; }
+.star[aria-pressed="true"] { color: var(--star); }
+
+/* Fixierte Leiste unten (Auswahl / Plan-Zusammenfassung) */
+.dock {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 6;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-left:  max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 10px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.dock-in {
+  max-width: 760px;
   margin: 0 auto;
-  padding: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
 }
+.dock b      { font-family: var(--display); }
+.dock button { margin-left: auto; }
 
-h1,
-h2 {
-  font-family: var(--font-display);
-  line-height: 1.2;
-}
-
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-m);
-  padding: var(--space-4);
-  margin-bottom: var(--space-3);
-}
-
-.muted {
-  color: var(--color-text-muted);
-}
-
-.kcal {
-  color: var(--color-kcal);
-  font-family: var(--font-mono);
-}
+/* Formel-/Erklärzeile */
+.formula      { font-size: .78rem; color: var(--muted); }
+.formula code { font-family: var(--mono); font-size: .76rem; }

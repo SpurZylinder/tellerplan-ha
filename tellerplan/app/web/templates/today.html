@@ -3,13 +3,15 @@
 {% block title %}Heute · Tellerplan{% endblock %}
 
 {% block content %}
-  <h1>Heute</h1>
-  <p class="muted">Tageslimit: <span class="kcal">{{ daily_kcal_limit }} kcal</span></p>
+  <header>
+    <h1>Heute</h1>
+    <p class="lede">Tageslimit <span class="pill k">{{ daily_kcal_limit }} kcal</span></p>
+  </header>
 
   {% for meal in meal_names %}
-    <section class="card">
+    <section>
       <h2>{{ meal }}</h2>
-      <p class="muted">Noch keine Einträge.</p>
+      <p class="empty">Noch keine Einträge.</p>
     </section>
   {% endfor %}
 {% endblock %}
