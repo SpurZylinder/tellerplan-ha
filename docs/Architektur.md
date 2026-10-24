@@ -194,16 +194,16 @@ tellerplan-ha/
 
 **Deployment:** Push lässt CI laufen. Ein Tag `vX.Y.Z` baut das arm64-Image nach GHCR, Home Assistant zeigt das Update an. Datenbank-Migrationen laufen beim Start des Add-ons automatisch; vorher legt `run.sh` eine Kopie der Datenbank an.
 
-**Lokal:** `uvicorn main:app --reload` auf `localhost:8000`, Test am iPhone über die PC-IP im WLAN.
+**Lokal:** `uvicorn main:create_app --factory --reload` auf `localhost:8000`, Test am iPhone über die PC-IP im WLAN.
 
 ## Ausbaustufen und offene Punkte
 
-Fünf Stufen, jede einzeln nutzbar; das Kalorienzählen steht nach Stufe 1.
+Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestellt: erst die Funktionen mit eigenen Daten (Lebensmittel, Rezepte, Plan, Tagebuch), danach die Importe.
 
-1. **Kern:** Repo, Add-on-Gerüst, CI/Release, BLS-Import, Lebensmittelsuche, Tagebuch mit vier Mahlzeiten, Tageslimit und Balken
-2. **Rezepte:** Datenmodell, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Nährwerte pro Portion
-3. **Cookidoo und Ranking:** Sammlungs-Import am Rechner, Kurzbefehl an die API, Ranking-Widget als Rezeptauswahl
-4. **Plan:** 1–2-Wochenplan, Portionen je Eintrag, Übernahme ins Tagebuch mit gegessenen Portionen
+1. **Kern:** Repo, Add-on-Gerüst, CI/Release, UI-Rahmen mit Tab-Leiste, Lebensmittel manuell und als Demo-Set, Nährwertrechnung
+2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan mit Portionen je Eintrag
+3. **Tagebuch:** vier Mahlzeiten, Tageslimit und Balken, Übernahme aus dem Plan mit gegessenen Portionen
+4. **Importe:** BLS-Import, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health
 
 **Offene Punkte**

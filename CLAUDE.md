@@ -55,7 +55,7 @@ tellerplan-ha/
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── migrations/
-        ├── scripts/           import_bls.py
+        ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```
 
@@ -72,6 +72,9 @@ TELLERPLAN_OPTIONS=../../dev/options.json uvicorn main:create_app --factory --re
 
 # Starten wie im Add-on (Backup, Migration, Ports 8000 und 8099)
 TELLERPLAN_OPTIONS=../../dev/options.json python -m serve
+
+# Demo-Set laden (Lebensmittel + Rezepte, mehrfach ausführbar)
+TELLERPLAN_OPTIONS=../../dev/options.json python -m scripts.seed_demo
 
 # Prüfen
 ruff check . && ruff format --check .
@@ -101,10 +104,10 @@ Lokale Konfiguration und Datenbank liegen in `dev/` (in `.gitignore`); Vorlage i
 
 ## Ausbaustufen
 
-1. **Kern:** Gerüst, CI/Release, BLS-Import, Lebensmittelsuche, Tagebuch (Frühstück, Mittag, Abendessen, Snacks), Tageslimit, Balken
-2. **Rezepte:** Datenmodell, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Nährwerte pro Portion
-3. **Cookidoo und Ranking:** Sammlungs-Import am Rechner, Kurzbefehl an die API, Ranking-Widget als Rezeptauswahl
-4. **Plan:** 1–2-Wochenplan, Portionen je Eintrag, Übernahme ins Tagebuch
+1. **Kern:** Gerüst, CI/Release, UI-Rahmen (Tab-Leiste), Lebensmittel manuell + Demo-Set, Nährwertrechnung
+2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan mit Portionen je Eintrag
+3. **Tagebuch:** vier Mahlzeiten, Tageslimit, Balken, Übernahme aus dem Plan mit gegessenen Portionen
+4. **Importe:** BLS-Import, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl
 
-Aktuelle Stufe: **1**
+Aktuelle Stufe: **2**
