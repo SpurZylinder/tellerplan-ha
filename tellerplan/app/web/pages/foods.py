@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from db import get_session
-from modules.foods.models import Food
+from modules.foods.models import Food, FoodSource
 from modules.foods.service import (
     FoodInput,
     create_food,
@@ -39,6 +39,14 @@ def _food_or_404(session: Session, food_id: int) -> Food:
     food = get_food(session, food_id)
     if food is None:
         raise HTTPException(status_code=404, detail="Lebensmittel nicht gefunden")
+    return food
+
+
+def _editable_food_or_error(session: Session, food_id: int) -> Food:
+    """Nur eigene Lebensmittel sind änderbar; BLS-Werte bleiben, wie sie sind."""
+    food = _food_or_404(session, food_id)
+    if food.source != FoodSource.CUSTOM:
+        raise HTTPException(status_code=403, detail="BLS-Lebensmittel sind schreibgeschützt")
     return food
 
 
@@ -121,7 +129,7 @@ def food_detail(request: Request, session: SessionDep, food_id: int) -> HTMLResp
 
 @router.get("/{food_id}/edit", response_class=HTMLResponse)
 def food_edit(request: Request, session: SessionDep, food_id: int) -> HTMLResponse:
-    food = _food_or_404(session, food_id)
+    food = _editable_food_or_error(session, food_id)
     return render(
         request,
         "foods/form.html",
@@ -134,7 +142,7 @@ def food_edit(request: Request, session: SessionDep, food_id: int) -> HTMLRespon
 
 @router.post("/{food_id}/edit", response_model=None)
 async def food_update(request: Request, session: SessionDep, food_id: int) -> Response:
-    food = _food_or_404(session, food_id)
+    food = _editable_food_or_error(session, food_id)
     data, values, error = await _food_input(request)
     if data is None:
         return render(

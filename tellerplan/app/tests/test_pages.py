@@ -6,6 +6,9 @@ from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
+from modules.foods.models import FoodSource
+from modules.foods.service import FoodInput, create_food
+
 
 def _last_id(url: str) -> str:
     return url.rsplit("/", 1)[1]
@@ -301,6 +304,41 @@ def test_source_url_must_be_http(ingress_client: TestClient) -> None:
     )
 
     assert "Der Link muss mit https:// beginnen." in response.text
+
+
+def _bls_food_id(client: TestClient) -> int:
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        food = create_food(
+            session, FoodInput("Hafer Flocken", 348, 13.2, 6.7, 53.3), FoodSource.BLS, "C133000"
+        )
+        session.commit()
+        return food.id
+
+
+def test_bls_food_is_read_only_but_units_can_be_added(ingress_client: TestClient) -> None:
+    food_id = _bls_food_id(ingress_client)
+
+    detail = ingress_client.get(f"/foods/{food_id}").text
+    assert "BLS-Code C133000" in detail
+    assert "Max Rubner-Institut" in detail
+    assert f"/foods/{food_id}/edit" not in detail
+
+    assert ingress_client.get(f"/foods/{food_id}/edit").status_code == 403
+    assert ingress_client.post(f"/foods/{food_id}/edit", data={"name": "X"}).status_code == 403
+
+    ingress_client.post(f"/foods/{food_id}/units", data={"name": "EL", "grams": "10"})
+    assert "1 EL = 10 g" in ingress_client.get(f"/foods/{food_id}").text
+
+
+def test_search_results_show_source(ingress_client: TestClient) -> None:
+    _bls_food_id(ingress_client)
+    _create_food(ingress_client, name="Haferflocken Eigenmarke")
+
+    results = ingress_client.get("/foods/search?q=hafer").text
+
+    assert ">BLS</span>" in results
+    assert ">eigen</span>" in results
 
 
 def test_links_carry_ingress_prefix(ingress_client: TestClient) -> None:

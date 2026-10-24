@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import bls_attribution %}
 
 {% block title %}Lebensmittel · Tellerplan{% endblock %}
 
@@ -18,4 +19,6 @@
   <div id="food-results">
     {% include "foods/_results.html" %}
   </div>
+
+  {{ bls_attribution() }}
 {% endblock %}

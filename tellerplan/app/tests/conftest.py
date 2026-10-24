@@ -1,4 +1,5 @@
 import json
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -36,10 +37,21 @@ def settings(options_file: Path) -> Settings:
     return load_settings(options_file)
 
 
+@pytest.fixture(scope="session")
+def template_database(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Einmal pro Testlauf migrierte Datenbank ohne BLS-Daten, als Kopiervorlage."""
+    directory = tmp_path_factory.mktemp("template")
+    options = directory / "options.json"
+    options.write_text(json.dumps(TEST_OPTIONS), encoding="utf-8")
+    template = load_settings(options)
+    upgrade_to_head(template, skip_data_migrations=True)
+    return template.database_path
+
+
 @pytest.fixture
-def migrated(settings: Settings) -> Settings:
-    """Einstellungen mit einer auf den neuesten Stand migrierten Datenbank."""
-    upgrade_to_head(settings)
+def migrated(settings: Settings, template_database: Path) -> Settings:
+    """Einstellungen mit migrierter, leerer Datenbank (ohne BLS-Lebensmittel)."""
+    shutil.copy(template_database, settings.database_path)
     return settings
 
 

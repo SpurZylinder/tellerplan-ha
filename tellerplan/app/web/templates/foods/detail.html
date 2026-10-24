@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import error_message %}
+{% from "_macros.html" import error_message, food_source, bls_attribution %}
 
 {% block title %}{{ food.name }} · Tellerplan{% endblock %}
 
@@ -9,7 +9,11 @@
       <a class="back" href="{{ url('foods_page') }}">← Lebensmittel</a>
       <h1>{{ food.name }}</h1>
     </div>
-    <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
+    {% if food.source == "bls" %}
+      {{ food_source(food) }}
+    {% else %}
+      <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
+    {% endif %}
   </header>
 
   <section class="card">
@@ -19,6 +23,10 @@
         <li><span>{{ label }}</span><span class="meta">{{ food[field]|num(1) }}</span></li>
       {% endfor %}
     </ul>
+    {% if food.source == "bls" %}
+      <p class="meta">BLS-Code {{ food.source_id }} · Werte sind schreibgeschützt; Einheiten unten kannst du ergänzen.</p>
+      {{ bls_attribution() }}
+    {% endif %}
   </section>
 
   <section class="card" id="units">

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from factories import make_food
+from modules.foods.models import FoodSource
 from modules.foods.service import delete_unit, search_foods, set_unit
 
 
@@ -22,11 +23,47 @@ def test_search_folds_umlauts(session: Session) -> None:
     assert [f.name for f in search_foods(session, "ÖL")] == ["Rapsöl"]
 
 
-def test_search_ranks_closer_names_first(session: Session) -> None:
-    make_food(session, "Hühnerei, gekocht, mit Schale")
-    make_food(session, "Ei")
+def _bls(session: Session, *names: str) -> None:
+    for index, name in enumerate(names):
+        make_food(session, name, source=FoodSource.BLS, source_id=f"T{index:06d}")
 
-    assert search_foods(session, "ei")[0].name == "Ei"
+
+def test_search_prefers_whole_word_and_main_word(session: Session) -> None:
+    _bls(session, "Reisrand", "Curryreis", "Milchreis gekocht", "Reis poliert, roh", "Reis Mehl")
+
+    names = [food.name for food in search_foods(session, "reis")]
+
+    assert names[:2] == ["Reis poliert, roh", "Reis Mehl"]
+    assert names.index("Reisrand") < names.index("Curryreis")
+
+
+def test_search_prefers_raw_and_own_foods(session: Session) -> None:
+    _bls(session, "Lachs gegrillt", "Lachs roh")
+    make_food(session, "Lachs")
+
+    assert [food.name for food in search_foods(session, "lachs")] == [
+        "Lachs roh",
+        "Lachs",
+        "Lachs gegrillt",
+    ]
+
+
+def test_search_ignores_spaces_between_words(session: Session) -> None:
+    _bls(session, "Hafer Flocken")
+
+    assert [food.name for food in search_foods(session, "haferflocken")] == ["Hafer Flocken"]
+
+
+def test_hyphenated_words_do_not_count_as_main_word(session: Session) -> None:
+    _bls(session, "Quark-Plunder", "Joghurt-Dip", "Joghurt mild, mind. 3,5 % Fett")
+
+    assert search_foods(session, "joghurt")[0].name == "Joghurt mild, mind. 3,5 % Fett"
+
+
+def test_fuzzy_fallback_finds_other_spelling(session: Session) -> None:
+    _bls(session, "Broccoli roh", "Aioli")
+
+    assert search_foods(session, "brokkoli")[0].name == "Broccoli roh"
 
 
 def test_empty_search_lists_newest_first(session: Session) -> None:

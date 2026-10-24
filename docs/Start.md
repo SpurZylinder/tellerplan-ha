@@ -24,4 +24,5 @@ Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: F
 - [x] Kochansicht mit Schritten und mitlaufenden Zutaten; Link „In Cookidoo öffnen“
 - [x] Plan: Spalten oder Liste, drei Tage zurück und zwei Wochen voraus, Rezepte verschieben
 - [x] Heute als Tages-Dashboard: Halbkreis mit Rest kcal, Makro-Balken, Eintragen pro Mahlzeit, Übernahme aus dem Plan
-- [ ] Importe: BLS, Freitext, Cookidoo (Stufe 4)
+- [x] BLS 4.0: 7.140 Lebensmittel, Suche mit Ranking und unscharfer Suche, Demo-Rezepte auf BLS-Basis
+- [ ] Importe: Freitext, Zeilenparser, Matching mit Alias-Lernen, Cookidoo (Stufe 4)

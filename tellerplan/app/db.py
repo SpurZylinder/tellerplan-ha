@@ -1,5 +1,6 @@
 """Datenbankzugang: Engine, Sessions und deklarative Basis für alle Module."""
 
+import re
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
@@ -19,13 +20,22 @@ class Base(DeclarativeBase):
     """Gemeinsame Basis aller ORM-Modelle."""
 
 
-def _casefold(value: str | None) -> str | None:
-    return value.casefold() if value is not None else None
+WORD_PATTERN = re.compile(r"\w+")
+
+
+def search_words(text: str) -> list[str]:
+    """Wörter in Kleinschreibung (Unicode, also auch Umlaute), ohne Satzzeichen."""
+    return WORD_PATTERN.findall(text.casefold())
+
+
+def search_key(text: str | None) -> str | None:
+    """Suchschlüssel: Wörter zusammengeschrieben, z. B. „Hafer Flocken“ → „haferflocken“."""
+    return "".join(search_words(text)) if text is not None else None
 
 
 def _configure_sqlite(connection: SQLiteConnection, _record: ConnectionPoolEntry) -> None:
-    # SQLites lower() kennt keine Umlaute; casefold() für Suchen ohne Groß/klein.
-    connection.create_function("casefold", 1, _casefold, deterministic=True)
+    # SQLites lower() kennt keine Umlaute; search_key() normalisiert in Python.
+    connection.create_function("search_key", 1, search_key, deterministic=True)
     cursor = connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA journal_mode=WAL")

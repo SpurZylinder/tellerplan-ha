@@ -29,7 +29,7 @@ Die vollständige Architektur steht in `docs/Architektur.md`. Lies sie vor jeder
 
 ## Stack
 
-- Python 3.14, FastAPI, SQLAlchemy 2, Alembic, SQLite (FTS5), rapidfuzz
+- Python 3.14, FastAPI, SQLAlchemy 2, Alembic, SQLite, rapidfuzz
 - Jinja-Templates + HTMX, Vanilla JS für Ranking und Wochenplan, **kein Frontend-Build**
 - Design-Tokens in `web/static/tokens.css` (aus dem Widget „Protein-Ranking Fürth“: Grün = Eiweiß, Orange = kcal, Hell/Dunkel, Bricolage Grotesque / IBM Plex)
 - pytest, Ruff
@@ -43,7 +43,7 @@ tellerplan-ha/
 ├── .obsidian/                 Obsidian-Einstellungen (Vault = Repo, sichtbar nur docs/)
 ├── docs/                      Projektdoku als Obsidian-Vault (Start.md, Architektur.md, Entwicklung.md)
 ├── dev/                       lokale options.json + DB (nicht im Git, Vorlage options.example.json)
-├── tools/                     Skripte für den Rechner (z. B. cookidoo_import.py)
+├── tools/                     Skripte für den Rechner: bls_convert.py (später cookidoo_import.py)
 └── tellerplan/                das Add-on
     ├── config.yaml            version = einzige Versionsquelle
     ├── Dockerfile · run.sh · DOCS.md
@@ -54,7 +54,8 @@ tellerplan-ha/
         ├── modules/           foods · nutrition · recipes · importers · planner · diary
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
-        ├── migrations/
+        ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
+        ├── migrations/        0005 spielt BLS ein
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```
@@ -82,7 +83,13 @@ pytest
 
 # Migration anlegen
 alembic revision --autogenerate -m "<beschreibung>"
+
+# BLS-CSV neu erzeugen (im Repo-Root, Excel liegt in dev/bls/)
+pip install -r tools/requirements.txt
+python tools/bls_convert.py dev/bls/BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx tellerplan/app/data/bls_4_0.csv
 ```
+
+Tests nutzen eine migrierte Datenbank **ohne** BLS-Daten (`upgrade_to_head(..., skip_data_migrations=True)`); nur `test_database.py` prüft den echten Import.
 
 Lokale Konfiguration und Datenbank liegen in `dev/` (in `.gitignore`); Vorlage ist `dev/options.example.json`.
 
@@ -107,7 +114,7 @@ Lokale Konfiguration und Datenbank liegen in `dev/` (in `.gitignore`); Vorlage i
 1. **Kern:** Gerüst, CI/Release, UI-Rahmen (Tab-Leiste), Lebensmittel manuell + Demo-Set, Nährwertrechnung
 2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan als Tagesliste
 3. **Tagebuch:** vier Mahlzeiten, Tageslimit als Halbkreis, Makro-Balken, Übernahme aus dem Plan mit gegessenen Portionen
-4. **Importe:** BLS-Import, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
+4. **Importe:** BLS-Import (erledigt), Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl
 
 Aktuelle Stufe: **3**

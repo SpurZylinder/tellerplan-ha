@@ -30,7 +30,9 @@ uvicorn main:create_app --factory --reload --host 0.0.0.0 --port 8000
 
 Danach `http://localhost:8000` öffnen, am iPhone über die PC-IP im WLAN.
 
-Zum Ausprobieren ein Demo-Set laden: 35 Lebensmittel mit gerundeten Näherungswerten und 8 Rezepte. Das Skript ist mehrfach ausführbar, alle Einträge tragen `source_id` mit dem Präfix `demo:`.
+Die BLS-Lebensmittel (rund 7.140) kommen mit `alembic upgrade head` automatisch in die Datenbank (Migration `0005`).
+
+Zum Ausprobieren 8 Demo-Rezepte auf Basis der BLS-Lebensmittel laden; das Skript ergänzt dabei gängige Einheiten (z. B. 1 Stück Ei = 58 g). Mehrfach ausführbar, Rezepte tragen `source_id` mit dem Präfix `demo:`.
 
 ```bash
 python -m scripts.seed_demo
@@ -66,6 +68,21 @@ CI führt beides bei jedem Push und Pull Request aus (`.github/workflows/ci.yml`
   ```
 
 - Beim Add-on-Start legt `serve.py` zuerst `app.db.bak` an und migriert dann auf den neuesten Stand.
+
+## BLS aktualisieren
+
+1. Neue ZIP-Datei von [blsdb.de](https://blsdb.de/download) nach `dev/bls/` laden und entpacken (nicht im Git).
+2. CSV erzeugen (im Repo-Root):
+
+   ```bash
+   pip install -r tools/requirements.txt
+   python tools/bls_convert.py dev/bls/<ordner>/<Daten>.xlsx tellerplan/app/data/bls_<version>.csv
+   ```
+
+3. Datenmigration nach dem Muster von `migrations/versions/…_0005_bls_4_0.py` anlegen, die die neue CSV liest; vorhandene Einträge werden über den BLS-Code aktualisiert.
+4. `data/README.md` (Quelle, Version) anpassen.
+
+Lizenz CC BY 4.0: Das Max Rubner-Institut muss als Quelle genannt werden; die App zeigt das auf den Lebensmittel-Seiten.
 
 ## Release
 

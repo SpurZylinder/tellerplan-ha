@@ -117,6 +117,20 @@ Vier Abläufe tragen die App: Rezept anlegen, Zutaten zuordnen, planen, loggen.
    - **Text** (Stufe 4): freie Eingabe wie „200 g Skyr, 1 Banane“, zeilenweise geparst und gegen `foods` gematcht
 4. Jeder Eintrag wird ein `diary_entry` mit Nährwert-Snapshot; nur diese Einträge zählen für den Tagesbalken.
 
+## Lebensmitteldaten aus BLS 4.0
+
+Der Bundeslebensmittelschlüssel liefert rund 7.140 Lebensmittel mit Werten pro 100 g; er wird einmal am Rechner umgewandelt und dann per Migration eingespielt.
+
+| Schritt | Wo | Was |
+| --- | --- | --- |
+| Umwandeln | Rechner, `tools/bls_convert.py` | Excel-Datei des MRI → `tellerplan/app/data/bls_4_0.csv` mit BLS-Code, Name und sieben Nährwerten (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz); „TR“/„<LOD“ → 0, „-“ → leer |
+| Einspielen | Add-on-Start, Migration `0005` | Lebensmittel mit `source = bls` und BLS-Code als `source_id`; vorhandene Einträge werden über den Code aktualisiert, Rezeptverweise bleiben erhalten |
+| Anzeigen | Lebensmittel-Seiten | Kennzeichen „BLS“ bzw. „eigen“, Quellenangabe (CC BY 4.0); BLS-Werte schreibgeschützt, Einheiten (z. B. 1 Stück) ergänzbar |
+
+Eine neue BLS-Version heißt: CSV neu erzeugen und eine weitere Datenmigration nach dem Muster von `0005` anlegen. BLS kennt keine Portionsgrößen; Einheiten pflegt der Nutzer pro Lebensmittel.
+
+**Suche:** Bei 7.000 Einträgen reicht SQL mit einem normalisierten Suchschlüssel (Kleinschreibung, Wörter zusammengeschrieben, also „haferflocken“ = „Hafer Flocken“) plus Ranking in Python: ganzes Wort vor Wortanfang vor Wortende, Treffer im ersten Wort (BLS-Namen beginnen mit dem Lebensmittel), dann „roh“, eigene Einträge und kurze Namen. Ohne Treffer folgt eine unscharfe Suche mit `rapidfuzz` („brokkoli“ → „Broccoli roh“). FTS5 ist damit vorerst nicht nötig; mehrdeutige Kurzwörter wie „ei“ löst später das Alias-Lernen.
+
 ## Importer
 
 Alle Importer erfüllen dasselbe Interface `parse(eingabe) → RecipeDraft` und liefern nie Nährwerte.
@@ -168,9 +182,9 @@ Python mit FastAPI und SQLite, serverseitig gerendert, ohne Frontend-Build; Ver�
 | Ebene | Wahl |
 | --- | --- |
 | Backend | Python 3.14, FastAPI, SQLAlchemy 2, Alembic für Migrationen |
-| Datenbank | SQLite in `/data/app.db`, Volltextsuche über SQLite FTS5 |
+| Datenbank | SQLite in `/data/app.db`; Lebensmittelsuche über normalisierten Suchschlüssel, FTS5 erst bei Bedarf |
 | Frontend | Jinja-Templates, HTMX für Formulare, Vanilla JS für Ranking und Plan |
-| Matching | `rapidfuzz` für Ähnlichkeitssuche, eigener Zeilenparser für Menge/Einheit |
+| Matching | `rapidfuzz` für Ranking und unscharfe Suche, eigener Zeilenparser für Menge/Einheit |
 | Tests und Qualität | pytest, Ruff |
 | Betrieb | HA-Add-on mit Ingress; Port 8099 mit API-Token für Kurzbefehle |
 
@@ -206,13 +220,13 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 1. **Kern:** Repo, Add-on-Gerüst, CI/Release, UI-Rahmen mit Tab-Leiste, Lebensmittel manuell und als Demo-Set, Nährwertrechnung
 2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan als Tagesliste
 3. **Tagebuch:** vier Mahlzeiten, Tageslimit als Halbkreis und Makro-Balken, Übernahme aus dem Plan mit gegessenen Portionen
-4. **Importe:** BLS-Import, Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
+4. **Importe:** BLS-Import (erledigt), Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health
 
 **Offene Punkte**
 
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
-- [ ] Welche Nährstoffe außer kcal, Eiweiß, Fett und KH sollen sichtbar sein (z. B. Ballaststoffe, Zucker)?
+- [x] Welche Nährstoffe werden übernommen? Aus BLS die sieben vorhandenen Felder (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz); weitere lassen sich aus der Excel-Datei nachziehen. Offen bleibt, welche davon die Oberfläche zeigt.
 - [ ] HTTPS für die API auf Port 8099, vor dem Cookidoo-Kurzbefehl in Stufe 4: Bisher spricht der Port direkt HTTP, ein Token von unterwegs ginge unverschlüsselt. Optionen: Zertifikate von Home Assistant einbinden (`map: ssl` in `config.yaml`, uvicorn mit `/ssl/fullchain.pem` und `/ssl/privkey.pem`) oder Zugriff über einen vorhandenen Reverse Proxy. Ingress ist nicht betroffen, dort übernimmt Home Assistant HTTPS. Lokal bleibt HTTP; Browser-Funktionen wie Kamera (Barcode, Stufe 5) oder Bildschirm wach halten brauchen auf dem iPhone eine HTTPS-Verbindung, also Ingress.
 - [ ] Sollen Importer auch Kochschritte übernehmen (bisher nur von Hand)? Regel 2 erlaubt aktuell nur Titel, Portionen, Link, Quell-ID und Zutatenzeilen.
 - [ ] Wie groß ist die Sammlung „Fürth“, und soll sie komplett oder schrittweise importiert werden?

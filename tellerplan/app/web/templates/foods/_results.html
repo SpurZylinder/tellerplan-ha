@@ -1,3 +1,4 @@
+{% from "_macros.html" import food_source %}
 {% if foods %}
   <ul class="list">
     {% for food in foods %}
@@ -8,6 +9,7 @@
             <span class="pill k">{{ food.kcal|num }} kcal</span>
             <span class="pill p">{{ food.protein_g|num(1) }} g Eiweiß</span>
             <span class="meta">je 100 g</span>
+            {{ food_source(food) }}
           </span>
         </div>
       </li>

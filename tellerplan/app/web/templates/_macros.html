@@ -24,3 +24,14 @@
     </a>
   {% endif %}
 {% endmacro %}
+
+{% macro food_source(food) %}
+  <span class="pill d" title="{{ 'Bundeslebensmittelschlüssel 4.0' if food.source == 'bls' else 'Selbst angelegt' }}">
+    {{- "BLS" if food.source == "bls" else "eigen" -}}
+  </span>
+{% endmacro %}
+
+{% macro bls_attribution() %}
+  <p class="meta">Lebensmitteldaten: Bundeslebensmittelschlüssel (BLS) 4.0, Max Rubner-Institut,
+    <a href="https://creativecommons.org/licenses/by/4.0/deed.de" target="_blank" rel="noopener">CC BY 4.0</a>.</p>
+{% endmacro %}

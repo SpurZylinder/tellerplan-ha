@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 
-from modules.foods.models import Food
+from modules.foods.models import Food, FoodSource
 from modules.foods.service import FoodInput, create_food, set_unit
 from modules.recipes.models import Recipe
 from modules.recipes.service import IngredientInput, RecipeInput, add_ingredient, create_recipe
@@ -16,8 +16,10 @@ def make_food(
     fat_g: float = 0.2,
     carbs_g: float = 4,
     units: dict[str, float] | None = None,
+    source: FoodSource = FoodSource.CUSTOM,
+    source_id: str | None = None,
 ) -> Food:
-    food = create_food(session, FoodInput(name, kcal, protein_g, fat_g, carbs_g))
+    food = create_food(session, FoodInput(name, kcal, protein_g, fat_g, carbs_g), source, source_id)
     for unit, grams in (units or {}).items():
         set_unit(session, food, unit, grams)
     return food

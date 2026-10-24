@@ -1,63 +1,74 @@
-"""Legt ein Demo-Set an Lebensmitteln und Rezepten an (mehrfach ausführbar).
+"""Legt Demo-Rezepte auf Basis der BLS-Lebensmittel an (mehrfach ausführbar).
 
 Aufruf in tellerplan/app:  python -m scripts.seed_demo
 
-Die Nährwerte sind gerundete Näherungen für gängige Produkte, gedacht zum
-Ausprobieren, bis der BLS-Import kommt. Alle Einträge tragen `source_id`
-mit dem Präfix „demo:“ und lassen sich daran später erkennen.
+Voraussetzung: Die BLS-Lebensmittel sind eingespielt (Migration 0005). Das Skript
+ergänzt bei den verwendeten BLS-Lebensmitteln gängige Einheiten (z. B. 1 Stück Ei)
+und legt die Demo-Rezepte an. Rezepte tragen `source_id` mit dem Präfix „demo:“.
+
+Ältere Demo-Lebensmittel mit Näherungswerten (source_id „demo:…“) werden durch die
+BLS-Einträge ersetzt: Zutaten und Tagebucheinträge zeigen danach auf BLS, die
+Demo-Lebensmittel werden gelöscht.
 """
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from db import create_db_engine, create_session_factory
 from migrate import upgrade_to_head
+from modules.diary.models import DiaryEntry
 from modules.foods.models import Food, FoodSource
-from modules.foods.service import FoodInput, create_food, find_by_source, set_unit
-from modules.recipes.models import Recipe
-from modules.recipes.service import IngredientInput, RecipeInput, add_ingredient, create_recipe
+from modules.foods.service import find_by_source, set_unit
+from modules.recipes.models import Recipe, RecipeIngredient
+from modules.recipes.service import (
+    IngredientInput,
+    RecipeInput,
+    add_ingredient,
+    create_recipe,
+    describe_ingredient,
+)
 from settings import get_settings
 
 DEMO_PREFIX = "demo:"
 DEMO_SOURCE = "demo"
 
-# slug: (Name, kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz) pro 100 g, Einheiten in g
-FOODS: dict[str, tuple[tuple[str, float, float, float, float, float, float, float], dict]] = {
-    "skyr": (("Skyr natur", 63, 11, 0.2, 4, 0, 4, 0.1), {"Becher": 450}),
-    "magerquark": (("Magerquark", 67, 12, 0.3, 4, 0, 4, 0.1), {"Becher": 250}),
-    "huettenkaese": (("Hüttenkäse", 100, 12.5, 4.5, 2.5, 0, 2.5, 0.7), {"Becher": 200}),
-    "heidelbeeren": (("Heidelbeeren", 42, 0.6, 0.6, 7.4, 4.9, 7.4, 0), {"Handvoll": 50}),
-    "haferflocken": (("Haferflocken", 370, 13.5, 7, 59, 10, 1, 0), {"EL": 10}),
-    "honig": (("Honig", 310, 0.4, 0, 75, 0, 75, 0), {"TL": 7, "EL": 20}),
-    "haehnchenbrust": (("Hähnchenbrustfilet, roh", 105, 23.5, 1.2, 0, 0, 0, 0.15), {}),
-    "reis": (("Basmatireis, roh", 350, 8, 0.6, 77, 1.4, 0.2, 0), {}),
-    "brokkoli": (("Brokkoli", 34, 3.6, 0.2, 2.7, 3, 2, 0.05), {"Stück": 400}),
-    "rapsoel": (("Rapsöl", 900, 0, 100, 0, 0, 0, 0), {"EL": 10, "TL": 4}),
-    "olivenoel": (("Olivenöl", 900, 0, 100, 0, 0, 0, 0), {"EL": 10, "TL": 4}),
-    "sojasauce": (("Sojasauce", 60, 8, 0.1, 6, 0, 1, 15), {"EL": 16, "TL": 6}),
-    "knoblauch": (("Knoblauch", 140, 6, 0.1, 28, 2, 1, 0), {"Zehe": 4}),
-    "rote_linsen": (("Rote Linsen, getrocknet", 340, 24, 1.5, 50, 11, 2, 0.05), {}),
-    "vollkornspaghetti": (("Vollkornspaghetti, roh", 350, 14, 2.5, 64, 9, 3, 0), {}),
-    "passierte_tomaten": (("Passierte Tomaten", 33, 1.5, 0.2, 5, 1.5, 4.5, 0.2), {"Packung": 500}),
-    "zwiebel": (("Zwiebel", 28, 1.2, 0.2, 5, 1.8, 4, 0), {"Stück": 80}),
-    "moehre": (("Möhre", 36, 0.9, 0.2, 7, 3.6, 5, 0.1), {"Stück": 80}),
-    "parmesan": (("Parmesan", 390, 35, 28, 0, 0, 0, 1.6), {"EL": 6}),
-    "ei": (("Hühnerei", 140, 12.5, 9.5, 0.7, 0, 0.7, 0.35), {"Stück": 58}),
-    "vollkornbrot": (("Vollkornbrot", 220, 7.5, 1.5, 40, 8, 3, 1.1), {"Scheibe": 50}),
-    "butter": (("Butter", 740, 0.7, 82, 0.6, 0, 0.6, 0), {"EL": 10, "TL": 5}),
-    "lachs": (("Lachsfilet, roh", 200, 20, 13, 0, 0, 0, 0.1), {"Stück": 125}),
-    "kartoffeln": (("Kartoffeln, roh", 72, 2, 0.1, 15, 2, 0.8, 0), {"Stück": 100}),
-    "spinat": (("Blattspinat", 23, 2.5, 0.4, 0.6, 2.6, 0.4, 0.15), {}),
-    "kochsahne": (("Kochsahne 15 %", 160, 3, 15, 4, 0, 4, 0.1), {"EL": 15}),
-    "banane": (("Banane", 93, 1.1, 0.2, 20, 2, 17, 0), {"Stück": 120}),
-    "milch": (("Milch 1,5 %", 47, 3.4, 1.5, 4.8, 0, 4.8, 0.1), {"ml": 1.03}),
-    "apfel": (("Apfel", 54, 0.3, 0.2, 12, 2.3, 10, 0), {"Stück": 150}),
-    "mandeln": (("Mandeln", 600, 24, 52, 4, 12, 4, 0), {"Handvoll": 25}),
-    "tofu": (("Tofu natur", 150, 15, 8.5, 2, 0.5, 0.5, 0), {"Packung": 200}),
-    "kichererbsen": (("Kichererbsen, abgetropft", 120, 7, 2.5, 16, 6, 0.5, 0.5), {"Dose": 240}),
-    "thunfisch": (("Thunfisch im eigenen Saft", 110, 25, 1, 0, 0, 0, 0.9), {"Dose": 150}),
-    "paprika": (("Paprika, rot", 37, 1, 0.5, 6, 3.6, 6, 0), {"Stück": 160}),
-    "gurke": (("Salatgurke", 15, 0.6, 0.2, 2, 0.5, 2, 0), {"Stück": 400}),
+# slug: (BLS-Code, Einheiten in Gramm)
+FOODS: dict[str, tuple[str, dict[str, float]]] = {
+    "skyr": ("M710100", {"Becher": 450}),
+    "magerquark": ("M713100", {"Becher": 250}),
+    "huettenkaese": ("M711100", {"Becher": 200}),
+    "heidelbeeren": ("F304100", {"Handvoll": 50}),
+    "haferflocken": ("C133000", {"EL": 10}),
+    "honig": ("S120000", {"TL": 7, "EL": 20}),
+    "haehnchenbrust": ("V416100", {}),
+    "reis": ("C352000", {}),
+    "brokkoli": ("G312100", {"Stück": 400}),
+    "rapsoel": ("Q180000", {"EL": 10, "TL": 4}),
+    "olivenoel": ("Q120000", {"EL": 10, "TL": 4}),
+    "sojasauce": ("R143000", {"EL": 16, "TL": 6}),
+    "knoblauch": ("G490100", {"Zehe": 4}),
+    "rote_linsen": ("H730000", {}),
+    "vollkornspaghetti": ("E510000", {}),
+    "passierte_tomaten": ("R161200", {"Packung": 500}),
+    "zwiebel": ("G480100", {"Stück": 80}),
+    "moehre": ("G620100", {"Stück": 80}),
+    "parmesan": ("M306400", {"EL": 6}),
+    "ei": ("E111100", {"Stück": 58}),
+    "vollkornbrot": ("B101000", {"Scheibe": 50}),
+    "butter": ("Q630000", {"EL": 10, "TL": 5}),
+    "lachs": ("T410100", {"Stück": 125}),
+    "kartoffeln": ("K110100", {"Stück": 100}),
+    "spinat": ("G211100", {}),
+    "kochsahne": ("M171500", {"EL": 15}),  # BLS kennt keine Kochsahne; Kaffeesahne 10 %
+    "banane": ("F503100", {"Stück": 120}),
+    "milch": ("M111200", {"ml": 1.03}),
+    "apfel": ("F110100", {"Stück": 150}),
+    "mandeln": ("H210100", {"Handvoll": 25}),
+    "tofu": ("H861000", {"Packung": 200}),
+    "kichererbsen": ("H720902", {"Dose": 240}),
+    "thunfisch": ("T121902", {"Dose": 150}),
+    "paprika": ("G543100", {"Stück": 160}),
+    "gurke": ("G520100", {"Stück": 400}),
 }
 
 # slug: (Titel, Portionen, Kategorie, [(Lebensmittel, Menge, Einheit, optional)])
@@ -183,18 +194,45 @@ Pfanne mit wenig Öl erhitzen, je 2 EL Teig hineingeben und von jeder Seite 2 Mi
 
 
 def seed_foods(session: Session) -> dict[str, Food]:
+    """BLS-Lebensmittel der Demo-Rezepte holen und ihre Einheiten ergänzen."""
     foods: dict[str, Food] = {}
-    for slug, (values, units) in FOODS.items():
-        source_id = f"{DEMO_PREFIX}{slug}"
-        food = find_by_source(session, FoodSource.CUSTOM, source_id)
+    for slug, (bls_code, units) in FOODS.items():
+        food = find_by_source(session, FoodSource.BLS, bls_code)
         if food is None:
-            name, kcal, protein, fat, carbs, fiber, sugar, salt = values
-            data = FoodInput(name, kcal, protein, fat, carbs, fiber, sugar, salt)
-            food = create_food(session, data, FoodSource.CUSTOM, source_id)
+            raise SystemExit(f"BLS-Lebensmittel {bls_code} fehlt – Migration 0005 gelaufen?")
         for unit_name, grams in units.items():
             set_unit(session, food, unit_name, grams)
         foods[slug] = food
     return foods
+
+
+def replace_demo_foods(session: Session, foods: dict[str, Food]) -> int:
+    """Verweise von alten Demo-Lebensmitteln auf BLS umhängen, dann die alten löschen."""
+    replaced = 0
+    for slug, food in foods.items():
+        old = find_by_source(session, FoodSource.CUSTOM, f"{DEMO_PREFIX}{slug}")
+        if old is None:
+            continue
+        session.execute(
+            update(RecipeIngredient)
+            .where(RecipeIngredient.food_id == old.id)
+            .values(food_id=food.id)
+        )
+        session.execute(
+            update(DiaryEntry).where(DiaryEntry.food_id == old.id).values(food_id=food.id)
+        )
+        session.delete(old)
+        replaced += 1
+    session.flush()
+    for ingredient in session.scalars(
+        select(RecipeIngredient).where(
+            RecipeIngredient.food_id.in_([food.id for food in foods.values()])
+        )
+    ):
+        ingredient.raw_text = describe_ingredient(
+            ingredient.quantity, ingredient.unit, ingredient.food.name
+        )
+    return replaced
 
 
 def seed_recipes(session: Session, foods: dict[str, Food]) -> int:
@@ -224,10 +262,14 @@ def main() -> None:
     engine = create_db_engine(settings)
     with create_session_factory(engine)() as session:
         foods = seed_foods(session)
+        replaced = replace_demo_foods(session, foods)
         created = seed_recipes(session, foods)
         session.commit()
     engine.dispose()
-    print(f"Demo-Set: {len(foods)} Lebensmittel, {created} neue Rezepte.")
+    print(
+        f"Demo-Set: {len(foods)} BLS-Lebensmittel mit Einheiten, {created} neue Rezepte, "
+        f"{replaced} alte Demo-Lebensmittel ersetzt."
+    )
 
 
 if __name__ == "__main__":

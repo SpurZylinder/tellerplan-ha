@@ -1,15 +1,25 @@
 """Lebensmittel anlegen, ändern, suchen; Einheiten pflegen."""
 
+import re
 from dataclasses import asdict, dataclass
 
-from rapidfuzz import fuzz
+from rapidfuzz import fuzz, process
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from db import search_key, search_words
 from modules.foods.models import Food, FoodSource, FoodUnit
 
 SEARCH_LIMIT = 30
-SEARCH_CANDIDATES = 300
+SEARCH_CANDIDATES = 1000
+# Unscharfe Suche nur, wenn nichts direkt passt; Schwelle für rapidfuzz (0–100)
+FUZZY_CUTOFF = 75
+RAW_WORD = "roh"
+# Fürs Ranking gelten Bindestrich-Wörter als ein Wort („Quark-Plunder“ ist kein „Quark“)
+RANK_WORD_PATTERN = re.compile(r"[\w-]+")
+
+# Trefferstufen eines Suchworts in einem Namen
+EXACT_WORD, WORD_START, WORD_END, INSIDE = 3, 2, 1, 0
 
 
 @dataclass(frozen=True)
@@ -58,23 +68,62 @@ def list_foods(session: Session, limit: int = SEARCH_LIMIT) -> list[Food]:
     return list(session.scalars(select(Food).order_by(Food.id.desc()).limit(limit)))
 
 
+def _match_level(term: str, words: list[str]) -> int:
+    if term in words:
+        return EXACT_WORD
+    if any(word.startswith(term) for word in words):
+        return WORD_START
+    if any(word.endswith(term) for word in words):
+        return WORD_END
+    return INSIDE
+
+
+def _rank(food: Food, terms: list[str]) -> tuple[int, int, bool, bool, int]:
+    """Sortierschlüssel: Trefferqualität, Hauptwort, roh, eigene zuerst, kurze Namen."""
+    words = RANK_WORD_PATTERN.findall(food.name.casefold())
+    main_word = words[:1]
+    return (
+        -sum(_match_level(term, words) for term in terms),
+        -_match_level(terms[0], main_word),
+        RAW_WORD not in words,
+        food.source != FoodSource.CUSTOM,
+        len(food.name),
+    )
+
+
+def _fuzzy_candidates(session: Session, needle: str, limit: int) -> list[Food]:
+    """Ähnliche Schreibweisen, z. B. „brokkoli“ → „Broccoli roh“."""
+    names = dict(session.execute(select(Food.id, Food.name)).all())
+    matches = process.extract(
+        needle,
+        {food_id: search_key(name) for food_id, name in names.items()},
+        scorer=fuzz.partial_ratio,
+        score_cutoff=FUZZY_CUTOFF,
+        limit=SEARCH_CANDIDATES,
+    )
+    scores = {food_id: score for _, score, food_id in matches}
+    foods = session.scalars(select(Food).where(Food.id.in_(scores))).all()
+
+    def closeness(food: Food) -> tuple[float, bool, int]:
+        raw = RAW_WORD in RANK_WORD_PATTERN.findall(food.name.casefold())
+        return (-scores[food.id], not raw, len(food.name))
+
+    return sorted(foods, key=closeness)[:limit]
+
+
 def search_foods(session: Session, query: str, limit: int = SEARCH_LIMIT) -> list[Food]:
-    """Alle Suchwörter müssen im Namen vorkommen; sortiert nach Ähnlichkeit."""
-    terms = query.casefold().split()
+    """Alle Suchwörter müssen im Namen vorkommen (Leerzeichen egal); beste Treffer zuerst."""
+    terms = search_words(query)
     if not terms:
         return list_foods(session, limit)
 
     statement = select(Food)
     for term in terms:
-        statement = statement.where(func.casefold(Food.name).contains(term, autoescape=True))
+        statement = statement.where(func.search_key(Food.name).contains(term, autoescape=True))
     candidates = session.scalars(statement.limit(SEARCH_CANDIDATES)).all()
-
-    needle = " ".join(terms)
-    ranked = sorted(
-        candidates,
-        key=lambda food: (-fuzz.WRatio(needle, food.name.casefold()), len(food.name)),
-    )
-    return ranked[:limit]
+    if not candidates:
+        return _fuzzy_candidates(session, "".join(terms), limit)
+    return sorted(candidates, key=lambda food: _rank(food, terms))[:limit]
 
 
 def set_unit(session: Session, food: Food, name: str, grams: float) -> FoodUnit:
