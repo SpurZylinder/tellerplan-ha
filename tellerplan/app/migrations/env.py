@@ -41,9 +41,19 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     engine = create_db_engine(_settings())
     with engine.connect() as connection:
+        # SQLite baut Tabellen für manche Änderungen neu auf (kopieren, löschen,
+        # umbenennen). Mit aktiven Fremdschlüsseln würde das Löschen per CASCADE
+        # abhängige Zeilen mitnehmen, z. B. alle Planeinträge eines Rezepts.
+        # Das Pragma wirkt nur außerhalb einer Transaktion.
+        # commit() beendet die von SQLAlchemy automatisch begonnene Transaktion,
+        # sonst hielte Alembic die Migration für Teil einer äußeren und schriebe nichts fest.
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
         _configure(connection=connection)
         with context.begin_transaction():
             context.run_migrations()
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        connection.commit()
     engine.dispose()
 
 

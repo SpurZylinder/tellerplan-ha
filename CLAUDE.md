@@ -11,8 +11,8 @@ Die vollständige Architektur steht in `docs/Architektur.md`. Lies sie vor jeder
 
 ## Unverrückbare Regeln
 
-1. **Nährwerte existieren nur an `food`** (pro 100 g). Rezepte, Plan und Tagebuch speichern keine eigenen Nährwertfelder.
-2. **Importer liefern nie Nährwerte.** Ein Import erzeugt nur Titel, Standardportionen, Quell-Link, Quell-ID und rohe Zutatenzeilen. Nährwertangaben der Quelle (Cookidoo, Chefkoch …) werden verworfen.
+1. **Nährwerte existieren nur an `food`** (pro 100 g). Rezepte, Plan und Tagebuch speichern keine eigenen Nährwertfelder. Einzige Ausnahme: `recipe_reference` hält Vergleichswerte der Quelle, die nur angezeigt und nie gerechnet werden.
+2. **Importer liefern nie Nährwerte.** Ein Import erzeugt nur Titel, Standardportionen, Quell-Link, Quell-ID und rohe Zutatenzeilen. Nährwertangaben der Quelle (Cookidoo, Chefkoch …) fließen nie in die Rechnung; sie dürfen nur als Vergleichswert (`recipe_reference`) mitkommen.
 3. **Nur `modules/nutrition` rechnet Nährwerte.** Alle anderen Module fragen es.
 4. **`diary_entry` speichert einen Nährwert-Snapshot.** Spätere Rezeptänderungen dürfen vergangene Tage nicht verändern.
 5. **Portionen:** Rezept = Standardportionen; `plan_entry` = Rezept an einem Tag mit geplanten Portionen (Vorgabe: Standardportionen; keine Mahlzeit); `diary_entry` = gegessene Portionen. Nur das Tagebuch zählt für die Tageswerte, eingetragen wird nur auf „Heute“.
@@ -43,7 +43,7 @@ tellerplan-ha/
 ├── .obsidian/                 Obsidian-Einstellungen (Vault = Repo, sichtbar nur docs/)
 ├── docs/                      Projektdoku als Obsidian-Vault (Start.md, Architektur.md, Entwicklung.md)
 ├── dev/                       lokale options.json + DB (nicht im Git, Vorlage options.example.json)
-├── tools/                     Skripte für den Rechner: bls_convert.py (später cookidoo_import.py)
+├── tools/                     Skripte für den Rechner: bls_convert.py, cookidoo_fetch.py
 └── tellerplan/                das Add-on
     ├── config.yaml            version = einzige Versionsquelle
     ├── Dockerfile · run.sh · DOCS.md
@@ -59,7 +59,7 @@ tellerplan-ha/
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```

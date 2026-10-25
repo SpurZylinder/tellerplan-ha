@@ -395,3 +395,26 @@ def test_send_result_is_logged(
 
     assert "0 Artikel aus 1 Rezepten an todo.x gesendet, 1 fehlgeschlagen" in caplog.text
     assert "Broccoli: Entität unbekannt" in caplog.text
+
+
+def test_imported_unmatched_lines_use_parsed_name_and_amount(session: Session) -> None:
+    recipe = make_recipe(session, "Auflauf")
+    recipe.ingredients.append(
+        RecipeIngredient(
+            position=1,
+            raw_text="350 g Brokkoliröschen",
+            name="Brokkoliröschen",
+            quantity=350,
+            unit="g",
+        )
+    )
+    recipe.ingredients.append(RecipeIngredient(position=2, raw_text="½ TL Salz", name="Salz"))
+    session.flush()
+    add_entry(session, MONDAY, recipe)
+
+    shopping = build_shopping_list(session, MONDAY, 1, PANTRY)
+
+    assert [(item.name, item.description) for item in shopping.items] == [
+        ("Brokkoliröschen", "350 g")
+    ]
+    assert [item.name for item in shopping.pantry] == ["Salz"]

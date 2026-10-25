@@ -96,3 +96,39 @@ def test_migration_0007_fills_plan_servings_from_recipe(settings: Settings) -> N
     connection = sqlite3.connect(settings.database_path)
     assert connection.execute("SELECT servings FROM plan_entry").fetchall() == [(4.0,)]
     connection.close()
+
+
+def test_migrations_keep_dependent_rows(settings: Settings) -> None:
+    # SQLite baut Tabellen bei manchen Migrationen neu auf; mit aktiven Fremdschlüsseln
+    # hätte ON DELETE CASCADE dabei Zutaten, Planeinträge und Verweise gelöscht.
+    command.upgrade(alembic_config(settings, skip_data_migrations=True), "0006")
+    connection = sqlite3.connect(settings.database_path)
+    connection.executescript(
+        """
+        INSERT INTO food (id, name, source, kcal, protein_g, fat_g, carbs_g)
+            VALUES (1, 'Skyr', 'custom', 60, 11, 0.2, 4);
+        INSERT INTO recipe (id, title, source, servings, is_favorite)
+            VALUES (1, 'Bowl', 'manual', 2, 0);
+        INSERT INTO recipe_ingredient (id, recipe_id, position, raw_text, quantity, unit,
+            food_id, grams, is_optional) VALUES (1, 1, 1, '200 g Skyr', 200, 'g', 1, 200, 0);
+        INSERT INTO plan_entry (id, day, recipe_id) VALUES (1, '2026-10-25', 1);
+        INSERT INTO diary_entry (id, day, meal, recipe_id, plan_entry_id, servings, label,
+            kcal, protein_g, fat_g, carbs_g, is_complete)
+            VALUES (1, '2026-10-25', 'Mittag', 1, 1, 1, 'Bowl', 60, 11, 0.2, 4, 1);
+        """
+    )
+    connection.close()
+
+    upgrade_to_head(settings, skip_data_migrations=True)
+
+    connection = sqlite3.connect(settings.database_path)
+    counts = {
+        table: connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        for table in ("recipe", "recipe_ingredient", "plan_entry", "diary_entry")
+    }
+    plan_link = connection.execute("SELECT plan_entry_id FROM diary_entry").fetchone()[0]
+    name = connection.execute("SELECT name FROM recipe_ingredient").fetchone()[0]
+    connection.close()
+    assert counts == {"recipe": 1, "recipe_ingredient": 1, "plan_entry": 1, "diary_entry": 1}
+    assert plan_link == 1
+    assert name == "Skyr"  # Migration 0010 übernimmt den Namen des Lebensmittels

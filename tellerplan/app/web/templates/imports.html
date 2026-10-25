@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}Rezepte importieren · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('settings_page') }}">← Einstellungen</a>
+    <h1>Rezepte importieren</h1>
+    <p class="lede">Entwurfsdatei hochladen, z. B. <code>cookidoo_fuerth_entwuerfe.json</code> aus <code>tools/cookidoo_fetch.py</code>.</p>
+  </header>
+
+  {% if result %}
+    <section class="card">
+      <h2>Import abgeschlossen</h2>
+      <p class="success" role="status">{{ result.created }} neu, {{ result.updated }} schon vorhanden und aktualisiert.</p>
+      <p class="meta">{{ result.matched_lines }} von {{ result.lines }} Zutatenzeilen sind einem Lebensmittel zugeordnet. Die übrigen ordnest du einmal je Zutat zu; danach gilt die Zuordnung in allen Rezepten.</p>
+      <div class="form-actions"><a class="btn" href="{{ url('recipes_page') }}">Zu den Rezepten</a></div>
+    </section>
+  {% endif %}
+
+  <form class="form card" method="post" action="{{ url('import_upload') }}" enctype="multipart/form-data">
+    {{ error_message(error) }}
+    <label class="field">Datei
+      <input class="input" type="file" name="file" accept=".json,application/json" required>
+    </label>
+    <p class="meta">Ein erneuter Import legt nichts doppelt an: vorhandene Rezepte (gleiche Quelle und ID) werden aktualisiert, ihre Zutaten und Zuordnungen bleiben. Nährwerte der Quelle dienen nur zum Vergleich.</p>
+    <div class="form-actions"><button class="btn" type="submit">Importieren</button></div>
+  </form>
+{% endblock %}

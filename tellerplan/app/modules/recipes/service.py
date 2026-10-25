@@ -10,7 +10,7 @@ from sqlalchemy.orm.strategy_options import _AbstractLoad
 from modules.foods.models import Food
 from modules.foods.service import get_food
 from modules.nutrition.service import Nutrients, to_grams, total_nutrients
-from modules.recipes.models import Recipe, RecipeIngredient
+from modules.recipes.models import IngredientAlias, Recipe, RecipeIngredient, RecipeReference
 
 
 @dataclass(frozen=True)
@@ -143,6 +143,7 @@ def add_ingredient(session: Session, recipe: Recipe, data: IngredientInput) -> R
     ingredient = RecipeIngredient(
         position=len(recipe.ingredients) + 1,
         raw_text=describe_ingredient(data.quantity, unit, food.name if food else "?"),
+        name=food.name if food else None,
         quantity=data.quantity,
         unit=unit,
         food=food,
@@ -161,6 +162,11 @@ def remove_ingredient(session: Session, recipe: Recipe, ingredient_id: int) -> N
     session.flush()
 
 
+def is_as_needed(ingredient: RecipeIngredient) -> bool:
+    """Zeile ohne Menge („Salz“, „Öl zum Braten“): nach Bedarf, zählt nicht mit."""
+    return ingredient.quantity is None and ingredient.grams is None
+
+
 def effective_grams(ingredient: RecipeIngredient) -> float | None:
     """Grammzahl einer Zeile; neu berechnet, falls inzwischen eine Einheit gepflegt wurde."""
     if ingredient.food is None:
@@ -173,14 +179,14 @@ def effective_grams(ingredient: RecipeIngredient) -> float | None:
 def ingredient_issue(ingredient: RecipeIngredient) -> IngredientIssue | None:
     if ingredient.food is None:
         return IngredientIssue.NO_FOOD
-    if effective_grams(ingredient) is None:
+    if not is_as_needed(ingredient) and effective_grams(ingredient) is None:
         return IngredientIssue.UNKNOWN_UNIT
     return None
 
 
 def summarize(recipe: Recipe) -> RecipeSummary:
-    """Nährwerte pro Portion und Matching-Grad; optionale Zutaten zählen nicht."""
-    required = [i for i in recipe.ingredients if not i.is_optional]
+    """Nährwerte pro Portion und Matching-Grad; optionale Zutaten und „nach Bedarf“ zählen nicht."""
+    required = [i for i in recipe.ingredients if not i.is_optional and not is_as_needed(i)]
     resolved = [(i.food, grams) for i in required if (grams := effective_grams(i)) is not None]
     total = total_nutrients(resolved)
     per_serving = total.scaled(1 / recipe.servings) if recipe.servings else total
@@ -195,3 +201,67 @@ def summarize(recipe: Recipe) -> RecipeSummary:
 
 def recipe_summaries(session: Session) -> list[RecipeSummary]:
     return [summarize(recipe) for recipe in list_recipes(session)]
+
+
+# --- Import und Zuordnung -------------------------------------------------
+
+
+def alias_key(name: str) -> str:
+    """Schlüssel eines Zutatennamens, z. B. „Rote  Paprika“ → „rote paprika“."""
+    return " ".join(name.casefold().split())
+
+
+def find_recipe_by_source(session: Session, source: str, source_id: str) -> Recipe | None:
+    statement = (
+        select(Recipe)
+        .where(Recipe.source == source, Recipe.source_id == source_id)
+        .options(*_with_ingredients())
+    )
+    return session.scalar(statement)
+
+
+def alias_food(session: Session, key: str) -> Food | None:
+    """Standardartikel für einen Zutatennamen, falls schon gelernt."""
+    alias = session.scalar(select(IngredientAlias).where(IngredientAlias.key == key))
+    return alias.food if alias else None
+
+
+def _set_food(ingredient: RecipeIngredient, food: Food | None) -> None:
+    ingredient.food = food
+    has_quantity = food is not None and ingredient.quantity is not None
+    ingredient.grams = (
+        to_grams(food, ingredient.quantity, ingredient.unit) if has_quantity else None
+    )
+
+
+def add_parsed_ingredient(
+    session: Session,
+    recipe: Recipe,
+    raw_text: str,
+    name: str,
+    quantity: float | None,
+    unit: str | None,
+) -> RecipeIngredient:
+    """Fügt eine importierte Zeile an; ein gelernter Standardartikel wird gleich zugeordnet."""
+    ingredient = RecipeIngredient(
+        position=len(recipe.ingredients) + 1,
+        raw_text=raw_text,
+        name=name,
+        quantity=quantity,
+        unit=unit,
+    )
+    _set_food(ingredient, alias_food(session, alias_key(name)))
+    recipe.ingredients.append(ingredient)
+    session.flush()
+    return ingredient
+
+
+def set_reference(session: Session, recipe: Recipe, values: dict[str, float | None]) -> None:
+    """Vergleichswerte der Quelle pro Portion speichern – nur zur Anzeige, nie gerechnet."""
+    recipe.reference = RecipeReference(
+        kcal=values.get("kcal"),
+        protein_g=values.get("protein_g"),
+        fat_g=values.get("fat_g"),
+        carbs_g=values.get("carbs_g"),
+    )
+    session.flush()

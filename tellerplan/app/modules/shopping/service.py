@@ -107,20 +107,24 @@ def is_pantry(names: Iterable[str], keywords: Sequence[str]) -> bool:
 
 
 def _item_name(ingredient: RecipeIngredient) -> str:
-    return shopping_name(ingredient.food) if ingredient.food else ingredient.raw_text
+    """Einkaufsname des Lebensmittels, sonst der erkannte Zutatenname, sonst der Originaltext."""
+    if ingredient.food is not None:
+        return shopping_name(ingredient.food)
+    return ingredient.name or ingredient.raw_text
 
 
 def _names_for_pantry(ingredient: RecipeIngredient) -> list[str]:
-    """Namen, deren erstes Wort geprüft wird; offene Zeilen („1 TL Salz“) Wort für Wort."""
+    """Namen, deren erstes Wort geprüft wird; Originaltext („1 TL Salz“) Wort für Wort."""
     if ingredient.food is None:
-        return ingredient.raw_text.split()
+        return [ingredient.name] if ingredient.name else ingredient.raw_text.split()
     return [ingredient.food.name, shopping_name(ingredient.food)]
 
 
 def _add(
     item: ShoppingItem, ingredient: RecipeIngredient, recipe_title: str, factor: float
 ) -> None:
-    if ingredient.food is not None and ingredient.quantity is not None:
+    # Menge auch ohne Zuordnung, wenn der Zeilenparser sie erkannt hat („350 g Brokkoliröschen“)
+    if ingredient.quantity is not None and (ingredient.food is not None or ingredient.name):
         unit = ingredient.unit or "g"
         item.amounts[unit] = item.amounts.get(unit, 0) + ingredient.quantity * factor
     # optional nur, wenn der Artikel in keinem Rezept Pflicht ist

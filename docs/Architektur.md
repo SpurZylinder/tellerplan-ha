@@ -64,15 +64,16 @@ Querschnitt: `settings` (zentrale Parameter aus `options.json`), `api` (JSON fü
 
 ## Datenmodell
 
-Zehn Tabellen; Nährwerte existieren nur an `food`, alles andere verweist darauf oder hält einen Snapshot.
+Nährwerte existieren nur an `food`, alles andere verweist darauf oder hält einen Snapshot; einzige Ausnahme sind die Vergleichswerte in `recipe_reference`, die nie gerechnet werden.
 
 | Tabelle | Wichtige Felder | Regel |
 | --- | --- | --- |
 | `food` | Name, Quelle (bls / off / custom), Quell-ID, Nährwerte pro 100 g (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz, weitere als JSON) | Einzige Stelle mit Nährwerten |
 | `food_unit` | food_id, Einheit (EL, TL, Stück, Becher, Prise), Gramm | Umrechnung pro Lebensmittel; Dichte für ml |
 | `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
-| `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Menge, Einheit, food_id (leer = offen), Gramm, optional-Flag | Jede Zeile frei editierbar, auch nach dem Matching |
-| `ingredient_alias` | normalisierter Zutatentext → food_id, Treffer-Anzahl | Wird bei jeder manuellen Zuordnung gelernt |
+| `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, erkannter Name, Menge, Einheit, food_id (leer = offen), Gramm, optional-Flag | Jede Zeile frei editierbar, auch nach dem Matching. Ohne Menge („Salz“) gilt sie als „nach Bedarf“: keine Nährwerte, zählt nicht gegen die Vollständigkeit |
+| `ingredient_alias` | Schlüssel des Zutatennamens (klein, z. B. „milch“) → food_id als Standardartikel | Wird beim Zuordnen gelernt und bei jedem Import sofort angewendet; einzelne Rezepte dürfen abweichen |
+| `recipe_reference` | recipe_id, kcal, Eiweiß, Fett, KH pro Portion laut Quelle | Nur Vergleichswert zum Erkennen falscher Zuordnungen, nie gerechnet (Regel 1 und 2) |
 | `plan_entry` | Datum, recipe_id, Portionen | Ohne Mahlzeit; Portionen beim Einplanen wählbar, Vorgabe sind die Standardportionen des Rezepts (Migration 0007) |
 | `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge + Einheit + Gramm bzw. gegessene Portionen, plan_entry_id, Bezeichnung und Nährwert-Snapshot (kcal, Eiweiß, Fett, KH), Vollständigkeit | Nur diese Einträge zählen für den Tag |
 | `goal` | gültig ab, kcal-Limit, Eiweiß-, Fett-, KH-Ziel | Historisiert, damit alte Tage gegen das damalige Ziel laufen |
@@ -139,12 +140,16 @@ Alle Importer erfüllen dasselbe Interface `parse(eingabe) → RecipeDraft` und 
 | Quelle | Eingabe | Weg | Stand |
 | --- | --- | --- | --- |
 | Cookidoo (einzeln) | Teilen-Menü der Cookidoo-App | Kurzbefehl schickt URL + Seitentext per POST an `/api/v1/import/text` | Kurzbefehl existiert, Ziel wird die eigene API statt Health |
-| Cookidoo (Sammlung) | ID-Liste aus einem Sammlungs-Link | Pro ID Rezeptseite abrufen, Titel, Portionen, Zutaten, Link extrahieren | Verfahren aus dem Ranking-Widget; Zutaten kommen neu dazu |
+| Cookidoo (Sammlung) | Sammlung als JSON aus dem Ranking-Widget (ID, Titel, Portionen, Link …) | `tools/cookidoo_fetch.py` lädt je ID die öffentliche Rezeptseite gedrosselt, nimmt aus den strukturierten Daten (JSON-LD, schema.org/Recipe) nur `recipeIngredient` und schreibt Entwürfe im Format `tellerplan-recipes` | Umgesetzt 2026-10-25: 172 Rezepte, 2.529 Zeilen |
 | Chefkoch | Rezept-URL | Strukturierte Rezeptdaten der Seite (vermutlich schema.org/Recipe), sonst HTML | Vor Umsetzung prüfen |
 | Einfach Backen | Rezept-URL | wie Chefkoch | Vor Umsetzung prüfen |
 | Freitext | Eingefügte Zutatenliste | Zeilenweise parsen | Immer verfügbar als Fallback |
 
-Der Cookidoo-Massenimport läuft am Rechner als Skript gegen die API, nicht auf dem Pi. Das hält Login-Fragen und Abruflast vom Pi fern; der Pi nimmt nur fertige Entwürfe an. Bestehende Rezepte werden über die Quell-ID erkannt und nicht doppelt angelegt.
+Der Cookidoo-Abruf läuft am Rechner, nicht auf dem Pi. Das hält Login-Fragen und Abruflast vom Pi fern; der Pi nimmt nur fertige Entwürfe an, hochgeladen unter Einstellungen → „Rezepte importieren“. Bestehende Rezepte werden über Quelle und Quell-ID erkannt (eindeutiger Index) und nicht doppelt angelegt; ein erneuter Import aktualisiert Titel, Portionen, Kategorie, Link, Notiz und Vergleichswerte, lässt aber Zutaten und Zuordnungen unverändert.
+
+**Zeilenparser** (`modules/importers/line_parser.py`): Menge mit Brüchen und Bereichen (Mittelwert), Zusätze wie „geh.“ als Notiz, Einheiten in einheitlicher Schreibweise („Prisen“ → „Prise“, „Pck.“ → „Packung“), Notizen aus Klammern und nach „, “. Eine Menge ohne Einheit bekommt „Stück“, nie Gramm (K9).
+
+**Migrationen und SQLite:** Während der Migrationen sind Fremdschlüssel ausgeschaltet. SQLite baut Tabellen für manche Änderungen neu auf; mit aktiven Fremdschlüsseln hätte ON DELETE CASCADE dabei abhängige Zeilen gelöscht (beim Bau von 0010 durch einen Test aufgefallen).
 
 ## UI und Übernahme des Ranking-Widgets
 
@@ -312,7 +317,7 @@ Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
 - [x] Welche Nährstoffe werden übernommen? Aus BLS die sieben vorhandenen Felder (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz); weitere lassen sich aus der Excel-Datei nachziehen. Offen bleibt, welche davon die Oberfläche zeigt.
 - [ ] HTTPS für die API auf Port 8099, vor dem Cookidoo-Kurzbefehl in Stufe 4: Bisher spricht der Port direkt HTTP, ein Token von unterwegs ginge unverschlüsselt. Optionen: Zertifikate von Home Assistant einbinden (`map: ssl` in `config.yaml`, uvicorn mit `/ssl/fullchain.pem` und `/ssl/privkey.pem`) oder Zugriff über einen vorhandenen Reverse Proxy. Ingress ist nicht betroffen, dort übernimmt Home Assistant HTTPS. Lokal bleibt HTTP; Browser-Funktionen wie Kamera (Barcode, Stufe 5) oder Bildschirm wach halten brauchen auf dem iPhone eine HTTPS-Verbindung, also Ingress.
-- [ ] Sollen Importer auch Kochschritte übernehmen (bisher nur von Hand)? Regel 2 erlaubt aktuell nur Titel, Portionen, Link, Quell-ID und Zutatenzeilen.
+- [ ] Kochschritte von Cookidoo übernehmen? Entschieden am 2026-10-25: im ersten Schritt nicht, zum Kochen genügt „In Cookidoo öffnen“. Später ergänzen (JSON-LD `recipeInstructions`, `tools/cookidoo_fetch.py`); dafür Regel 2 erweitern.
 - [ ] Wie groß ist die Sammlung „Fürth“, und soll sie komplett oder schrittweise importiert werden?
 
 ## Quellen
