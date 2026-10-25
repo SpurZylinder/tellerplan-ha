@@ -8,6 +8,9 @@ from modules.foods.models import Food
 GRAMS_PER_100 = 100.0
 # Feste Masseneinheiten; alle anderen Einheiten kommen aus food_unit.
 MASS_UNITS_IN_GRAMS = {"g": 1.0, "gramm": 1.0, "kg": 1000.0}
+# Behälter, die ohne eigene Angabe genau eine Packung des Produkts sind („1 Dose Kokosmilch“)
+PACKAGE_UNIT = "packung"
+CONTAINER_UNITS = {"dose", "glas", "flasche", "becher", "beutel", "tüte", "schale", "tube"}
 
 
 @dataclass(frozen=True)
@@ -31,9 +34,11 @@ def to_grams(food: Food, quantity: float, unit: str | None) -> float | None:
     key = (unit or "g").strip().casefold()
     if key in MASS_UNITS_IN_GRAMS:
         return quantity * MASS_UNITS_IN_GRAMS[key]
-    for food_unit in food.units:
-        if food_unit.name.casefold() == key:
-            return quantity * food_unit.grams
+    grams_per_unit = {food_unit.name.casefold(): food_unit.grams for food_unit in food.units}
+    if key in grams_per_unit:
+        return quantity * grams_per_unit[key]
+    if key in CONTAINER_UNITS and PACKAGE_UNIT in grams_per_unit:
+        return quantity * grams_per_unit[PACKAGE_UNIT]
     return None
 
 

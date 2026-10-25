@@ -46,3 +46,15 @@ def test_nutrients_add_and_scale() -> None:
     combined = Nutrients(kcal=100, protein_g=10) + Nutrients(kcal=50, protein_g=5)
 
     assert combined.scaled(0.5) == Nutrients(kcal=75, protein_g=7.5)
+
+
+def test_containers_count_as_one_package(session: Session) -> None:
+    coconut = make_food(session, "ja! Kokosmilch fettreduziert 400g", units={"Packung": 400})
+    tomatoes = make_food(session, "Tomaten geschält", units={"Packung": 480, "Dose": 240})
+    plain = make_food(session, "Kichererbse reif")
+
+    assert to_grams(coconut, 1, "Dose") == 400
+    assert to_grams(coconut, 0.5, "Glas") == 200
+    assert to_grams(tomatoes, 1, "Dose") == 240  # eigene Angabe geht vor
+    assert to_grams(plain, 1, "Dose") is None  # ohne Packungsgröße weiter fragen
+    assert to_grams(coconut, 1, "EL") is None
