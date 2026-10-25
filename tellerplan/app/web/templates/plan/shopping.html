@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}Einkaufsliste · Tellerplan{% endblock %}
+
+{% block head %}
+  <script src="{{ url('static', path='shopping.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <div>
+      <a class="back" href="{{ url('plan_page') }}">← Plan</a>
+      <h1>Einkaufsliste</h1>
+      <p class="meta">{{ shopping.first|day }} – {{ shopping.last|day }} · alle geplanten Rezepte</p>
+    </div>
+    <form method="post" action="{{ url('shopping_send') }}">
+      <button class="btn small" type="submit"{% if not shopping.items %} disabled{% endif %}>An Bring senden</button>
+    </form>
+  </header>
+
+  {% if sent is not none %}
+    <p class="{{ 'error' if failed else 'success' }}" role="status">
+      {{ sent }} Artikel an {{ list_entity }} gesendet{% if failed %}, {{ failed }} fehlgeschlagen{% endif %}.
+    </p>
+    {{ error_message(error) }}
+  {% elif status == "local" %}
+    <p class="meta" role="status">Lokal ohne Home Assistant: nichts gesendet. Die Liste lässt sich unten kopieren.</p>
+  {% elif status == "no-list" %}
+    <p class="error" role="alert">Keine Bring-Liste festgelegt. Bitte in den <a href="{{ url('settings_page') }}">Einstellungen</a> eintragen, z. B. todo.furth.</p>
+  {% endif %}
+
+  {% if shopping.items %}
+    <section class="card">
+      <h2>{{ shopping.items|length }} Artikel</h2>
+      <ul class="list">
+        {% for item in shopping.items %}
+          <li>
+            <div class="grow">
+              <span>{{ item.name }}</span>
+              <span class="meta">{{ item.recipes|sort|join(", ") }}</span>
+            </div>
+            {% if item.description %}<span class="pill d">{{ item.description }}</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% else %}
+    <p class="empty">In den nächsten zwei Wochen ist nichts geplant.</p>
+  {% endif %}
+
+  {% if shopping.pantry %}
+    <details class="card">
+      <summary><h2>{{ shopping.pantry|length }} × Vorrat, nicht auf der Liste</h2></summary>
+      <ul class="list">
+        {% for item in shopping.pantry %}
+          <li><span>{{ item.name }}</span>{% if item.description %}<span class="meta">{{ item.description }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      <p class="meta">Welche Artikel als Vorrat gelten, steht in den <a href="{{ url('settings_page') }}">Einstellungen</a>.</p>
+    </details>
+  {% endif %}
+
+  {% if shopping.items %}
+    <section class="card">
+      <h2>Als Text</h2>
+      <textarea class="input copy-text" readonly rows="6" data-copy-source>
+        {%- for item in shopping.items %}{{ item.name }}{% if item.description %} ({{ item.description }}){% endif %}{{ "\n" if not loop.last }}{% endfor -%}
+      </textarea>
+      <div class="form-actions"><button class="btn ghost small" type="button" data-copy>Kopieren</button></div>
+    </section>
+  {% endif %}
+{% endblock %}

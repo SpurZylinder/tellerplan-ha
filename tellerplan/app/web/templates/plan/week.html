@@ -17,6 +17,9 @@
          title="{{ 'Tage untereinander anzeigen' if layout == 'columns' else 'Tage nebeneinander anzeigen' }}">
         {{ "☰ Liste" if layout == "columns" else "▥ Spalten" }}
       </a>
+      <form method="post" action="{{ url('shopping_send') }}">
+        <button class="chip" type="submit" title="Zutaten der nächsten zwei Wochen an Bring senden">🛒 Einkaufsliste</button>
+      </form>
       <a class="btn small" href="{{ url('plan_add') }}">+ Einplanen</a>
     </div>
   </header>

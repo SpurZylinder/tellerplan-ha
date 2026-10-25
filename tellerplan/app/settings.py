@@ -21,6 +21,8 @@ from supervisor import set_own_options, supervisor_token
 
 OPTIONS_ENV_VAR = "TELLERPLAN_OPTIONS"
 DEFAULT_OPTIONS_PATH = Path("/data/options.json")
+# Entität einer To-do-Liste in Home Assistant, z. B. „todo.furth“; leer = keine
+TODO_ENTITY_PATTERN = r"^(todo\.\w+)?$"
 
 
 class Settings(BaseModel):
@@ -36,6 +38,9 @@ class Settings(BaseModel):
     meal_names: list[str] = Field(min_length=1)
     plan_default_meal: str
     ranking_protein_weight: float = Field(ge=0, le=1)
+    # Einkaufsliste: Stichwörter für Vorratsartikel und Ziel-Liste in Home Assistant
+    pantry_keywords: list[str]
+    bring_list_entity: str = Field(pattern=TODO_ENTITY_PATTERN)
     api_token: str
     database_path: Path
 

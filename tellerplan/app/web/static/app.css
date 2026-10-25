@@ -306,6 +306,13 @@ textarea.input { min-height: 80px; resize: vertical; }
 }
 .picker label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 
+/* Einkaufsliste */
+details.card > summary { cursor: pointer; list-style: none; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary h2 { display: inline; }
+.copy-text { font-family: var(--mono); }
+.nums form { margin: 0; }
+
 /* Chips auch als Links */
 a.chip { text-decoration: none; display: inline-block; }
 

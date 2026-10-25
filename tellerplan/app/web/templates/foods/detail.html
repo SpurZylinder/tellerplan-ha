@@ -29,6 +29,18 @@
     {% endif %}
   </section>
 
+  <section class="card" id="shopping">
+    <h2>Einkaufsname</h2>
+    <p class="meta">So heißt der Artikel auf der Einkaufsliste in Bring. Leer lassen für „{{ default_shopping_name }}“.</p>
+    <form class="form" method="post" action="{{ url('shopping_name_set', food_id=food.id) }}">
+      <div class="field-row">
+        <input class="input" name="shopping_name" value="{{ food.shopping_name or '' }}"
+               placeholder="{{ default_shopping_name }}" maxlength="100" aria-label="Einkaufsname">
+      </div>
+      <div class="form-actions"><button class="btn ghost small" type="submit">Einkaufsnamen speichern</button></div>
+    </form>
+  </section>
+
   <section class="card" id="units">
     <h2>Einheiten</h2>
     <p class="meta">Wie viel Gramm sind z. B. 1 EL oder 1 Stück? Damit lassen sich Zutaten ohne Grammangabe umrechnen.</p>

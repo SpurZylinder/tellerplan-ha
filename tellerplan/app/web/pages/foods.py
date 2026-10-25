@@ -14,9 +14,11 @@ from modules.foods.service import (
     delete_unit,
     get_food,
     search_foods,
+    set_shopping_name,
     set_unit,
     update_food,
 )
+from modules.shopping.service import default_shopping_name
 from web.forms import FormError, clean_text, parse_number, redirect_to, required_number
 from web.templating import render
 
@@ -121,7 +123,18 @@ async def food_create(request: Request, session: SessionDep) -> Response:
 @router.get("/{food_id}", response_class=HTMLResponse)
 def food_detail(request: Request, session: SessionDep, food_id: int) -> HTMLResponse:
     food = _food_or_404(session, food_id)
-    return render(request, "foods/detail.html", food=food, fields=NUTRIENT_FIELDS)
+    return _render_detail(request, food)
+
+
+def _render_detail(request: Request, food: Food, unit_error: str | None = None) -> HTMLResponse:
+    return render(
+        request,
+        "foods/detail.html",
+        food=food,
+        fields=NUTRIENT_FIELDS,
+        default_shopping_name=default_shopping_name(food.name),
+        unit_error=unit_error,
+    )
 
 
 @router.get("/{food_id}/edit", response_class=HTMLResponse)
@@ -169,15 +182,22 @@ def unit_add(
             raise FormError("Name der Einheit fehlt.")
         set_unit(session, food, unit_name, required_number(grams, "Gramm"))
     except FormError as error:
-        return render(
-            request,
-            "foods/detail.html",
-            food=food,
-            fields=NUTRIENT_FIELDS,
-            unit_error=str(error),
-        )
+        return _render_detail(request, food, unit_error=str(error))
     session.commit()
     return redirect_to(request, "food_detail", anchor="#units", food_id=food.id)
+
+
+@router.post("/{food_id}/shopping-name")
+def shopping_name_set(
+    request: Request,
+    session: SessionDep,
+    food_id: int,
+    shopping_name: Annotated[str, Form()] = "",
+) -> Response:
+    food = _food_or_404(session, food_id)
+    set_shopping_name(session, food, shopping_name)
+    session.commit()
+    return redirect_to(request, "food_detail", anchor="#shopping", food_id=food.id)
 
 
 @router.post("/{food_id}/units/{unit_id}/delete")

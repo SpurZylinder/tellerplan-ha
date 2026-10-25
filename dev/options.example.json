@@ -11,6 +11,26 @@
   ],
   "plan_default_meal": "Abendessen",
   "ranking_protein_weight": 0.7,
+  "pantry_keywords": [
+    "salz",
+    "pfeffer",
+    "gemüsebrühe",
+    "paprikapulver",
+    "currypulver",
+    "kreuzkümmel",
+    "zimt",
+    "muskatnuss",
+    "oregano",
+    "mehl",
+    "zucker",
+    "backpulver",
+    "natron",
+    "stärke",
+    "öl",
+    "essig",
+    "wasser"
+  ],
+  "bring_list_entity": "",
   "api_token": "lokal-geheim",
   "database_path": "app.db"
 }

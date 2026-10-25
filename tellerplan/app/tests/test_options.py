@@ -17,6 +17,8 @@ GOALS = {
     "protein_goal_g": "160",
     "fat_goal_g": "60",
     "carbs_goal_g": "180",
+    "pantry_keywords": "Salz\nmehl, zucker\nsalz",
+    "bring_list_entity": "todo.furth",
 }
 
 
@@ -96,6 +98,8 @@ def test_saved_goals_apply_without_restart(ingress_client: TestClient, options_f
     assert "Limit <b>1.800</b>" in ingress_client.get("/").text
     stored = _options(options_file)
     assert stored["protein_goal_g"] == 160
+    assert stored["pantry_keywords"] == ["salz", "mehl", "zucker"]
+    assert stored["bring_list_entity"] == "todo.furth"
 
 
 @pytest.mark.parametrize(
@@ -104,6 +108,7 @@ def test_saved_goals_apply_without_restart(ingress_client: TestClient, options_f
         ("daily_kcal_limit", "100", "Tageslimit muss zwischen 500 und 10000 kcal liegen."),
         ("protein_goal_g", "12,5", "Eiweiß muss eine ganze Zahl sein."),
         ("fat_goal_g", "", "Fett fehlt."),
+        ("bring_list_entity", "Einkauf", "Bring-Liste muss eine To-do-Entität sein"),
     ],
 )
 def test_invalid_goal_is_reported(

@@ -18,7 +18,7 @@ Die vollständige Architektur steht in `docs/Architektur.md`. Lies sie vor jeder
 5. **Portionen:** Rezept = Standardportionen; `plan_entry` = Rezept an einem Tag, immer mit seinen Standardportionen (keine Mahlzeit, keine eigenen Portionen); `diary_entry` = gegessene Portionen. Nur das Tagebuch zählt für die Tageswerte, eingetragen wird nur auf „Heute“.
 6. **Zentrale Parameter:** Alle konfigurierbaren Werte (kcal-Limit, Makro-Ziele, Mahlzeitnamen, API-Token, DB-Pfad) kommen ausschließlich über `app/settings.py` aus `options.json`. Keine verstreuten Konstanten oder Magic Numbers im Code.
 7. **Ein Repo, eine App, eine Datenbank.** Modulgrenzen einhalten, keine Querimporte an der Abhängigkeitsrichtung vorbei:
-   `foods` ← `nutrition` ← `recipes` ← `importers`, `recipes` ← `planner`, (`nutrition`, `recipes`, `planner`) ← `diary`
+   `foods` ← `nutrition` ← `recipes` ← `importers`, `recipes` ← `planner`, (`recipes`, `planner`) ← `shopping`, (`nutrition`, `recipes`, `planner`) ← `diary`
 
 ## Stil
 
@@ -52,11 +52,11 @@ tellerplan-ha/
         ├── security.py        Zugriff je Port (Ingress ohne Login, 8099 mit Token)
         ├── supervisor.py      Aufrufe an die Supervisor-API (nur im Add-on)
         ├── serve.py           Add-on-Start: Backup, Migration, beide Ports
-        ├── modules/           foods · nutrition · recipes · importers · planner · diary
+        ├── modules/           foods · nutrition · recipes · importers · planner · shopping · diary
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```

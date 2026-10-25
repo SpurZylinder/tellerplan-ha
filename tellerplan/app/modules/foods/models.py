@@ -27,6 +27,8 @@ class Food(Base):
         )
     )
     source_id: Mapped[str | None] = mapped_column(String(100), index=True)
+    # Kurzer Name für die Einkaufsliste, z. B. „Hähnchenbrust“; leer = aus `name` abgeleitet
+    shopping_name: Mapped[str | None] = mapped_column(String(100))
 
     # Nährwerte pro 100 g
     kcal: Mapped[float]

@@ -30,6 +30,11 @@ def set_own_options(options: dict[str, Any], token: str) -> None:
     _post("/addons/self/options", {"options": options}, token)
 
 
+def call_service(domain: str, service: str, data: dict[str, Any], token: str) -> None:
+    """Führt eine Home-Assistant-Aktion aus, z. B. `todo.add_item` (braucht `homeassistant_api`)."""
+    _post(f"/core/api/services/{domain}/{service}", data, token)
+
+
 def _post(path: str, payload: dict[str, Any], token: str) -> None:
     request = Request(
         f"{SUPERVISOR_URL}{path}",

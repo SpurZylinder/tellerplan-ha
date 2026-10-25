@@ -140,6 +140,13 @@ def set_unit(session: Session, food: Food, name: str, grams: float) -> FoodUnit:
     return unit
 
 
+def set_shopping_name(session: Session, food: Food, name: str | None) -> Food:
+    """Setzt den Einkaufsnamen; leer entfernt ihn wieder."""
+    food.shopping_name = (name or "").strip() or None
+    session.flush()
+    return food
+
+
 def delete_unit(session: Session, food: Food, unit_id: int) -> None:
     food.units[:] = [unit for unit in food.units if unit.id != unit_id]
     session.flush()

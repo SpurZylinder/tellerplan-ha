@@ -20,6 +20,8 @@ TEST_OPTIONS = {
     "meal_names": ["Frühstück", "Mittag", "Abendessen", "Snacks"],
     "plan_default_meal": "Abendessen",
     "ranking_protein_weight": 0.7,
+    "pantry_keywords": ["salz", "mehl", "zucker", "öl"],
+    "bring_list_entity": "todo.einkauf",
     "api_token": "test-token",
     "database_path": "app.db",
 }

@@ -15,6 +15,8 @@ panel_icon: mdi:silverware-fork-knife
 panel_title: Tellerplan
 # Supervisor-API: Die Einstellseite speichert die eigenen Optionen (siehe docs/Architektur.md)
 hassio_api: true
+# Home-Assistant-API: Die Einkaufsliste ruft todo.add_item für die Bring-Liste auf
+homeassistant_api: true
 ports:
   8099/tcp: 8099
 ports_description:
@@ -32,6 +34,25 @@ options:
     - Snacks
   plan_default_meal: Abendessen
   ranking_protein_weight: 0.7
+  pantry_keywords:
+    - salz
+    - pfeffer
+    - gemüsebrühe
+    - paprikapulver
+    - currypulver
+    - kreuzkümmel
+    - zimt
+    - muskatnuss
+    - oregano
+    - mehl
+    - zucker
+    - backpulver
+    - natron
+    - stärke
+    - öl
+    - essig
+    - wasser
+  bring_list_entity: ""
   api_token: ""
   database_path: /data/app.db
 schema:
@@ -43,5 +64,8 @@ schema:
     - str
   plan_default_meal: str
   ranking_protein_weight: float(0,1)
+  pantry_keywords:
+    - str
+  bring_list_entity: match(^(todo\.\w+)?$)
   api_token: password
   database_path: str

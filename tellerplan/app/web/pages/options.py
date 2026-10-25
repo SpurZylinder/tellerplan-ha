@@ -1,17 +1,18 @@
-"""Seite „Einstellungen“: Tagesziele ändern, Einstieg zu den Lebensmitteln.
+"""Seite „Einstellungen“: Tagesziele, Einkaufsliste, Einstieg zu den Lebensmitteln.
 
 Die Werte bleiben Add-on-Optionen (options.json); die Seite schreibt sie nur zurück.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, Response
 
-from settings import Settings, option_range, save_options
+from settings import TODO_ENTITY_PATTERN, Settings, option_range, save_options
 from supervisor import SupervisorError, supervisor_token
-from web.forms import FormError, redirect_to, required_number
+from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
 router = APIRouter(prefix="/settings")
@@ -58,7 +59,10 @@ def _render(
 
 
 def _current_values(settings: Settings) -> dict[str, Any]:
-    return {field.name: getattr(settings, field.name) for field in GOAL_FIELDS}
+    values = {field.name: getattr(settings, field.name) for field in GOAL_FIELDS}
+    values["pantry_keywords"] = "\n".join(settings.pantry_keywords)
+    values["bring_list_entity"] = settings.bring_list_entity
+    return values
 
 
 def _parse_goal(field: GoalField, text: str) -> int:
@@ -69,6 +73,19 @@ def _parse_goal(field: GoalField, text: str) -> int:
         bounds = f"{field.minimum:g} und {field.maximum:g} {field.unit}"
         raise FormError(f"{field.label} muss zwischen {bounds} liegen.")
     return int(number)
+
+
+def _parse_keywords(text: str) -> list[str]:
+    """Ein Stichwort pro Zeile oder durch Kommas getrennt; doppelte fallen weg."""
+    words = (word.strip().casefold() for word in re.split(r"[,\n]", text))
+    return list(dict.fromkeys(word for word in words if word))
+
+
+def _parse_list_entity(text: str) -> str:
+    entity = clean_text(text) or ""
+    if not re.fullmatch(TODO_ENTITY_PATTERN, entity):
+        raise FormError("Bring-Liste muss eine To-do-Entität sein, z. B. todo.furth.")
+    return entity
 
 
 @router.get("", response_class=HTMLResponse)
@@ -83,15 +100,23 @@ def settings_save(
     protein_goal_g: Annotated[str, Form()] = "",
     fat_goal_g: Annotated[str, Form()] = "",
     carbs_goal_g: Annotated[str, Form()] = "",
+    pantry_keywords: Annotated[str, Form()] = "",
+    bring_list_entity: Annotated[str, Form()] = "",
 ) -> Response:
     texts = {
         "daily_kcal_limit": daily_kcal_limit,
         "protein_goal_g": protein_goal_g,
         "fat_goal_g": fat_goal_g,
         "carbs_goal_g": carbs_goal_g,
+        "pantry_keywords": pantry_keywords,
+        "bring_list_entity": bring_list_entity,
     }
     try:
-        changes = {field.name: _parse_goal(field, texts[field.name]) for field in GOAL_FIELDS}
+        changes: dict[str, Any] = {
+            field.name: _parse_goal(field, texts[field.name]) for field in GOAL_FIELDS
+        }
+        changes["pantry_keywords"] = _parse_keywords(pantry_keywords)
+        changes["bring_list_entity"] = _parse_list_entity(bring_list_entity)
         request.app.state.settings = save_options(request.app.state.options_file, changes)
     except FormError as error:
         return _render(request, texts, error=str(error))

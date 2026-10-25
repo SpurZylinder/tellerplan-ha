@@ -55,7 +55,8 @@ def delete_entry(session: Session, entry: PlanEntry) -> None:
     session.flush()
 
 
-def _entries_between(session: Session, first: date, last: date) -> list[PlanEntry]:
+def entries_between(session: Session, first: date, last: date) -> list[PlanEntry]:
+    """Planeinträge von `first` bis einschließlich `last`, mit Rezept und Zutaten."""
     statement = (
         select(PlanEntry)
         .where(PlanEntry.day >= first, PlanEntry.day <= last)
@@ -78,7 +79,7 @@ def _dish(entry: PlanEntry) -> PlannedDish:
 def plan_days(session: Session, first: date, days: int) -> list[PlanDay]:
     """Tage ab `first` (auch leere) mit ihren Rezepten und Tagessummen."""
     last = first + timedelta(days=days - 1)
-    dishes = [_dish(entry) for entry in _entries_between(session, first, last)]
+    dishes = [_dish(entry) for entry in entries_between(session, first, last)]
 
     result = []
     for offset in range(days):
