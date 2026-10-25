@@ -263,3 +263,20 @@ def test_label_hides_count_unit_and_uses_plural_units(session: Session) -> None:
     labels = [ingredient_label(line) for line in _recipe(session, "m").ingredients]
 
     assert labels == ["20 Lasagneplatten", "2 Prisen Salz", "1 Prise Zucker"]
+
+
+def test_unit_page_accepts_grams_with_unit(ingress_client: TestClient, session: Session) -> None:
+    import_document(session, _document(("n", ["2 Eier"])))
+    egg = make_food(session, "Hühnerei roh", kcal=137)
+    base = create_base(session, "Ei")
+    set_default_product(session, base, egg)
+    link_name(session, "Eier", base)
+    session.commit()
+
+    response = ingress_client.post(
+        "/matching/unit", data={"food_id": str(egg.id), "unit": "Stück", "grams": "50g"}
+    )
+
+    assert "bitte eine Zahl" not in response.text
+    session.expire_all()
+    assert summarize(_recipe(session, "n")).match.complete

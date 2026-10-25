@@ -66,7 +66,7 @@ def _current_values(settings: Settings) -> dict[str, Any]:
 
 
 def _parse_goal(field: GoalField, text: str) -> int:
-    number = required_number(text, field.label)
+    number = required_number(text, field.label, unit=field.unit)
     if not number.is_integer():
         raise FormError(f"{field.label} muss eine ganze Zahl sein.")
     if not field.minimum <= number <= field.maximum:

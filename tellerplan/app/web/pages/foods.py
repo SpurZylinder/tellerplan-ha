@@ -52,6 +52,11 @@ def _editable_food_or_error(session: Session, food_id: int) -> Food:
     return food
 
 
+def _nutrient_unit(field: str) -> str:
+    """Einheit, die hinter dem Wert stehen darf („60 kcal“, „11 g“)."""
+    return "kcal" if field == "kcal" else "g"
+
+
 async def _food_input(request: Request) -> tuple[FoodInput | None, dict[str, str], str | None]:
     """Liest das Lebensmittel-Formular; liefert Eingabe, Rohwerte und ggf. Fehler."""
     form = await request.form()
@@ -63,9 +68,9 @@ async def _food_input(request: Request) -> tuple[FoodInput | None, dict[str, str
             raise FormError("Name fehlt.")
         numbers = {
             field: (
-                required_number(values[field], label)
+                required_number(values[field], label, unit=_nutrient_unit(field))
                 if field in REQUIRED_NUTRIENTS
-                else parse_number(values[field], label)
+                else parse_number(values[field], label, unit=_nutrient_unit(field))
             )
             for field, label in NUTRIENT_FIELDS
         }
@@ -193,7 +198,7 @@ def unit_add(
         unit_name = clean_text(name)
         if unit_name is None:
             raise FormError("Name der Einheit fehlt.")
-        set_unit(session, food, unit_name, required_number(grams, "Gramm"))
+        set_unit(session, food, unit_name, required_number(grams, "Gramm", unit="g"))
     except FormError as error:
         return _render_detail(request, food, unit_error=str(error))
     session.commit()

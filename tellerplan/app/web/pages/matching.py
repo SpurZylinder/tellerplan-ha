@@ -126,7 +126,7 @@ def matching_unit(
 ) -> Response:
     food = _food_or_404(session, food_id)
     try:
-        amount = required_number(grams, "Gramm")
+        amount = required_number(grams, "Gramm", unit="g")
         if amount <= 0:
             raise FormError("Gramm müssen größer als 0 sein.")
     except FormError as error:

@@ -67,7 +67,7 @@ def test_food_form_reports_missing_values(ingress_client: TestClient) -> None:
     response = ingress_client.post("/foods/new", data={"name": "Skyr", "kcal": "abc"})
 
     assert response.status_code == 200
-    assert "kcal ist keine Zahl." in response.text
+    assert "kcal: bitte eine Zahl eingeben, z. B. 50 oder 50 kcal." in response.text
 
 
 def test_recipe_with_ingredient_shows_per_serving_values(ingress_client: TestClient) -> None:
