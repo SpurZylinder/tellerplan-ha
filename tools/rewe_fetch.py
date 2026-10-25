@@ -244,8 +244,9 @@ def write_open_list(path: Path, products: list[dict]) -> None:
     path.with_suffix(".json").write_text(
         json.dumps({"products": links}, ensure_ascii=False, indent=1), encoding="utf-8"
     )
+    # Links öffnen im selben Tab: Das Netzwerkprotokoll zeichnet nur den Tab auf, in dem es läuft.
     rows = "\n".join(
-        f'<li><a href="{html.escape(p["url"])}" target="_blank" rel="noopener">'
+        f'<li><a href="{html.escape(p["url"])}">'
         f"{html.escape(p['name'] or '?')}</a> <small>{html.escape(p['package'] or '')}</small></li>"
         for p in links
     )
@@ -255,9 +256,18 @@ def write_open_list(path: Path, products: list[dict]) -> None:
 <style>body{{font-family:system-ui;max-width:760px;margin:2em auto;line-height:1.6}}
 a:visited{{color:#888}}</style>
 <h1>Noch offen: {len(links)} Produkte</h1>
-<p>HAR-Mitschnitt starten, Links nacheinander öffnen (besuchte werden grau), Mitschnitt
-speichern, <code>python tools/rewe_har_extract.py</code> und danach
-<code>python tools/rewe_fetch.py</code> erneut ausführen.</p>
+<ol style="line-height:1.4">
+<li>Diese Seite in Firefox öffnen, F12 → Reiter „Netzwerkanalyse“.</li>
+<li>Im Zahnrad-Menü der Netzwerkanalyse „Logs beibehalten“ einschalten – sonst löscht
+Firefox das Protokoll bei jedem Seitenwechsel.</li>
+<li>Links in diesem Tab anklicken, mit Alt+← zurück (besuchte werden grau).</li>
+<li>Rechtsklick in die Liste der Anfragen → „Alle als HAR speichern“, Datei nach
+<code>dev/Rewe/</code>.</li>
+<li><code>python tools/rewe_har_extract.py</code>,
+dann <code>python tools/rewe_fetch.py</code>.</li>
+</ol>
+<p>Nicht alle Produkte nötig: Am meisten bringen die, die als Standard hinter einer
+Grundzutat stehen sollen (z. B. Milch, Joghurt, Käse). Drogerieartikel überspringen.</p>
 <ol>
 {rows}
 </ol></html>
