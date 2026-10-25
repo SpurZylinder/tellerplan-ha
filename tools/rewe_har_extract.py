@@ -50,34 +50,38 @@ PHONE_LIKE = re.compile(r"\b(?:\+49|0)\d{9,13}\b")
 
 TEXT_FIELD = re.compile(r'"text"\s*:\s*"')
 PRODUCT_LINK = re.compile(r"/shop/products/(\d+)")
+JSON_LD = re.compile(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>', re.DOTALL)
 
 
-def response_texts(raw: str) -> list[str]:
-    """Alle Antworttexte des Mitschnitts – auch wenn die HAR-Datei kein gültiges JSON mehr ist."""
+def responses(raw: str) -> list[tuple[str | None, str]]:
+    """Alle Antworten als (URL, Text) – auch wenn die HAR-Datei kein gültiges JSON mehr ist.
+
+    In gekürzten Dateien fehlt die URL oft; dann ist sie None.
+    """
     try:
         entries = json.loads(raw).get("log", {}).get("entries", [])
     except json.JSONDecodeError:
         entries = None
     if entries is not None:
-        texts = []
+        found = []
         for entry in entries:
             content = entry.get("response", {}).get("content", {})
             text = content.get("text")
             if text and content.get("encoding") == "base64":
                 text = base64.b64decode(text).decode("utf-8", errors="replace")
             if text:
-                texts.append(text)
-        return texts
+                found.append((entry.get("request", {}).get("url"), text))
+        return found
     decoder = json.JSONDecoder()
-    texts = []
+    found = []
     for match in TEXT_FIELD.finditer(raw):
         try:
             text, _ = decoder.raw_decode(raw, match.end() - 1)
         except json.JSONDecodeError:
             continue
         if isinstance(text, str):
-            texts.append(text)
-    return texts
+            found.append((None, text))
+    return found
 
 
 # --- Favoriten -------------------------------------------------------------
@@ -172,18 +176,34 @@ def order_lines(texts: list[str]) -> list[dict]:
 # --- Produktseiten ----------------------------------------------------------
 
 
-def product_pages(texts: list[str]) -> dict[str, str]:
-    """Im Browser geöffnete Produktseiten mit Nährwerttabelle, je Produkt-ID."""
+def _sku(page: str) -> str | None:
+    """Artikelnummer aus dem JSON-LD der Seite (entspricht variantArticleId im Link)."""
+    for block in JSON_LD.findall(page):
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict) and data.get("@type") == "Product" and data.get("sku"):
+            return str(data["sku"])
+    return None
+
+
+def product_pages(found: list[tuple[str | None, str]]) -> dict[str, str]:
+    """Im Browser geöffnete Produktseiten mit Nährwerttabelle.
+
+    Schlüssel ist die Produkt-ID aus der URL der Anfrage; fehlt die URL (gekürzte
+    HAR-Datei), „sku-<Artikelnummer>“ aus dem JSON-LD.
+    """
     pages = {}
-    for text in texts:
+    for url, text in found:
         if '"nutritionFacts"' not in text or "schema.org" not in text:
             continue
-        canonical = re.search(
-            r'<link[^>]+rel="canonical"[^>]+href="[^"]*/shop/products/(\d+)', text
-        )
-        match = canonical or PRODUCT_LINK.search(text)
+        match = PRODUCT_LINK.search(url or "")
+        sku = _sku(text)
         if match:
             pages[match.group(1)] = text
+        elif sku:
+            pages[f"sku-{sku}"] = text
     return pages
 
 
@@ -218,7 +238,8 @@ def main() -> None:
     har_path = Path(sys.argv[1]) if len(sys.argv) > 1 else find_har()
     out_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else har_path.parent / DEFAULT_OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    texts = response_texts(har_path.read_text(encoding="utf-8"))
+    found = responses(har_path.read_text(encoding="utf-8"))
+    texts = [text for _, text in found]
     print(f"{len(texts)} Antwort(en) im Mitschnitt")
 
     favorites = favorite_products(texts)
@@ -232,7 +253,7 @@ def main() -> None:
         write_json(out_dir / ORDERS_FILE, {"format": "rewe-orders", "version": 1, "lines": lines})
         print(f"Bestellungen: {len(lines)} Positionen → {ORDERS_FILE}")
 
-    pages = product_pages(texts)
+    pages = product_pages(found)
     pages_dir = (out_dir / PAGES_DIR).resolve()
     pages_dir.mkdir(parents=True, exist_ok=True)
     for product_id, page in pages.items():

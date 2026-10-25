@@ -88,6 +88,14 @@ def product_barcode(product: dict) -> str | None:
     return valid_barcode(product.get("article_id")) or valid_barcode(variant or None)
 
 
+def _page_file(pages_dir: Path, product: dict) -> Path:
+    """Gespeicherte Seite nach Produkt-ID oder, aus gekürzten Mitschnitten, nach Artikelnummer."""
+    by_id = pages_dir / f"{product['product_id']}.html"
+    variant = product.get("url", "").partition("variantArticleId=")[2].split("&")[0]
+    by_sku = pages_dir / f"sku-{variant}.html"
+    return by_id if by_id.exists() or not by_sku.exists() else by_sku
+
+
 def _rounded(values: dict[str, float]) -> dict[str, float]:
     return {key: round(value, 2) for key, value in values.items()}
 
@@ -127,8 +135,14 @@ def nutrients_per_100(facts: list[dict]) -> tuple[dict[str, float], str] | None:
     """Nährwerte je 100 g bzw. 100 ml (Zustand „unzubereitet“ bevorzugt) und die Bezugseinheit."""
     if not facts:
         return None
-    unprepared = [f for f in facts if f.get("preparationState", {}).get("code") == "UNPREPARED"]
-    fact = (unprepared or facts)[0]
+
+    # Bevorzugt unzubereitet und je 100 g/ml – manche Seiten haben zusätzlich eine Portionstabelle
+    def preference(fact: dict) -> tuple[bool, bool]:
+        state = (fact.get("preparationState") or {}).get("code")
+        per_100 = (fact.get("servingSize") or {}).get("value") == PER_100
+        return (state not in (None, "UNPREPARED"), not per_100)
+
+    fact = min(facts, key=preference)
     serving = fact.get("servingSize") or {}
     factor = PER_100 / (serving.get("value") or PER_100)
     values: dict[str, float] = {}
@@ -295,7 +309,7 @@ def main() -> int:
     foods, skipped, still_open = [], [], []
     errors: list[str] = []
     for number, product in enumerate(products, start=1):
-        page_file = pages_dir / f"{product['product_id']}.html"
+        page_file = _page_file(pages_dir, product)
         barcode = product_barcode(product)
         if page_file.exists():
             entry, reason = from_rewe_page(product, page_file.read_text(encoding="utf-8"))
