@@ -1,47 +1,70 @@
 {% extends "base.html" %}
-{% from "_macros.html" import error_message %}
+{% from "_macros.html" import error_message, nutrient_pills %}
 
 {% block title %}Einplanen · Tellerplan{% endblock %}
 
 {% block head %}
-  <script src="{{ url('static', path='picker.js') }}" defer></script>
+  {% if not chosen %}<script src="{{ url('static', path='picker.js') }}" defer></script>{% endif %}
 {% endblock %}
 
 {% block content %}
   <header>
-    <a class="back" href="{{ url('plan_page') }}#day-{{ day }}">← Plan</a>
+    {% if chosen %}
+      <a class="back" href="{{ url('recipe_detail', recipe_id=chosen.recipe.id) }}">← {{ chosen.recipe.title }}</a>
+    {% else %}
+      <a class="back" href="{{ url('plan_page') }}#day-{{ day }}">← Plan</a>
+    {% endif %}
     <h1>Einplanen</h1>
-    <p class="lede">Das Rezept wird mit seinen Standardportionen eingeplant.</p>
   </header>
 
   <form class="form card" method="post" action="{{ url('plan_create') }}">
     {{ error_message(error) }}
-    <label class="field">Tag
-      <input class="input" type="date" name="day" value="{{ day }}" required>
-    </label>
 
-    <h3>Rezept</h3>
-    {% if summaries %}
-      <input class="search input" type="search" placeholder="Rezept suchen" data-filter-picker>
-      <div class="picker">
-        {% for summary in summaries %}
-          {% set recipe = summary.recipe %}
-          <label data-title="{{ recipe.title|lower }}">
-            <input type="radio" name="recipe_id" value="{{ recipe.id }}" required{% if recipe.id == recipe_id %} checked{% endif %}>
-            <span class="grow">
-              <span>{% if recipe.is_favorite %}★ {% endif %}{{ recipe.title }}</span>
-              <span class="meta">{{ recipe.servings|amount }} Portionen · {{ summary.per_serving.kcal|num }} kcal · {{ summary.per_serving.protein_g|num }} g Eiweiß pro Portion</span>
-            </span>
-          </label>
-        {% endfor %}
+    {% if chosen %}
+      {% set recipe = chosen.recipe %}
+      <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
+      <input type="hidden" name="fixed" value="true">
+      <div>
+        <h2>{{ recipe.title }}</h2>
+        <span class="meta">Rezept für {{ recipe.servings|amount }} Portionen · Werte je Portion</span>
       </div>
-    {% else %}
-      <p class="meta">Noch keine Rezepte. <a href="{{ url('recipe_new') }}">Rezept anlegen</a></p>
+      {{ nutrient_pills(chosen.per_serving) }}
+    {% endif %}
+
+    <div class="field-row wide">
+      <label class="field">Tag
+        <input class="input" type="date" name="day" value="{{ day }}" required>
+      </label>
+      <label class="field">Portionen
+        <input class="input" type="number" name="servings" value="{{ servings }}" min="{{ step }}" step="{{ step }}"
+               inputmode="decimal"{% if not chosen %} placeholder="Standard"{% endif %}>
+      </label>
+    </div>
+    {% if not chosen %}<p class="meta">Ohne Angabe gelten die Standardportionen des Rezepts.</p>{% endif %}
+
+    {% if not chosen %}
+      <h3>Rezept</h3>
+      {% if summaries %}
+        <input class="search input" type="search" placeholder="Rezept suchen" data-filter-picker>
+        <div class="picker">
+          {% for summary in summaries %}
+            {% set recipe = summary.recipe %}
+            <label data-title="{{ recipe.title|lower }}">
+              <input type="radio" name="recipe_id" value="{{ recipe.id }}" required{% if recipe.id == recipe_id %} checked{% endif %}>
+              <span class="grow">
+                <span>{% if recipe.is_favorite %}★ {% endif %}{{ recipe.title }}</span>
+                <span class="meta">{{ recipe.servings|amount }} Portionen · {{ summary.per_serving.kcal|num }} kcal · {{ summary.per_serving.protein_g|num }} g Eiweiß pro Portion</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="meta">Noch keine Rezepte. <a href="{{ url('recipe_new') }}">Rezept anlegen</a></p>
+      {% endif %}
     {% endif %}
 
     <div class="form-actions">
       <button class="btn" type="submit">Einplanen</button>
     </div>
   </form>
-
 {% endblock %}

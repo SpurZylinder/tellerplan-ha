@@ -1,7 +1,7 @@
 """Wochenplan: Rezepte an Tage hängen, Tage mit Vorschau liefern.
 
-Ein Planeintrag umfasst immer das ganze Rezept (alle Standardportionen).
-Was davon gegessen wird, hält erst das Tagebuch fest.
+Ein Planeintrag hat eigene Portionen; ohne Angabe die Standardportionen des
+Rezepts. Was davon gegessen wird, hält erst das Tagebuch fest.
 """
 
 from dataclasses import dataclass
@@ -32,8 +32,11 @@ class PlanDay:
     complete: bool
 
 
-def add_entry(session: Session, day: date, recipe: Recipe) -> PlanEntry:
-    entry = PlanEntry(day=day, recipe=recipe)
+def add_entry(
+    session: Session, day: date, recipe: Recipe, servings: float | None = None
+) -> PlanEntry:
+    """Plant ein Rezept ein; ohne `servings` mit seinen Standardportionen."""
+    entry = PlanEntry(day=day, recipe=recipe, servings=servings or recipe.servings)
     session.add(entry)
     session.flush()
     return entry
@@ -71,7 +74,7 @@ def _dish(entry: PlanEntry) -> PlannedDish:
     return PlannedDish(
         entry=entry,
         per_serving=summary.per_serving,
-        total=summary.per_serving.scaled(entry.recipe.servings),
+        total=summary.per_serving.scaled(entry.servings),
         complete=summary.match.complete,
     )
 

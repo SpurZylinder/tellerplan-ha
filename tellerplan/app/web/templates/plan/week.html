@@ -41,7 +41,7 @@
             {% set entry = dish.entry %}
             <li>
               <details class="plan-recipe">
-                <summary>{{ entry.recipe.title }}</summary>
+                <summary>{{ entry.recipe.title }}<span class="plan-servings">{{ entry.servings|amount }} Portion{{ "en" if entry.servings != 1 }}</span></summary>
                 <div class="plan-actions">
                   <a href="{{ url('recipe_detail', recipe_id=entry.recipe.id) }}">Rezept öffnen</a>
                   {% if plan_day.day < today %}

@@ -12,7 +12,7 @@ Tellerplan ist eine selbst gehostete App, die Kalorienzählen und Rezeptverwaltu
 | Maßgebliche Nährwerte | Immer aus der eigenen Lebensmitteldatenbank berechnet                                                   | Zutaten werden manuell präzisiert (z. B. welche Sahne)                 |
 | Quell-Nährwerte       | Werden beim Import **nicht** übernommen                                                                 | Keine zweite Wahrheit, keine Abweichungen zu pflegen                   |
 | Rolle des Imports     | Liefert nur Titel, Portionen, Link und rohe Zutatenliste                                                | Rezepte sind jederzeit editierbar und werden schrittweise gematcht     |
-| Portionen             | Rezept hat Standardportionen; der Plan übernimmt sie unverändert; das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen                              |
+| Portionen             | Rezept hat Standardportionen; der Plan hat eigene Portionen (Vorgabe: Standard); das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen                              |
 | Historie              | Tagebucheinträge speichern einen Nährwert-Snapshot                                                      | Spätere Rezeptänderungen verändern keine vergangenen Tage              |
 | Eintragen             | Nur auf der Seite „Heute“; der Plan kennt keine Mahlzeiten                                              | Ein Ort für das, was wirklich gegessen wurde                           |
 | Cookidoo-Planung      | Link zur Rezeptseite wird gespeichert, Planung dort per Link                                            | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt         |
@@ -56,7 +56,7 @@ Sechs Fachmodule mit klaren Grenzen; nur `nutrition` rechnet Nährwerte, alle an
 | `nutrition` | Menge + Einheit → Gramm → Nährwerte; Summen für Rezept, Portion, Tag | `foods` |
 | `recipes` | Rezepte, Zutatenlisten, Zuordnung Zutat → Lebensmittel, Alias-Lernen, Matching-Status | `foods`, `nutrition` |
 | `importers` | Quelle → Rezeptentwurf (Titel, Portionen, Link, rohe Zutatenzeilen); keine Nährwerte | `recipes` |
-| `planner` | Wochenplan über 1–2 Wochen: Tag → Rezepte, jeweils mit den Standardportionen des Rezepts | `recipes` |
+| `planner` | Wochenplan über 1–2 Wochen: Tag → Rezepte mit geplanten Portionen (Vorgabe: Standardportionen des Rezepts) | `recipes` |
 | `shopping` | Einkaufsliste aus dem Plan: Zutaten zusammenfassen, Vorratsartikel aussortieren, an Bring senden | `planner`, `recipes` |
 | `diary` | Tagebuch mit vier Mahlzeiten, Tageslimit als Halbkreis, Makro-Balken; Übernahme aus dem Plan mit gegessenen Portionen | `nutrition`, `recipes`, `planner` |
 
@@ -73,7 +73,7 @@ Zehn Tabellen; Nährwerte existieren nur an `food`, alles andere verweist darauf
 | `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
 | `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Menge, Einheit, food_id (leer = offen), Gramm, optional-Flag | Jede Zeile frei editierbar, auch nach dem Matching |
 | `ingredient_alias` | normalisierter Zutatentext → food_id, Treffer-Anzahl | Wird bei jeder manuellen Zuordnung gelernt |
-| `plan_entry` | Datum, recipe_id | Ohne Mahlzeit und ohne eigene Portionen; zählt immer das ganze Rezept |
+| `plan_entry` | Datum, recipe_id, Portionen | Ohne Mahlzeit; Portionen beim Einplanen wählbar, Vorgabe sind die Standardportionen des Rezepts (Migration 0007) |
 | `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge + Einheit + Gramm bzw. gegessene Portionen, plan_entry_id, Bezeichnung und Nährwert-Snapshot (kcal, Eiweiß, Fett, KH), Vollständigkeit | Nur diese Einträge zählen für den Tag |
 | `goal` | gültig ab, kcal-Limit, Eiweiß-, Fett-, KH-Ziel | Historisiert, damit alte Tage gegen das damalige Ziel laufen |
 | `weight` | Datum, kg, Quelle (manuell / Health) | Später per Kurzbefehl |
@@ -103,7 +103,7 @@ Vier Abläufe tragen die App: Rezept anlegen, Zutaten zuordnen, planen, loggen.
 **Planen**
 
 1. Im Rezept „Einplanen“ tippen oder im Plan beim Tag auf „+“.
-2. Tag wählen. Das Rezept wird mit seinen Standardportionen eingeplant, ohne Mahlzeit.
+2. Tag und Portionen wählen (Vorgabe: Standardportionen), ohne Mahlzeit. Vom Rezept aus fragt die Seite nur nach Tag und Portionen, aus dem Plan heraus zusätzlich nach dem Rezept. Die Einkaufsliste rechnet die Mengen auf die geplanten Portionen um (geändert am 2026-10-25, vorher galten immer die Standardportionen).
 3. Der Plan zeigt drei Tage zurück und zwei Wochen voraus, wahlweise als waagerecht scrollbare Spalten (heute ganz links) oder als Liste (heute direkt unter der festen Kopfzeile); je Tag nur die Rezepttitel.
 4. Ein Tipp auf ein Rezept öffnet Aktionen: Rezept öffnen, auf einen anderen Tag verschieben (bei vergangenen Tagen „Auf heute“), entfernen.
 5. Cookidoo-Rezepte haben einen Button „In Cookidoo öffnen“, um sie dort einzuplanen.

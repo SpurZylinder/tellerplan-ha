@@ -124,7 +124,9 @@ def test_plan_shows_week_back_and_titles_only(ingress_client: TestClient) -> Non
     assert f'id="day-{(today - timedelta(days=3)).isoformat()}"' in page
     assert f'id="day-{(today + timedelta(days=14)).isoformat()}"' in page
     assert f'id="day-{today.isoformat()}" data-today' in page
-    assert "<summary>Linsen-Bolognese</summary>" in page
+    assert (
+        '<summary>Linsen-Bolognese<span class="plan-servings">4 Portionen</span></summary>' in page
+    )
     assert "kcal" not in page
 
 
@@ -158,6 +160,45 @@ def test_plan_layout_toggle_is_remembered(ingress_client: TestClient) -> None:
     assert "plan_layout=list" in switched.headers["set-cookie"]
 
     assert 'class="plan plan-list"' in ingress_client.get("/plan").text
+
+
+def test_plan_from_recipe_asks_only_for_day_and_servings(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Linsen-Bolognese", servings="4"))
+
+    page = ingress_client.get(f"/plan/add?recipe_id={recipe_id}").text
+
+    assert "<h2>Linsen-Bolognese</h2>" in page
+    assert 'name="servings" value="4"' in page
+    assert 'type="radio"' not in page
+    assert f'href="/recipes/{recipe_id}"' in page
+
+
+def test_plan_with_own_servings(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Chili", servings="2"))
+
+    ingress_client.post(
+        "/plan/add",
+        data={"day": date.today().isoformat(), "recipe_id": recipe_id, "servings": "3,5"},
+    )
+
+    assert '<span class="plan-servings">3,5 Portionen</span>' in ingress_client.get("/plan").text
+
+
+def test_invalid_servings_keep_the_chosen_recipe(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Chili"))
+
+    response = ingress_client.post(
+        "/plan/add",
+        data={
+            "day": date.today().isoformat(),
+            "recipe_id": recipe_id,
+            "servings": "0",
+            "fixed": "true",
+        },
+    )
+
+    assert "Portionen müssen größer als 0 sein." in response.text
+    assert "<h2>Chili</h2>" in response.text
 
 
 def test_plan_requires_recipe(ingress_client: TestClient) -> None:

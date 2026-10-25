@@ -77,6 +77,16 @@ def test_same_food_is_added_up_per_unit(session: Session) -> None:
     assert shopping.items[0].recipes == {"Rührei", "Pfanne"}
 
 
+def test_planned_servings_scale_amounts(session: Session) -> None:
+    broccoli = make_food(session, "Broccoli roh")
+    recipe = make_recipe(session, "Pfanne", servings=2, ingredients=[(broccoli, 300, "g")])
+    add_entry(session, MONDAY, recipe, servings=3)
+
+    (item,) = build_shopping_list(session, MONDAY, 1, PANTRY).items
+
+    assert item.description == "450 g"
+
+
 def test_mixed_units_are_listed_side_by_side(session: Session) -> None:
     chickpeas = make_food(session, "Kichererbse reif, Konserve", units={"Dose": 240})
     add_entry(session, MONDAY, make_recipe(session, "Salat", ingredients=[(chickpeas, 1, "Dose")]))

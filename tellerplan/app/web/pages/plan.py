@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from db import get_session
 from modules.planner.models import PlanEntry
 from modules.planner.service import add_entry, delete_entry, get_entry, move_entry, plan_days
-from modules.recipes.service import get_recipe, recipe_summaries
-from web.forms import redirect_to
+from modules.recipes.service import get_recipe, recipe_summaries, summarize
+from web.forms import FormError, parse_number, redirect_to
 from web.templating import render
 
 router = APIRouter(prefix="/plan")
@@ -26,6 +26,7 @@ FUTURE_DAYS = 14
 LAYOUTS = ("columns", "list")
 LAYOUT_COOKIE = "plan_layout"
 LAYOUT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+SERVINGS_STEP = 0.25
 
 
 def _layout(value: str | None) -> str:
@@ -74,17 +75,32 @@ def _render_add(
     session: Session,
     day: date,
     recipe_id: int | None = None,
+    fixed: bool = False,
+    servings: str = "",
     error: str | None = None,
 ) -> HTMLResponse:
+    """Einplanen: mit festem Rezept (vom Rezept aus) nur Tag und Portionen, sonst mit Auswahl."""
+    recipe = get_recipe(session, recipe_id) if fixed and recipe_id is not None else None
     return render(
         request,
         "plan/add.html",
-        tab="plan",
+        tab="recipes" if recipe else "plan",
         day=day,
         recipe_id=recipe_id,
-        summaries=recipe_summaries(session),
+        chosen=summarize(recipe) if recipe else None,
+        summaries=[] if recipe else recipe_summaries(session),
+        servings=servings or (f"{recipe.servings:g}" if recipe else ""),
+        step=SERVINGS_STEP,
         error=error,
     )
+
+
+def _servings(text: str) -> float | None:
+    """Geplante Portionen; leer bedeutet: Standardportionen des Rezepts."""
+    servings = parse_number(text, "Portionen")
+    if servings is not None and servings <= 0:
+        raise FormError("Portionen müssen größer als 0 sein.")
+    return servings
 
 
 @router.get("/add", response_class=HTMLResponse)
@@ -94,7 +110,8 @@ def plan_add(
     day: date | None = None,
     recipe_id: int | None = None,
 ) -> HTMLResponse:
-    return _render_add(request, session, day or date.today(), recipe_id)
+    fixed = recipe_id is not None
+    return _render_add(request, session, day or date.today(), recipe_id, fixed=fixed)
 
 
 @router.post("/add", response_model=None)
@@ -103,11 +120,19 @@ def plan_create(
     session: SessionDep,
     day: Annotated[date, Form()],
     recipe_id: Annotated[int | None, Form()] = None,
+    servings: Annotated[str, Form()] = "",
+    fixed: Annotated[bool, Form()] = False,
 ) -> Response:
     recipe = get_recipe(session, recipe_id) if recipe_id is not None else None
-    if recipe is None:
-        return _render_add(request, session, day, error="Bitte ein Rezept auswählen.")
-    add_entry(session, day, recipe)
+    try:
+        if recipe is None:
+            raise FormError("Bitte ein Rezept auswählen.")
+        planned = _servings(servings)
+    except FormError as error:
+        return _render_add(
+            request, session, day, recipe_id, fixed=fixed, servings=servings, error=str(error)
+        )
+    add_entry(session, day, recipe, planned)
     session.commit()
     return _back_to_plan(request, day)
 

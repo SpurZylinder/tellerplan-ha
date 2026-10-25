@@ -29,7 +29,7 @@ def test_planned_recipe_counts_all_standard_servings(session: Session) -> None:
     assert day.complete
 
 
-def test_plan_follows_later_recipe_changes(session: Session) -> None:
+def test_plan_follows_recipe_changes_but_keeps_planned_servings(session: Session) -> None:
     skyr = make_food(session, "Skyr", kcal=100)
     recipe = make_recipe(session, servings=1, ingredients=[(skyr, 100, "g")])
     add_entry(session, MONDAY, recipe)
@@ -38,7 +38,18 @@ def test_plan_follows_later_recipe_changes(session: Session) -> None:
 
     (day,) = plan_days(session, MONDAY, 1)
     assert day.dishes[0].per_serving.kcal == pytest.approx(50)
-    assert day.total.kcal == pytest.approx(100)
+    assert day.total.kcal == pytest.approx(50)  # weiter 1 geplante Portion
+
+
+def test_planned_servings_scale_the_day(session: Session) -> None:
+    skyr = make_food(session, "Skyr", kcal=100)
+    recipe = make_recipe(session, servings=2, ingredients=[(skyr, 200, "g")])
+
+    entry = add_entry(session, MONDAY, recipe, servings=4)
+
+    (day,) = plan_days(session, MONDAY, 1)
+    assert entry.servings == 4
+    assert day.total.kcal == pytest.approx(400)
 
 
 def test_entries_outside_range_are_ignored(session: Session) -> None:

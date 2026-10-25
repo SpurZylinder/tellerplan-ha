@@ -260,8 +260,11 @@ h3 { font-family: var(--display); font-weight: 600; font-size: 1rem; margin: 0; 
 
 /* Formulare */
 .form { display: grid; gap: 12px; }
-.field { display: grid; gap: 4px; font-size: .85rem; font-weight: 500; }
+/* min-width: 0, damit Felder im Raster schrumpfen dürfen statt überzulaufen */
+.field { display: grid; gap: 4px; font-size: .85rem; font-weight: 500; min-width: 0; }
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+/* Zeilen mit Datumsfeld: erst ab ca. 350 px Breite nebeneinander, auf dem iPhone untereinander */
+.field-row.wide { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .input {
   width: 100%;
   border: 1px solid var(--line);
@@ -273,6 +276,8 @@ h3 { font-family: var(--display); font-weight: 600; font-size: 1rem; margin: 0; 
   font-size: 1rem; /* 16px verhindert das Zoomen in iOS-Safari */
 }
 textarea.input { min-height: 80px; resize: vertical; }
+/* iOS Safari gibt Datumsfeldern eine eigene Mindestbreite und Höhe */
+input[type="date"].input { -webkit-appearance: none; appearance: none; min-width: 0; min-height: 2.6em; }
 .check { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
 .form-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .error { color: var(--kcal); font-size: .85rem; margin: 0; }
@@ -369,6 +374,7 @@ a.chip { text-decoration: none; display: inline-block; }
   font-size: .9rem;
   overflow-wrap: anywhere;
 }
+.plan-servings { display: block; font-weight: 400; font-size: .76rem; color: var(--muted); }
 .plan-recipe summary::-webkit-details-marker { display: none; }
 .plan-recipe[open] summary { outline: 1px solid var(--accent); }
 .plan-actions { display: grid; gap: 6px; padding: 8px 2px 2px; font-size: .85rem; }

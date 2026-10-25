@@ -1,6 +1,7 @@
 """Einkaufsliste: geplante Rezepte zu einer Zutatenliste zusammenfassen.
 
-Jeder Planeintrag zählt mit allen Zutaten des Rezepts (Standardportionen).
+Jeder Planeintrag zählt mit allen Zutaten des Rezepts, umgerechnet auf seine
+geplanten Portionen (4 statt 2 Portionen → doppelte Mengen).
 Gleiche Artikel werden je Einheit addiert („2 Stück + 1 Stück“ → „3 Stück“),
 Vorratsartikel (Salz, Mehl …) kommen in eine eigene Liste. Keine Nährwerte.
 """
@@ -97,10 +98,12 @@ def _names_for_pantry(ingredient: RecipeIngredient) -> list[str]:
     return [ingredient.food.name, shopping_name(ingredient.food)]
 
 
-def _add(item: ShoppingItem, ingredient: RecipeIngredient, recipe_title: str) -> None:
+def _add(
+    item: ShoppingItem, ingredient: RecipeIngredient, recipe_title: str, factor: float
+) -> None:
     if ingredient.food is not None and ingredient.quantity is not None:
         unit = ingredient.unit or "g"
-        item.amounts[unit] = item.amounts.get(unit, 0) + ingredient.quantity
+        item.amounts[unit] = item.amounts.get(unit, 0) + ingredient.quantity * factor
     # optional nur, wenn der Artikel in keinem Rezept Pflicht ist
     first = not item.recipes
     item.optional = ingredient.is_optional and (first or item.optional)
@@ -115,11 +118,13 @@ def build_shopping_list(
     items: dict[str, ShoppingItem] = {}
     pantry: dict[str, ShoppingItem] = {}
     for entry in entries_between(session, first, last):
-        for ingredient in entry.recipe.ingredients:
+        recipe = entry.recipe
+        factor = entry.servings / recipe.servings if recipe.servings else 1
+        for ingredient in recipe.ingredients:
             name = _item_name(ingredient)
             target = pantry if is_pantry(_names_for_pantry(ingredient), pantry_keywords) else items
             item = target.setdefault(name.casefold(), ShoppingItem(name=name))
-            _add(item, ingredient, entry.recipe.title)
+            _add(item, ingredient, recipe.title, factor)
     return ShoppingList(
         first=first,
         last=last,
