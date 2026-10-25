@@ -5,16 +5,18 @@ Kalorien zählen, Rezepte verwalten und die Woche planen – direkt in Home Assi
 ## Zugang
 
 - **Oberfläche in Home Assistant:** über die Seitenleiste (Ingress), ohne eigenes Login.
-- **Vollbild-App:** `http://<home-assistant>:8099/`, z. B. `http://homeassistant.local:8099/`. Die Anmeldung läuft über Home Assistant: Wer sich dort anmelden kann, kommt auch in Tellerplan. In den Einstellungen von Tellerplan lässt sich das Gerät wieder abmelden; das entzieht den Zugang auch in Home Assistant.
+- **Vollbild-App:** `http://<IP von Home Assistant>:8099/`, z. B. `http://192.168.178.20:8099/`. Die Anmeldung läuft über Home Assistant: Wer sich dort anmelden kann, kommt auch in Tellerplan. In den Einstellungen von Tellerplan lässt sich das Gerät wieder abmelden; das entzieht den Zugang auch in Home Assistant.
 - **API:** ebenfalls Port 8099, aber unter `/api/…` und nur mit `Authorization: Bearer <api_token>`. Ohne gesetzten Token ist die API gesperrt.
 
 ### Vollbild-App auf dem iPhone
 
 1. Port 8099 im Abschnitt „Netzwerk“ des Add-ons eintragen (Vorgabe 8099).
-2. In Safari `http://homeassistant.local:8099/` öffnen und mit dem Home-Assistant-Benutzer anmelden.
+2. In Safari `http://<IP von Home Assistant>:8099/` öffnen und mit dem Home-Assistant-Benutzer anmelden.
 3. Teilen → „Zum Home-Bildschirm“. Tellerplan startet dann im Vollbild mit eigenem Symbol.
 
 Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (anderer Host oder Port), diese als `homeassistant_url` eintragen.
+
+**IP-Adresse statt `homeassistant.local`:** Über `homeassistant.local` kann iOS nach der Anmeldung mit `NSURLErrorDomain` scheitern (vermutlich löst iOS den Namen per IPv6 auf, Port 8099 ist aber nur über IPv4 erreichbar). Zuverlässig ist die IP-Adresse, z. B. `http://192.168.178.20:8099/`. Damit das Symbol auf dem Home-Bildschirm dauerhaft funktioniert, dem Raspberry Pi im Router eine feste IPv4-Adresse geben (FRITZ!Box: „Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen“).
 
 ## Optionen
 
