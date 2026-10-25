@@ -1,4 +1,8 @@
-"""Seite „Rezepte importieren“: Entwurfsdatei hochladen (z. B. aus tools/cookidoo_fetch.py)."""
+"""Seite „Importieren“: Rezeptentwürfe oder Lebensmittel als Datei hochladen.
+
+Die Datei sagt selbst, was sie ist („format“): Rezepte aus tools/cookidoo_fetch.py,
+Lebensmittel mit Nährwerten aus tools/rewe_fetch.py.
+"""
 
 import json
 import logging
@@ -9,6 +13,12 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from db import get_session
+from modules.foods.importer import (
+    FoodImportError,
+    FoodImportResult,
+    import_foods,
+    is_food_document,
+)
 from modules.importers.service import ImportFormatError, ImportResult, import_document
 from web.templating import render
 
@@ -22,9 +32,12 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 def _render(
-    request: Request, result: ImportResult | None = None, error: str | None = None
+    request: Request,
+    result: ImportResult | None = None,
+    food_result: FoodImportResult | None = None,
+    error: str | None = None,
 ) -> HTMLResponse:
-    return render(request, "imports.html", result=result, error=error)
+    return render(request, "imports.html", result=result, food_result=food_result, error=error)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -41,14 +54,32 @@ def import_upload(
     if len(content) > MAX_UPLOAD_BYTES:
         return _render(request, error="Die Datei ist zu groß (höchstens 10 MB).")
     try:
-        result = import_document(session, json.loads(content.decode("utf-8")))
+        document = json.loads(content.decode("utf-8"))
     except UnicodeDecodeError, json.JSONDecodeError:
         return _render(request, error="Die Datei ist kein gültiges JSON.")
+
+    if is_food_document(document):
+        try:
+            food_result = import_foods(session, document)
+        except FoodImportError as error:
+            return _render(request, error=str(error))
+        session.commit()
+        logger.info(
+            "Lebensmittel-Import aus %s: %d neu, %d aktualisiert, %d übersprungen",
+            file.filename,
+            food_result.created,
+            food_result.updated,
+            len(food_result.skipped),
+        )
+        return _render(request, food_result=food_result)
+
+    try:
+        result = import_document(session, document)
     except ImportFormatError as error:
         return _render(request, error=str(error))
     session.commit()
     logger.info(
-        "Import aus %s: %d neu, %d aktualisiert, %d von %d Zeilen zugeordnet",
+        "Rezept-Import aus %s: %d neu, %d aktualisiert, %d von %d Zeilen zugeordnet",
         file.filename,
         result.created,
         result.updated,

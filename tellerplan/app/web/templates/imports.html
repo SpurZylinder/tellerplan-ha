@@ -1,23 +1,41 @@
 {% extends "base.html" %}
 {% from "_macros.html" import error_message %}
 
-{% block title %}Rezepte importieren · Tellerplan{% endblock %}
+{% block title %}Importieren · Tellerplan{% endblock %}
 
 {% block content %}
   <header>
     <a class="back" href="{{ url('settings_page') }}">← Einstellungen</a>
-    <h1>Rezepte importieren</h1>
-    <p class="lede">Entwurfsdatei hochladen, z. B. <code>cookidoo_fuerth_entwuerfe.json</code> aus <code>tools/cookidoo_fetch.py</code>.</p>
+    <h1>Importieren</h1>
+    <p class="lede">Rezepte (z. B. <code>cookidoo_fuerth_entwuerfe.json</code> aus <code>tools/cookidoo_fetch.py</code>) oder Lebensmittel mit Nährwerten (z. B. <code>rewe_lebensmittel.json</code> aus <code>tools/rewe_fetch.py</code>). Die Datei sagt selbst, was sie enthält.</p>
   </header>
 
   {% if result %}
     <section class="card">
-      <h2>Import abgeschlossen</h2>
+      <h2>Rezepte importiert</h2>
       <p class="success" role="status">{{ result.created }} neu, {{ result.updated }} schon vorhanden und aktualisiert.</p>
-      <p class="meta">{{ result.matched_lines }} von {{ result.lines }} Zutatenzeilen sind einem Lebensmittel zugeordnet. Die übrigen ordnest du einmal je Zutat zu; danach gilt die Zuordnung in allen Rezepten.</p>
+      <p class="meta">{{ result.matched_lines }} von {{ result.lines }} Zutatenzeilen sind schon zugeordnet. Die übrigen ordnest du einmal je Zutat zu; danach gilt die Zuordnung in allen Rezepten.</p>
       <div class="form-actions">
         <a class="btn" href="{{ url('matching_page') }}">Zutaten zuordnen</a>
         <a class="btn ghost" href="{{ url('recipes_page') }}">Zu den Rezepten</a>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if food_result %}
+    <section class="card">
+      <h2>Lebensmittel importiert</h2>
+      <p class="success" role="status">{{ food_result.created }} neu, {{ food_result.updated }} schon vorhanden und aktualisiert.</p>
+      {% if food_result.skipped %}
+        <details>
+          <summary class="meta">{{ food_result.skipped|length }} übersprungen</summary>
+          <ul class="list">{% for reason in food_result.skipped %}<li><span class="meta">{{ reason }}</span></li>{% endfor %}</ul>
+        </details>
+      {% endif %}
+      <p class="meta">Die Produkte stehen jetzt in der Lebensmittelsuche und lassen sich bei einer Grundzutat als Standard wählen.</p>
+      <div class="form-actions">
+        <a class="btn" href="{{ url('bases_page') }}">Zu den Grundzutaten</a>
+        <a class="btn ghost" href="{{ url('foods_page') }}">Zu den Lebensmitteln</a>
       </div>
     </section>
   {% endif %}
@@ -27,7 +45,7 @@
     <label class="field">Datei
       <input class="input" type="file" name="file" accept=".json,application/json" required>
     </label>
-    <p class="meta">Ein erneuter Import legt nichts doppelt an: vorhandene Rezepte (gleiche Quelle und ID) werden aktualisiert, ihre Zutaten und Zuordnungen bleiben. Nährwerte der Quelle dienen nur zum Vergleich.</p>
+    <p class="meta">Ein erneuter Import legt nichts doppelt an. Rezepte werden an Quelle und ID erkannt, ihre Zutaten und Zuordnungen bleiben; Nährwerte der Quelle dienen nur zum Vergleich. Lebensmittel werden am Barcode erkannt und aktualisiert; von Hand gepflegte Einheiten und Kurznamen bleiben.</p>
     <div class="form-actions"><button class="btn" type="submit">Importieren</button></div>
   </form>
 {% endblock %}

@@ -13,6 +13,7 @@ from db import Base
 class FoodSource(enum.StrEnum):
     BLS = "bls"
     OFF = "off"
+    REWE = "rewe"
     CUSTOM = "custom"
 
 
@@ -31,6 +32,10 @@ class Food(Base):
     shopping_name: Mapped[str | None] = mapped_column(String(100))
     # Hersteller bei Markenprodukten, z. B. „Berchtesgadener Land“; leer = generisch (BLS, eigen)
     brand: Mapped[str | None] = mapped_column(String(120))
+    # EAN/GTIN; ein Produkt mit Barcode gibt es nur einmal, egal aus welcher Quelle
+    barcode: Mapped[str | None] = mapped_column(String(14), index=True, unique=True)
+    # Packungsgröße laut Handel, z. B. „1l“ oder „200g“
+    package: Mapped[str | None] = mapped_column(String(60))
 
     # Nährwerte pro 100 g
     kcal: Mapped[float]

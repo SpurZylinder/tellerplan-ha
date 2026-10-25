@@ -43,7 +43,7 @@ tellerplan-ha/
 ├── .obsidian/                 Obsidian-Einstellungen (Vault = Repo, sichtbar nur docs/)
 ├── docs/                      Projektdoku als Obsidian-Vault (Start.md, Architektur.md, Entwicklung.md)
 ├── dev/                       lokale options.json + DB (nicht im Git, Vorlage options.example.json)
-├── tools/                     Skripte für den Rechner: bls_convert.py, cookidoo_fetch.py
+├── tools/                     Skripte für den Rechner: bls_convert.py, cookidoo_fetch.py, rewe_har_extract.py, rewe_fetch.py
 └── tellerplan/                das Add-on
     ├── config.yaml            version = einzige Versionsquelle
     ├── Dockerfile · run.sh · DOCS.md
@@ -59,7 +59,7 @@ tellerplan-ha/
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte, 0011 Grundzutaten
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte, 0011 Grundzutaten, 0012 Barcode und Packung
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```

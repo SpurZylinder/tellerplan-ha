@@ -68,7 +68,7 @@ Nährwerte existieren nur an `food`, alles andere verweist darauf oder hält ein
 
 | Tabelle | Wichtige Felder | Regel |
 | --- | --- | --- |
-| `food` | Name, Quelle (bls / off / custom), Quell-ID (BLS-Code, Barcode, bei eigenen eine erzeugte Kennung), Hersteller, Kurzname, Nährwerte pro 100 g | Einzige Stelle mit Nährwerten; Quelle + Quell-ID ist der übertragbare Schlüssel zwischen Datenbanken |
+| `food` | Name, Quelle (bls / off / rewe / custom), Quell-ID (BLS-Code, Barcode, bei eigenen eine erzeugte Kennung), Barcode (eindeutig), Hersteller, Packungsgröße, Kurzname, Nährwerte pro 100 g | Einzige Stelle mit Nährwerten; ein Produkt mit Barcode gibt es nur einmal, egal aus welcher Quelle |
 | `food_unit` | food_id, Einheit (EL, TL, Stück, Becher, Prise), Gramm | Umrechnung pro Lebensmittel; Dichte für ml |
 | `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
 | `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Name („Milch“), Menge, Einheit, Grundzutat, food_id nur bei im Rezept bewusst gewähltem Produkt, optional-Flag | Gerechnet wird das gewählte Produkt, sonst das Standardprodukt der Grundzutat. Ohne Menge („Salz“): „nach Bedarf“, zählt nicht gegen die Vollständigkeit |
@@ -148,6 +148,17 @@ Der Bundeslebensmittelschlüssel liefert rund 7.140 Lebensmittel mit Werten pro 
 Eine neue BLS-Version heißt: CSV neu erzeugen und eine weitere Datenmigration nach dem Muster von `0005` anlegen. BLS kennt keine Portionsgrößen; Einheiten pflegt der Nutzer pro Lebensmittel.
 
 **Suche:** Bei 7.000 Einträgen reicht SQL mit einem normalisierten Suchschlüssel (Kleinschreibung, Wörter zusammengeschrieben, also „haferflocken“ = „Hafer Flocken“) plus Ranking in Python: ganzes Wort vor Wortanfang vor Wortende, Treffer im ersten Wort (BLS-Namen beginnen mit dem Lebensmittel), dann „roh“, eigene Einträge und kurze Namen. Ohne Treffer folgt eine unscharfe Suche mit `rapidfuzz` („brokkoli“ → „Broccoli roh“). FTS5 ist damit vorerst nicht nötig; mehrdeutige Kurzwörter wie „ei“ löst später das Alias-Lernen.
+
+## Produkte aus REWE und Open Food Facts
+
+Festgelegt am 2026-10-26. Markenprodukte (z. B. die Milch als Standard der Grundzutat „Milch“) kommen am Rechner zusammen und werden als Datei im Format `tellerplan-foods` importiert (Einstellungen → „Importieren“).
+
+1. **Favoriten aus dem Browser:** `tools/rewe_har_extract.py` liest einen Firefox-HAR-Mitschnitt und übernimmt nur feste Felder: Favoriten (Produkt-ID, Name, Packung, Link), Bestellpositionen (Titel, EAN, Menge, Kategorie) und im Browser geöffnete Produktseiten. Preise, Kennungen, Telefonnummer, Kommentare und Adressen werden verworfen; ein Selbsttest bricht ab, falls doch etwas davon in einer Ausgabe landet. Die HAR-Datei selbst enthält Cookies und Bestelldaten und wird nach dem Extrahieren gelöscht.
+2. **Nährwerte:** `tools/rewe_fetch.py` fragt selbst nichts bei REWE an – automatisierte Abrufe lehnt REWE ab (403), und diese Sperre wird nicht umgangen. Quellen: im Browser geöffnete Produktseiten (JSON-LD mit Barcode und Hersteller, Nährwerttabelle nach GS1) und Open Food Facts über den Barcode (gedrosselt, bei 429 Pause). Was fehlt, steht in einer Linkliste (`…_offen.html`), die man im Browser bei laufendem Mitschnitt abarbeitet.
+3. **Import:** Wiedererkennung am Barcode, sonst an Quelle und Quell-ID; ein erneuter Import aktualisiert Nährwerte, Hersteller und Packung, von Hand gepflegte Einheiten und Kurznamen bleiben. Angaben je 100 ml werden wie je 100 g gespeichert, dazu die Einheiten „ml“ (1 ml = 1 g) und „l“; aus der Packungsgröße entsteht die Einheit „Packung“.
+4. **Suche:** Bei Markenprodukten zählt das erste Wort nach Hersteller und „Bio“ als Hauptwort („Berchtesgadener Land Bio Milch“ → „Milch“).
+
+Stand der ersten Runde: 185 Favoriten, 24 Produkte mit Nährwerten (23 über Open Food Facts), der Rest in der Linkliste.
 
 ## Importer
 
@@ -333,6 +344,7 @@ Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 
 **Weitere offene Punkte**
 
+- [ ] Einkaufshistorie aus REWE-Bestellungen nutzen (z. B. „was kaufe ich tatsächlich“, Mengen für die Einkaufsliste)? Vorerst nur als Todo; die Bestellseite enthält Telefonnummer, Bestellnummer und Abholdaten, `tools/rewe_har_extract.py` übernimmt davon nur Titel, EAN, Menge und Kategorie.
 - [ ] Open Food Facts: einzelne Markenprodukte per Suche nach Name oder Barcode übernehmen (`source = off`, Barcode als Quell-ID), nicht die ganze Datenbank (mehrere Millionen Produkte, schwankende Qualität, ODbL). Vorschlag vom 2026-10-25, noch nicht umgesetzt.
 - [ ] Konfigset für Grundzutaten exportieren/importieren (Namen, Standardprodukte über Quelle + Quell-ID), um sie am Rechner vorzubereiten.
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.

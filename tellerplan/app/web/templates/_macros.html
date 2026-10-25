@@ -30,7 +30,7 @@
   {% if food.brand %}
     <span class="pill p" title="Hersteller">{{ food.brand }}</span>
   {% else %}
-    {% set labels = {"bls": ("BLS", "Bundeslebensmittelschlüssel 4.0"), "off": ("OFF", "Open Food Facts")} %}
+    {% set labels = {"bls": ("BLS", "Bundeslebensmittelschlüssel 4.0"), "off": ("OFF", "Open Food Facts"), "rewe": ("REWE", "Produktseite von REWE")} %}
     {% set label, title = labels.get(food.source, ("eigen", "Selbst angelegt")) %}
     <span class="pill d" title="{{ title }}">{{ label }}</span>
   {% endif %}

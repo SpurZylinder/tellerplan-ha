@@ -16,6 +16,8 @@ SEARCH_CANDIDATES = 1000
 # Unscharfe Suche nur, wenn nichts direkt passt; Schwelle für rapidfuzz (0–100)
 FUZZY_CUTOFF = 75
 RAW_WORD = "roh"
+# Wörter vor dem eigentlichen Lebensmittel in Markennamen („Bio Milch“)
+LEADING_LABELS = {"bio"}
 # Fürs Ranking gelten Bindestrich-Wörter als ein Wort („Quark-Plunder“ ist kein „Quark“)
 RANK_WORD_PATTERN = re.compile(r"[\w-]+")
 
@@ -100,6 +102,19 @@ def _main_word_level(term: str, main_word: str) -> int:
     return INSIDE
 
 
+def _main_word(food: Food, words: list[str]) -> str:
+    """Erstes Wort des Namens; bei Markenprodukten das erste nach Hersteller und „Bio“.
+
+    „Frankenland Frischmilch 1,5 %“ (Hersteller Frankenland) → „frischmilch“,
+    „Berchtesgadener Land Bio Milch“ → „milch“.
+    """
+    skip = set(RANK_WORD_PATTERN.findall((food.brand or "").casefold())) | LEADING_LABELS
+    rest = list(words)
+    while len(rest) > 1 and rest[0] in skip:
+        rest.pop(0)
+    return rest[0] if rest else ""
+
+
 def _rank(food: Food, terms: list[str]) -> tuple[int, int, bool, bool, int]:
     """Sortierschlüssel: Hauptwort, Trefferqualität, roh, eigene zuerst, kurze Namen.
 
@@ -107,7 +122,7 @@ def _rank(food: Food, terms: list[str]) -> tuple[int, int, bool, bool, int]:
     vor „Speisesalz“ liefert, nur weil „Salz“ weiter hinten als eigenes Wort steht.
     """
     words = RANK_WORD_PATTERN.findall(food.name.casefold())
-    main_word = words[0] if words else ""
+    main_word = _main_word(food, words)
     return (
         -_main_word_level(terms[0], main_word),
         -sum(_match_level(term, words) for term in terms),

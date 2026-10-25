@@ -119,3 +119,14 @@ def test_brand_is_shown_instead_of_source(ingress_client: TestClient) -> None:
     assert "Berchtesgadener Land" in detail
     assert ">eigen<" not in detail
     assert "Berchtesgadener Land" in ingress_client.get("/foods/search?q=laktosefrei").text
+
+
+def test_branded_products_rank_by_word_after_brand(session: Session) -> None:
+    _bls(session, "Milchreis gekocht", "Milchkaffee")
+    milk = make_food(session, "Berchtesgadener Land Bio Milch 1,5% 1l")
+    milk.brand = "Berchtesgadener Land"
+    session.flush()
+
+    names = [food.name for food in search_foods(session, "milch")]
+
+    assert names[0] == "Berchtesgadener Land Bio Milch 1,5% 1l"

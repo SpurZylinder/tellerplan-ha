@@ -24,6 +24,9 @@
         <li><span>{{ label }}</span><span class="meta">{{ food[field]|num(1) }}</span></li>
       {% endfor %}
     </ul>
+    {% if food.barcode or food.package %}
+      <p class="meta">{% if food.barcode %}Barcode {{ food.barcode }}{% endif %}{% if food.barcode and food.package %} · {% endif %}{% if food.package %}Packung {{ food.package }}{% endif %}</p>
+    {% endif %}
     {% if food.source == "bls" %}
       <p class="meta">BLS-Code {{ food.source_id }} · Werte sind schreibgeschützt; Einheiten unten kannst du ergänzen.</p>
       {{ bls_attribution() }}
