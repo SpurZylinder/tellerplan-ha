@@ -151,7 +151,7 @@ Eine neue BLS-Version heißt: CSV neu erzeugen und eine weitere Datenmigration n
 
 ## Produkte aus REWE und Open Food Facts
 
-Festgelegt am 2026-10-26. Markenprodukte (z. B. die Milch als Standard der Grundzutat „Milch“) kommen am Rechner zusammen und werden als Datei im Format `tellerplan-foods` importiert (Einstellungen → „Importieren“).
+Festgelegt am 2026-10-26. Schritt-für-Schritt-Anleitung in [[Datenpflege]]. Markenprodukte (z. B. die Milch als Standard der Grundzutat „Milch“) kommen am Rechner zusammen und werden als Datei im Format `tellerplan-foods` importiert (Einstellungen → „Importieren“).
 
 1. **Favoriten aus dem Browser:** `tools/rewe_har_extract.py` liest einen Firefox-HAR-Mitschnitt und übernimmt nur feste Felder: Favoriten (Produkt-ID, Name, Packung, Link), Bestellpositionen (Titel, EAN, Menge, Kategorie) und im Browser geöffnete Produktseiten. Preise, Kennungen, Telefonnummer, Kommentare und Adressen werden verworfen; ein Selbsttest bricht ab, falls doch etwas davon in einer Ausgabe landet. Die HAR-Datei selbst enthält Cookies und Bestelldaten und wird nach dem Extrahieren gelöscht.
 2. **Nährwerte:** `tools/rewe_fetch.py` fragt selbst nichts bei REWE an – automatisierte Abrufe lehnt REWE ab (403), und diese Sperre wird nicht umgangen. Quellen: im Browser geöffnete Produktseiten (JSON-LD mit Barcode und Hersteller, Nährwerttabelle nach GS1) und Open Food Facts über den Barcode (gedrosselt, bei 429 Pause). Was fehlt, steht in einer Linkliste (`…_offen.html`), die man im Browser bei laufendem Mitschnitt abarbeitet.
