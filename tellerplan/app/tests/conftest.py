@@ -64,8 +64,10 @@ def session(migrated: Settings) -> Iterator[Session]:
 
 
 @pytest.fixture
-def ingress_client(migrated: Settings) -> TestClient:
-    return TestClient(create_app(migrated), base_url=f"http://testserver:{migrated.ingress_port}")
+def ingress_client(migrated: Settings, options_file: Path) -> TestClient:
+    return TestClient(
+        create_app(migrated, options_file), base_url=f"http://testserver:{migrated.ingress_port}"
+    )
 
 
 @pytest.fixture

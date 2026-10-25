@@ -32,13 +32,29 @@ def _create_recipe(client: TestClient, title: str = "Skyr-Bowl", servings: str =
     return response.headers["location"]
 
 
-@pytest.mark.parametrize("path", ["/", "/recipes", "/plan", "/plan?weeks=2", "/foods"])
+@pytest.mark.parametrize("path", ["/", "/recipes", "/plan", "/plan?weeks=2"])
 def test_main_pages_render_with_tab_bar(ingress_client: TestClient, path: str) -> None:
     response = ingress_client.get(path)
 
     assert response.status_code == 200
     assert 'class="tabbar"' in response.text
     assert 'aria-current="page"' in response.text
+
+
+@pytest.mark.parametrize("path", ["/settings", "/foods"])
+def test_secondary_pages_have_no_own_tab(ingress_client: TestClient, path: str) -> None:
+    response = ingress_client.get(path)
+
+    assert response.status_code == 200
+    assert 'class="tabbar"' in response.text
+    assert 'aria-current="page"' not in response.text
+
+
+def test_tab_bar_shows_today_plan_recipes(ingress_client: TestClient) -> None:
+    text = ingress_client.get("/").text
+
+    assert text.index(">Heute<") < text.index(">Plan<") < text.index(">Rezepte<")
+    assert ">Lebensmittel<" not in text
 
 
 def test_food_form_accepts_german_decimals(ingress_client: TestClient) -> None:

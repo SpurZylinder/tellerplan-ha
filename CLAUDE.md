@@ -50,6 +50,7 @@ tellerplan-ha/
     └── app/
         ├── main.py · settings.py · db.py · migrate.py
         ├── security.py        Zugriff je Port (Ingress ohne Login, 8099 mit Token)
+        ├── supervisor.py      Aufrufe an die Supervisor-API (nur im Add-on)
         ├── serve.py           Add-on-Start: Backup, Migration, beide Ports
         ├── modules/           foods · nutrition · recipes · importers · planner · diary
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)

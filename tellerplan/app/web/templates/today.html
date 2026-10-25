@@ -13,6 +13,9 @@
       <a class="chip" href="{{ url('today_page') }}?day={{ previous }}" aria-label="Vorheriger Tag">←</a>
       {% if not is_today %}<a class="chip" href="{{ url('today_page') }}">Heute</a>{% endif %}
       <a class="chip" href="{{ url('today_page') }}?day={{ following }}" aria-label="Nächster Tag">→</a>
+      <a class="icon-btn" href="{{ url('settings_page') }}" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0-4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm0-3v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+      </a>
     </div>
   </header>
 

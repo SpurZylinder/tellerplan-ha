@@ -81,7 +81,7 @@ def _form_values(food: Food) -> dict[str, str]:
 
 @router.get("", response_class=HTMLResponse)
 def foods_page(request: Request, session: SessionDep, q: str = "") -> HTMLResponse:
-    return render(request, "foods/list.html", tab="foods", foods=search_foods(session, q), q=q)
+    return render(request, "foods/list.html", foods=search_foods(session, q), q=q)
 
 
 @router.get("/search", response_class=HTMLResponse)
@@ -98,9 +98,7 @@ def foods_picker(request: Request, session: SessionDep, q: str = "") -> HTMLResp
 
 @router.get("/new", response_class=HTMLResponse)
 def food_new(request: Request) -> HTMLResponse:
-    return render(
-        request, "foods/form.html", tab="foods", food=None, values={}, fields=NUTRIENT_FIELDS
-    )
+    return render(request, "foods/form.html", food=None, values={}, fields=NUTRIENT_FIELDS)
 
 
 @router.post("/new", response_model=None)
@@ -110,7 +108,6 @@ async def food_create(request: Request, session: SessionDep) -> Response:
         return render(
             request,
             "foods/form.html",
-            tab="foods",
             food=None,
             values=values,
             fields=NUTRIENT_FIELDS,
@@ -124,7 +121,7 @@ async def food_create(request: Request, session: SessionDep) -> Response:
 @router.get("/{food_id}", response_class=HTMLResponse)
 def food_detail(request: Request, session: SessionDep, food_id: int) -> HTMLResponse:
     food = _food_or_404(session, food_id)
-    return render(request, "foods/detail.html", tab="foods", food=food, fields=NUTRIENT_FIELDS)
+    return render(request, "foods/detail.html", food=food, fields=NUTRIENT_FIELDS)
 
 
 @router.get("/{food_id}/edit", response_class=HTMLResponse)
@@ -133,7 +130,6 @@ def food_edit(request: Request, session: SessionDep, food_id: int) -> HTMLRespon
     return render(
         request,
         "foods/form.html",
-        tab="foods",
         food=food,
         values=_form_values(food),
         fields=NUTRIENT_FIELDS,
@@ -148,7 +144,6 @@ async def food_update(request: Request, session: SessionDep, food_id: int) -> Re
         return render(
             request,
             "foods/form.html",
-            tab="foods",
             food=food,
             values=values,
             fields=NUTRIENT_FIELDS,
@@ -177,7 +172,6 @@ def unit_add(
         return render(
             request,
             "foods/detail.html",
-            tab="foods",
             food=food,
             fields=NUTRIENT_FIELDS,
             unit_error=str(error),

@@ -13,6 +13,8 @@ ingress: true
 ingress_port: 8000
 panel_icon: mdi:silverware-fork-knife
 panel_title: Tellerplan
+# Supervisor-API: Die Einstellseite speichert die eigenen Optionen (siehe docs/Architektur.md)
+hassio_api: true
 ports:
   8099/tcp: 8099
 ports_description:

@@ -19,4 +19,6 @@ Kalorien zählen, Rezepte verwalten und die Woche planen – direkt in Home Assi
 | `api_token` | Token für Kurzbefehle und Skripte |
 | `database_path` | Pfad der SQLite-Datenbank (Standard `/data/app.db`, Teil der HA-Backups) |
 
+Tageslimit und Makro-Ziele lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“.
+
 Vor jeder Migration legt das Add-on eine Kopie der Datenbank als `app.db.bak` an.

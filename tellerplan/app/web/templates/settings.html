@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}Einstellungen · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('today_page') }}">← Heute</a>
+    <h1>Einstellungen</h1>
+  </header>
+
+  <form class="form card" method="post" action="{{ url('settings_save') }}">
+    {{ error_message(error) }}
+    {% if saved %}<p class="success" role="status">Gespeichert.</p>{% endif %}
+    <h2>Tagesziele</h2>
+    <div class="field-row">
+      {% for field in fields %}
+        <label class="field">{{ field.label }} <span class="meta">{{ field.unit }}</span>
+          <input class="input" name="{{ field.name }}" value="{{ values[field.name] }}"
+                 inputmode="numeric" min="{{ field.minimum|int }}" max="{{ field.maximum|int }}" required>
+        </label>
+      {% endfor %}
+    </div>
+
+
+    <p class="meta">
+      {% if in_addon %}Gilt sofort und erscheint auch in Home Assistant unter Apps → Tellerplan → Konfiguration.
+      {% else %}Lokal: Die Werte werden in options.json gespeichert.{% endif %}
+      Vergangene Tage zeigen ebenfalls die neuen Tagesziele.
+    </p>
+    <div class="form-actions">
+      <button class="btn" type="submit">Speichern</button>
+    </div>
+  </form>
+
+  <section class="card">
+    <h2>Daten</h2>
+    <ul class="list">
+      <li>
+        <div class="grow">
+          <a href="{{ url('foods_page') }}">Lebensmittel</a>
+          <span class="meta">Suchen, eigene anlegen, Einheiten pflegen</span>
+        </div>
+        <span class="meta">→</span>
+      </li>
+    </ul>
+  </section>
+
+  <p class="meta">Mahlzeitnamen und API-Token stehen nur in Home Assistant unter Apps → Tellerplan → Konfiguration.</p>
+{% endblock %}

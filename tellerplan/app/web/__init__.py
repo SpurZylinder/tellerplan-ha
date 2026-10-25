@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter
 
-from web.pages import foods, plan, recipes, today
+from web.pages import foods, options, plan, recipes, today
 
 router = APIRouter(include_in_schema=False)
-for page in (today, recipes, plan, foods):
+for page in (today, plan, recipes, foods, options):
     router.include_router(page.router)
