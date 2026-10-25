@@ -6,16 +6,16 @@ Stand: 2026-10-24
 
 Tellerplan ist eine selbst gehostete App, die Kalorienzählen und Rezeptverwaltung mit Wochenplan vereint: ein GitHub-Repo `tellerplan-ha`, ein Home-Assistant-Add-on mit Slug `tellerplan`, eine SQLite-Datenbank.
 
-| Entscheidung | Festlegung | Begründung |
-| --- | --- | --- |
-| Repo-Schnitt | Ein Repo, eine App, innen nach Modulen getrennt | Rezepte, Plan und Tagebuch teilen dieselben Lebensmittel und Nährwerte |
-| Maßgebliche Nährwerte | Immer aus der eigenen Lebensmitteldatenbank berechnet | Zutaten werden manuell präzisiert (z. B. welche Sahne) |
-| Quell-Nährwerte | Werden beim Import **nicht** übernommen | Keine zweite Wahrheit, keine Abweichungen zu pflegen |
-| Rolle des Imports | Liefert nur Titel, Portionen, Link und rohe Zutatenliste | Rezepte sind jederzeit editierbar und werden schrittweise gematcht |
-| Portionen | Rezept hat Standardportionen; der Plan übernimmt sie unverändert; das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen |
-| Historie | Tagebucheinträge speichern einen Nährwert-Snapshot | Spätere Rezeptänderungen verändern keine vergangenen Tage |
-| Eintragen | Nur auf der Seite „Heute“; der Plan kennt keine Mahlzeiten | Ein Ort für das, was wirklich gegessen wurde |
-| Cookidoo-Planung | Link zur Rezeptseite wird gespeichert, Planung dort per Link | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt |
+| Entscheidung          | Festlegung                                                                                              | Begründung                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Repo-Schnitt          | Ein Repo, eine App, innen nach Modulen getrennt                                                         | Rezepte, Plan und Tagebuch teilen dieselben Lebensmittel und Nährwerte |
+| Maßgebliche Nährwerte | Immer aus der eigenen Lebensmitteldatenbank berechnet                                                   | Zutaten werden manuell präzisiert (z. B. welche Sahne)                 |
+| Quell-Nährwerte       | Werden beim Import **nicht** übernommen                                                                 | Keine zweite Wahrheit, keine Abweichungen zu pflegen                   |
+| Rolle des Imports     | Liefert nur Titel, Portionen, Link und rohe Zutatenliste                                                | Rezepte sind jederzeit editierbar und werden schrittweise gematcht     |
+| Portionen             | Rezept hat Standardportionen; der Plan übernimmt sie unverändert; das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen                              |
+| Historie              | Tagebucheinträge speichern einen Nährwert-Snapshot                                                      | Spätere Rezeptänderungen verändern keine vergangenen Tage              |
+| Eintragen             | Nur auf der Seite „Heute“; der Plan kennt keine Mahlzeiten                                              | Ein Ort für das, was wirklich gegessen wurde                           |
+| Cookidoo-Planung      | Link zur Rezeptseite wird gespeichert, Planung dort per Link                                            | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt         |
 
 ## Systemüberblick
 
@@ -57,6 +57,7 @@ Sechs Fachmodule mit klaren Grenzen; nur `nutrition` rechnet Nährwerte, alle an
 | `recipes` | Rezepte, Zutatenlisten, Zuordnung Zutat → Lebensmittel, Alias-Lernen, Matching-Status | `foods`, `nutrition` |
 | `importers` | Quelle → Rezeptentwurf (Titel, Portionen, Link, rohe Zutatenzeilen); keine Nährwerte | `recipes` |
 | `planner` | Wochenplan über 1–2 Wochen: Tag → Rezepte, jeweils mit den Standardportionen des Rezepts | `recipes` |
+| `shopping` | Einkaufsliste aus dem Plan: Zutaten zusammenfassen, Vorratsartikel aussortieren, an Bring senden | `planner`, `recipes` |
 | `diary` | Tagebuch mit vier Mahlzeiten, Tageslimit als Halbkreis, Makro-Balken; Übernahme aus dem Plan mit gegessenen Portionen | `nutrition`, `recipes`, `planner` |
 
 Querschnitt: `settings` (zentrale Parameter aus `options.json`), `api` (JSON für UI und Kurzbefehle), `web` (Seiten und UI-Komponenten).
@@ -165,15 +166,18 @@ Das Widget „Protein-Ranking Fürth“ wird die Rezeptauswahl der App, und sein
 
 **Seiten**
 
+Die Tab-Leiste hat drei Einträge: **Heute · Plan · Rezepte**. Einstellungen erreicht man über das Zahnrad oben rechts auf „Heute“, die Lebensmittel über die Einstellungen sowie beim Eintragen und beim Zuordnen von Zutaten. Festgelegt am 2026-10-25: Heute und Plan braucht man täglich, Rezepte beim Planen, Lebensmittel und Einstellungen nur gelegentlich.
+
 | Seite | Inhalt |
 | --- | --- |
 | Heute | Tages-Dashboard: Halbkreis kcal gegen Limit, Makro-Balken, geplante Rezepte zum Übernehmen, vier Mahlzeiten mit Einträgen; einziger Ort zum Eintragen |
 | Rezepte | Ranking-Ansicht mit Filtern |
 | Rezept | Zutatenliste mit Matching-Status, Nährwerte pro Portion; Buttons Einplanen, Kochen, Bearbeiten und rechts „In Cookidoo öffnen“ |
 | Kochen | Unterseite eines Rezepts: nummerierte Kochschritte, links schmal die mitlaufende Zutatenliste; die Schritte erscheinen nur hier |
-| Plan | 3 Tage zurück bis 2 Wochen voraus, Spalten oder Liste (Umschalter oben rechts), nur Rezepttitel, Verschieben auf andere Tage |
-| Lebensmittel | Suche in BLS/OFF/eigenen, eigenes Lebensmittel anlegen, Einheiten pflegen |
-| Einstellungen | kcal-Limit, Makro-Ziele, Mahlzeitnamen |
+| Plan | 3 Tage zurück bis 2 Wochen voraus, Spalten oder Liste (Umschalter oben rechts), nur Rezepttitel, Verschieben auf andere Tage; Knopf „🛒 Einkaufsliste“ |
+| Einkaufsliste | Unterseite des Plans: gesendete Artikel mit Mengen und Rezepten, übersprungener Vorrat, Liste als Text zum Kopieren |
+| Einstellungen | Zahnrad auf „Heute“: Tageslimit kcal und Makro-Ziele, Bring-Liste und Vorrat, Link zu den Lebensmitteln; Mahlzeitnamen und API-Token nur in Home Assistant |
+| Lebensmittel | Unterseite der Einstellungen: Suche in BLS/OFF/eigenen, eigenes Lebensmittel anlegen, Einheiten und Einkaufsname pflegen |
 
 ## Tech-Stack, Repo-Struktur, Konfiguration, Deployment
 
@@ -199,7 +203,7 @@ tellerplan-ha/
     ├── config.yaml · Dockerfile · run.sh
     └── app/
         ├── main.py · settings.py
-        ├── modules/  foods · nutrition · recipes · importers · planner · diary
+        ├── modules/  foods · nutrition · recipes · importers · planner · shopping · diary
         ├── api/v1/
         ├── web/      templates/ · static/tokens.css
         ├── migrations/
@@ -213,6 +217,17 @@ tellerplan-ha/
 
 **Lokal:** `uvicorn main:create_app --factory --reload` auf `localhost:8000`, Test am iPhone über die PC-IP im WLAN.
 
+**Rechte des Add-ons:** Jedes Add-on läuft in einem abgeschotteten Container und darf von sich aus nicht mit Home Assistant sprechen. Zwei Schalter in `tellerplan/config.yaml` öffnen gezielt je einen Zugang. Gemeint ist die `config.yaml` des Add-ons, nicht die `configuration.yaml` von Home Assistant.
+
+| Option | Öffnet den Zugang zu … | Wofür Tellerplan das braucht |
+| --- | --- | --- |
+| `hassio_api: true` | Supervisor-API (`http://supervisor/…`): Verwaltung von Apps, Backups und System | Die Einstellseite speichert über `POST /addons/self/options`, genau wie „Speichern“ im Reiter „Konfiguration“ |
+| `homeassistant_api: true` | Home-Assistant-API (`http://supervisor/core/api/…`): Entitäten und Aktionen | Die Einkaufsliste ruft `todo.add_item` für die Bring-Liste auf |
+
+Ist ein Schalter gesetzt, gibt der Supervisor dem Container beim Start einen Schlüssel als Umgebungsvariable `SUPERVISOR_TOKEN` mit. Tellerplan schickt ihn bei jeder Anfrage mit, und der Supervisor prüft, ob der Zugang laut `config.yaml` erlaubt ist. Ein Passwort oder ein selbst angelegter Token ist nicht nötig.
+
+Wie viel das Add-on in der Supervisor-API darf, legt `hassio_role` fest. Ohne Angabe gilt `default`: Informationen lesen und die **eigenen** Optionen ändern, aber keine anderen Apps steuern und keine Backups anlegen. Das reicht für Tellerplan. `homeassistant_api` erlaubt dagegen grundsätzlich jede Aktion in Home Assistant; Tellerplan nutzt nur `todo.add_item`. Jeder der beiden Schalter senkt die Sicherheitsbewertung, die Home Assistant beim Add-on anzeigt. Das ist so vorgesehen.
+
 ## Ausbaustufen und offene Punkte
 
 Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestellt: erst die Funktionen mit eigenen Daten (Lebensmittel, Rezepte, Plan, Tagebuch), danach die Importe.
@@ -223,7 +238,24 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 4. **Importe:** BLS-Import (erledigt), Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health
 
+**Vor Stufe 4** (festgelegt am 2026-10-25)
+
+- **Einkaufsliste** (erledigt, im Add-on noch zu testen): Der Knopf „🛒 Einkaufsliste“ im Plan sendet alle Zutaten der Planeinträge von heute bis heute + 13 Tage direkt an Bring und zeigt danach die Seite „Einkaufsliste“ mit dem Ergebnis. Modul `shopping`, nutzt `planner` und `recipes`, rechnet keine Nährwerte.
+  - **Zusammenfassen:** Gleiche Artikel (gleicher Einkaufsname) werden je Einheit addiert, nicht in Gramm, weil „5 Stück“ beim Einkaufen mehr hilft als „290 g“: „2 Stück + 3 Stück“ → „5 Stück“, gemischt „1 Dose + 200 g“. Offene Zutaten erscheinen mit ihrem Originaltext; Artikel, die in allen Rezepten optional sind, tragen „optional“.
+  - **Vorrat:** Stichwörter in `pantry_keywords` (Regel 6, einstellbar in HA und auf der Einstellseite). Ein Stichwort trifft jedes Wort, das damit endet; deutsche Zusammensetzungen tragen das Grundwort hinten, also trifft „salz“ „Meersalz“, „zucker“ aber nicht „Zuckerschote“. Übersprungene Artikel zeigt die Seite einklappbar an.
+  - **Name:** `food.shopping_name`, sonst aus dem BLS-Namen abgeleitet: Teil vor „, “ und „/“, ohne Gehaltsangaben („mind. 30 % Fett“) und ohne „roh“/„reif“ am Ende. „Karotte/Möhre, roh“ → „Karotte“.
+  - **Senden:** Je Artikel `todo.add_item` über die Supervisor-API mit dem Namen als `item` und der Menge als `description` (in Bring die Spezifikation). Bring führt gleichnamige Artikel zusammen, erneutes Senden aktualisiert also nur die Menge. Ziel-Liste ist `bring_list_entity` (z. B. `todo.furth`), Recht `homeassistant_api: true`. Tellerplan kennt kein Bring-Passwort. Lokal ohne Supervisor sendet der Knopf nichts; die Seite bietet die Liste zum Kopieren an.
+- **Einstellseite** (erledigt, im Add-on noch zu testen): Tageslimit kcal, Eiweißziel sowie Fett- und KH-Ziel lassen sich in der App ändern, bisher geht das nur in Home Assistant unter Add-on → Konfiguration. Beim Speichern schreibt das Add-on seine eigenen Optionen über die Supervisor-API (`POST /addons/self/options`, dafür `hassio_api: true` in `config.yaml`) und lädt danach `settings` neu, ein Neustart ist nicht nötig. Lokal schreibt die Seite direkt in `dev/options.json`. `options.json` bleibt damit die einzige Quelle (Regel 6). Vergangene Tage zeigen danach das neue Ziel, denn Ziele werden nicht pro Tag gespeichert.
+- **CI und Release prüfen:** CI läuft bei jedem Push erfolgreich. Der Release-Workflow lief noch nie, es gibt noch keinen Tag; der erste Tag `v0.1.0` muss also das arm64-Image bauen und nach GHCR legen.
+- **Live-Betrieb auf dem Raspberry Pi:** Repository in Home Assistant hinzufügen, Add-on installieren, `api_token` setzen und Ingress auf dem iPhone testen. Port 8099 erst freigeben, wenn HTTPS geklärt ist (siehe unten).
+
 **Offene Punkte**
+
+- [x] Wie kommt die Einkaufsliste zu Bring? Über die Bring-Integration von Home Assistant mit `todo.add_item`, am 2026-10-25 von Hand getestet: Artikel und Spezifikation kommen in Bring an. Das Teilen-Menü ist damit nicht nötig.
+- [ ] Kontrollseite vor dem Senden an Bring? Eine Seite mit allen Zutaten zum Abhaken: Vorratsartikel sind nicht angehakt, alle anderen schon; Mengen lassen sich anpassen, erst „Bestätigen“ schickt die Liste an Bring. Vorerst nicht umsetzen, sondern im Alltag prüfen, ob die direkte Übergabe reicht.
+- [ ] Braucht die Einstellseite `hassio_api` wirklich? Laut Supervisor-Quellcode sind Aufrufe an `/addons/self/…` womöglich auch ohne erreichbar. Beim ersten Test im Add-on prüfen und den Schalter entfernen, falls er unnötig ist.
+- [x] Vorratsliste: Stichwörter als Option `pantry_keywords` in `options.json` (z. B. „salz“ trifft alle Salz-Einträge aus BLS), einstellbar in HA und auf der Einstellseite. Kein Kennzeichen am Lebensmittel.
+- [x] Artikelnamen: neues optionales Feld „Einkaufsname“ an `food` (z. B. „Hähnchenbrust“), gepflegt in der Lebensmittel-Ansicht, Migration 0006. Ohne Eintrag wird der Name aus dem BLS-Namen abgeleitet.
 
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
 - [x] Welche Nährstoffe werden übernommen? Aus BLS die sieben vorhandenen Felder (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz); weitere lassen sich aus der Excel-Datei nachziehen. Offen bleibt, welche davon die Oberfläche zeigt.
