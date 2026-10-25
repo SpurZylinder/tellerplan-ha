@@ -32,5 +32,6 @@
   ],
   "bring_list_entity": "",
   "api_token": "lokal-geheim",
+  "homeassistant_url": "",
   "database_path": "app.db"
 }

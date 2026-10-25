@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 # Entität einer To-do-Liste in Home Assistant, z. B. „todo.furth“; leer = keine
 TODO_ENTITY_PATTERN = r"^(todo\.\w+)?$"
+# Basis-URL ohne Pfad, z. B. „http://homeassistant.local:8123“; leer = automatisch
+HOMEASSISTANT_URL_PATTERN = r"^(https?://[^/\s]+)?$"
 
 
 class Settings(BaseModel):
@@ -45,6 +47,9 @@ class Settings(BaseModel):
     pantry_keywords: list[str]
     bring_list_entity: str = Field(pattern=TODO_ENTITY_PATTERN)
     api_token: str
+    # Adresse von Home Assistant aus Sicht des iPhones, z. B. http://homeassistant.local:8123;
+    # leer = gleicher Host wie Tellerplan, Port 8123
+    homeassistant_url: str = Field(pattern=HOMEASSISTANT_URL_PATTERN)
     database_path: Path
 
     # Technische Ports, durch config.yaml des Add-ons festgelegt.

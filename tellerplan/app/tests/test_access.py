@@ -66,8 +66,12 @@ def test_api_port_requires_token(api_client: TestClient) -> None:
     assert api_client.get("/api/v1/health", headers=AUTH).status_code == 200
 
 
-def test_api_port_hides_pages(api_client: TestClient) -> None:
-    assert api_client.get("/", headers=AUTH).status_code == 404
+def test_api_token_does_not_open_pages(api_client: TestClient) -> None:
+    # Seiten auf dem API-Port sind die Vollbild-App: Anmeldung über Home Assistant, kein Token.
+    response = api_client.get("/", headers=AUTH, follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/auth/login"
 
 
 def test_api_port_locked_without_configured_token(settings: Settings) -> None:

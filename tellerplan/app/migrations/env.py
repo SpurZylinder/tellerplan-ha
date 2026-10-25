@@ -6,6 +6,7 @@ from alembic import context
 from sqlalchemy import Connection
 
 import modules  # noqa: F401 – registriert alle Modelle an Base.metadata
+import web_sessions  # noqa: F401 – Sitzungen der Vollbild-App
 from db import Base, create_db_engine
 from settings import Settings, get_settings
 

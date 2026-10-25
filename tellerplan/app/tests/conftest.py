@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from db import create_db_engine, create_session_factory
 from main import create_app
 from migrate import upgrade_to_head
+from security import INGRESS_PROXY_IP
 from settings import Settings, load_settings
 
 TEST_OPTIONS = {
@@ -23,6 +24,7 @@ TEST_OPTIONS = {
     "pantry_keywords": ["salz", "mehl", "zucker", "öl"],
     "bring_list_entity": "todo.einkauf",
     "api_token": "test-token",
+    "homeassistant_url": "",
     "database_path": "app.db",
 }
 
@@ -67,8 +69,11 @@ def session(migrated: Settings) -> Iterator[Session]:
 
 @pytest.fixture
 def ingress_client(migrated: Settings, options_file: Path) -> TestClient:
+    """Wie der Ingress-Proxy von Home Assistant: Ingress-Port, Absender 172.30.32.2."""
     return TestClient(
-        create_app(migrated, options_file), base_url=f"http://testserver:{migrated.ingress_port}"
+        create_app(migrated, options_file),
+        base_url=f"http://testserver:{migrated.ingress_port}",
+        client=(INGRESS_PROXY_IP, 50000),
     )
 
 

@@ -20,6 +20,7 @@ from modules.shopping.service import (
     send_shopping_list,
     send_to_todo_list,
 )
+from security import INGRESS_PROXY_IP
 from settings import Settings
 from supervisor import TOKEN_ENV_VAR, SupervisorError
 
@@ -260,7 +261,11 @@ def test_send_without_list_asks_for_settings(
 ) -> None:
     monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
     settings = migrated.model_copy(update={"bring_list_entity": ""})
-    client = TestClient(create_app(settings, options_file), base_url="http://testserver:8000")
+    client = TestClient(
+        create_app(settings, options_file),
+        base_url=f"http://testserver:{settings.ingress_port}",
+        client=(INGRESS_PROXY_IP, 50000),
+    )
 
     response = client.post("/plan/shopping")
 

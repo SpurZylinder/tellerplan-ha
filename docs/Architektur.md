@@ -23,7 +23,7 @@ Drei Zugänge, ein Add-on auf dem Home-Assistant-Pi, eine Datenbank; das Tagebuc
 
 ```
 ┌──────────────────┐  ┌──────────────────────┐  ┌───────────────────────────┐
-│ iPhone: PWA      │  │ iPhone: Kurzbefehle  │  │ Rechner: Skripte          │
+│ iPhone: Web-App  │  │ iPhone: Kurzbefehle  │  │ Rechner: Skripte          │
 │ Heute·Rezepte·   │  │ Cookidoo-Share →     │  │ Cookidoo-Sammlung,        │
 │ Plan (HA-Leiste) │  │ Import, Gewicht      │  │ BLS-Import, Entwicklung   │
 └────────┬─────────┘  └──────────┬───────────┘  └─────────────┬─────────────┘
@@ -44,7 +44,7 @@ Drei Zugänge, ein Add-on auf dem Home-Assistant-Pi, eine Datenbank; das Tagebuc
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Die PWA läuft über Ingress ohne eigenes Login; Kurzbefehle und Rechner-Skripte sprechen die API auf Port 8099 mit Token an. Externe Daten (BLS, Open Food Facts, Rezeptseiten) kommen nur über `foods` und `importers` herein.
+Die Oberfläche läuft auf zwei Wegen: über Ingress im Rahmen von Home Assistant (ohne eigenes Login) oder als Vollbild-App direkt auf Port 8099 mit Anmeldung über Home Assistant (siehe „Vollbild-App“). Kurzbefehle und Rechner-Skripte sprechen die API auf Port 8099 unter `/api/…` mit Token an. Externe Daten (BLS, Open Food Facts, Rezeptseiten) kommen nur über `foods` und `importers` herein.
 
 ## Module und Verantwortlichkeiten
 
@@ -228,6 +228,22 @@ Ist ein Schalter gesetzt, gibt der Supervisor dem Container beim Start einen Sch
 
 Wie viel das Add-on in der Supervisor-API darf, legt `hassio_role` fest. Ohne Angabe gilt `default`: Informationen lesen und die **eigenen** Optionen ändern, aber keine anderen Apps steuern und keine Backups anlegen. Das reicht für Tellerplan. `homeassistant_api` erlaubt dagegen grundsätzlich jede Aktion in Home Assistant; Tellerplan nutzt nur `todo.add_item`. Jeder der beiden Schalter senkt die Sicherheitsbewertung, die Home Assistant beim Add-on anzeigt. Das ist so vorgesehen.
 
+## Vollbild-App
+
+Festgelegt am 2026-10-25. Über Ingress läuft Tellerplan immer im Rahmen von Home Assistant (Kopfleiste, Menü). Für den Vollbildbetrieb auf dem iPhone ist Tellerplan zusätzlich direkt auf Port 8099 erreichbar und lässt sich in Safari mit „Zum Home-Bildschirm“ als eigenständige Web-App ablegen (`manifest.webmanifest`, Symbol `icon-180.png`).
+
+**Anmeldung über Home Assistant statt eigener Passwörter.** Home Assistant bleibt das Tor: Tellerplan nutzt die OAuth-Anmeldung von Home Assistant (wie die Companion-App) mit PKCE und `state`.
+
+1. Ohne Sitzung leitet jede Seite auf Port 8099 zu `/auth/login`, von dort zur Anmeldeseite von Home Assistant (`homeassistant_url`, leer = gleicher Host, Port 8123). `client_id` ist die Adresse, unter der das iPhone Tellerplan aufruft, z. B. `http://homeassistant.local:8099/`.
+2. Home Assistant leitet mit einem Code zu `/auth/callback` zurück. Tellerplan prüft `state`, löst den Code serverseitig ein (im Add-on über `http://homeassistant:8123`) und erhält einen Refresh-Token.
+3. Tellerplan legt eine Sitzung an (`web_session`, Migration 0009): im Cookie ein Zufallswert, in der Datenbank nur sein Hash, dazu Refresh-Token und `client_id`.
+4. Alle 30 Minuten prüft Tellerplan mit dem Refresh-Token, ob der Zugang noch gilt. Hat Home Assistant ihn entzogen, endet die Sitzung; ist Home Assistant nicht erreichbar, gilt sie weiter.
+5. „Abmelden“ in den Einstellungen entzieht den Zugang auch in Home Assistant (`/auth/revoke`).
+
+Statische Dateien (CSS, JS, Manifest, Symbole) sind ohne Anmeldung abrufbar; die API unter `/api/…` verlangt weiter den Token. HTMX-Anfragen ohne Sitzung bekommen `HX-Redirect` zur Anmeldung. Eine Beschränkung auf bestimmte HA-Benutzer gibt es vorerst nicht (ein Benutzer).
+
+**Unterwegs:** Ohne Nabu Casa nur über ein VPN zum Heimnetz (Tailscale-Add-on oder Router-VPN); vorerst ausgeklammert. HTTP im Heimnetz entspricht dem bisherigen Zugang zu Home Assistant; HTTPS wird spätestens für die Barcode-Kamera (Stufe 5) nötig.
+
 ## Ausbaustufen und offene Punkte
 
 Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestellt: erst die Funktionen mit eigenen Daten (Lebensmittel, Rezepte, Plan, Tagebuch), danach die Importe.
@@ -272,7 +288,7 @@ Konzept, nach Gewicht:
 - [ ] **K9 Zutat ohne Einheit = Gramm:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
 - [ ] **K10 Einheiten-Schreibweisen:** Die Einkaufsliste addiert je Einheitstext; „EL“/„el“, „g“/„kg“, „Stück“/„Stk.“ bleiben getrennt.
 - [ ] **K11 Zeiträume:** Der Plan zeigt bis heute + 14, die Einkaufsliste rechnet bis heute + 13.
-- [ ] **K12 Ingress-Port im internen Netz offen:** Andere Add-ons erreichen Port 8000 ohne Login; empfohlen ist, nur `172.30.32.2` zuzulassen.
+- [x] **K12 Ingress-Port im internen Netz offen:** Andere Add-ons erreichten Port 8000 ohne Login. *Behoben mit der Vollbild-App:* Im Add-on nimmt Port 8000 nur Anfragen vom Ingress-Proxy `172.30.32.2` an; lokal ohne Supervisor bleibt er offen.
 - [ ] **K13 Browser-Cache nach Updates:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
 - [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.

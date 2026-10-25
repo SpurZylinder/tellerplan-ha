@@ -4,11 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Tellerplan">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#f3f5f2" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
     <title>{% block title %}Tellerplan{% endblock %}</title>
     <link rel="icon" href="{{ url('static', path='icon.svg') }}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ url('static', path='icon-180.png') }}">
+    <link rel="manifest" href="{{ url('static', path='manifest.webmanifest') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
@@ -22,6 +26,7 @@
       {% block content %}{% endblock %}
     </main>
 
+    {% block tabbar %}
     <nav class="tabbar" aria-label="Hauptnavigation">
       <div class="tabbar-in">
         {% set tabs = [
@@ -37,5 +42,6 @@
         {% endfor %}
       </div>
     </nav>
+    {% endblock %}
   </body>
 </html>

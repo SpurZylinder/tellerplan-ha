@@ -65,4 +65,7 @@ templates.env.filters["add_days"] = _add_days
 
 def render(request: Request, template: str, tab: str | None = None, **context: Any) -> Any:
     """Rendert eine Seite; `tab` markiert den aktiven Eintrag der Tab-Leiste."""
-    return templates.TemplateResponse(request, template, {"tab": tab, **context})
+    signed_in = getattr(request.state, "web_session", None) is not None
+    return templates.TemplateResponse(
+        request, template, {"tab": tab, "signed_in": signed_in, **context}
+    )

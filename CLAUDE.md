@@ -50,14 +50,16 @@ tellerplan-ha/
     └── app/
         ├── main.py · settings.py · db.py · migrate.py
         ├── clock.py           zentrale Uhr (Zeitzone aus TZ)
-        ├── security.py        Zugriff je Port (Ingress ohne Login, 8099 mit Token)
+        ├── security.py        Zugriff je Port (Ingress nur vom Proxy, 8099: API mit Token)
+        ├── ha_auth.py         Anmeldung über Home Assistant (OAuth mit PKCE)
+        ├── web_sessions.py    Sitzungen der Vollbild-App
         ├── supervisor.py      Aufrufe an die Supervisor-API (nur im Add-on)
         ├── serve.py           Add-on-Start: Sicherung vor Migrationen, Migration, beide Ports
         ├── modules/           foods · nutrition · recipes · importers · planner · shopping · diary
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```
@@ -109,7 +111,8 @@ Lokale Konfiguration und Datenbank liegen in `dev/` (in `.gitignore`); Vorlage i
 ## Sicherheit
 
 - Niemals Tokens, `options.json`, Datenbanken oder Exporte committen
-- API auf Port 8099 nur mit Token (`Authorization: Bearer …`); Ingress-Seiten ohne eigenes Login
+- Port 8099: API (`/api/…`) nur mit Token (`Authorization: Bearer …`), Seiten der Vollbild-App nur mit Anmeldung über Home Assistant (OAuth, keine eigenen Passwörter)
+- Ingress-Port 8000 ohne eigenes Login; im Add-on nur Anfragen vom Ingress-Proxy `172.30.32.2`
 
 ## Ausbaustufen
 
