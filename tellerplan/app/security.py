@@ -62,7 +62,18 @@ def _has_valid_token(headers: Headers, expected: str) -> bool:
 
 
 def _apply_ingress_root_path(scope: Scope) -> None:
-    """Setzt den Ingress-Präfix als root_path, damit erzeugte URLs stimmen."""
+    """Setzt den Ingress-Präfix als root_path, damit erzeugte URLs stimmen.
+
+    Laut ASGI enthält `path` den `root_path`; Starlette schneidet ihn beim Routing
+    wieder ab. Home Assistant schickt den Pfad ohne Präfix, also wird er ergänzt.
+    Ohne das findet z. B. die eingehängte `/static`-App ihre Dateien nicht.
+    """
     ingress_path = Headers(scope=scope).get(INGRESS_PATH_HEADER)
-    if ingress_path:
-        scope["root_path"] = ingress_path.rstrip("/")
+    if not ingress_path:
+        return
+    root_path = ingress_path.rstrip("/")
+    scope["root_path"] = root_path
+    if not scope["path"].startswith(root_path + "/"):
+        scope["path"] = root_path + scope["path"]
+        if scope.get("raw_path") is not None:
+            scope["raw_path"] = root_path.encode() + scope["raw_path"]

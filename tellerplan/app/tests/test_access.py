@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from main import create_app
@@ -17,10 +18,43 @@ def test_ingress_serves_api_without_token(ingress_client: TestClient) -> None:
     assert ingress_client.get("/api/v1/health").json() == {"status": "ok", "database": "ok"}
 
 
+INGRESS = {"X-Ingress-Path": "/api/hassio_ingress/abc"}
+
+
 def test_ingress_path_prefixes_static_urls(ingress_client: TestClient) -> None:
-    response = ingress_client.get("/", headers={"X-Ingress-Path": "/api/hassio_ingress/abc"})
+    response = ingress_client.get("/", headers=INGRESS)
 
     assert "/api/hassio_ingress/abc/static/tokens.css" in response.text
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/static/tokens.css",
+        "/static/app.css",
+        "/static/vendor/htmx.min.js",
+        "/",
+        "/plan",
+        "/recipes",
+        "/settings",
+        "/foods/search?q=skyr",
+        "/api/v1/health",
+    ],
+)
+def test_ingress_serves_everything_behind_prefix(ingress_client: TestClient, path: str) -> None:
+    # Home Assistant schickt den Pfad ohne Präfix und das Präfix im Header.
+    assert ingress_client.get(path, headers=INGRESS).status_code == 200
+
+
+def test_ingress_redirects_keep_prefix(ingress_client: TestClient) -> None:
+    response = ingress_client.post(
+        "/recipes/new",
+        data={"title": "Chili", "servings": "2"},
+        headers=INGRESS,
+        follow_redirects=False,
+    )
+
+    assert response.headers["location"].startswith("/api/hassio_ingress/abc/recipes/")
 
 
 def test_api_port_requires_token(api_client: TestClient) -> None:
