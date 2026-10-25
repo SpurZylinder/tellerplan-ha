@@ -1,3 +1,4 @@
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from factories import make_food
@@ -98,3 +99,23 @@ def test_delete_unit(session: Session) -> None:
     delete_unit(session, food, tablespoon.id)
 
     assert [u.name for u in food.units] == ["TL"]
+
+
+def test_brand_is_shown_instead_of_source(ingress_client: TestClient) -> None:
+    response = ingress_client.post(
+        "/foods/new",
+        data={
+            "name": "Laktosefreie Milch 1,5 %",
+            "brand": "Berchtesgadener Land",
+            "kcal": "47",
+            "protein_g": "3,4",
+            "fat_g": "1,5",
+            "carbs_g": "4,9",
+        },
+        follow_redirects=False,
+    )
+    detail = ingress_client.get(response.headers["location"]).text
+
+    assert "Berchtesgadener Land" in detail
+    assert ">eigen<" not in detail
+    assert "Berchtesgadener Land" in ingress_client.get("/foods/search?q=laktosefrei").text

@@ -10,8 +10,14 @@ from sqlalchemy.orm import Session
 
 from factories import make_food
 from modules.importers.service import ImportFormatError, import_document
-from modules.recipes.models import IngredientAlias, Recipe
-from modules.recipes.service import find_recipe_by_source, summarize
+from modules.recipes.matching import create_base, link_name, set_default_product
+from modules.recipes.models import Recipe
+from modules.recipes.service import (
+    effective_grams,
+    find_recipe_by_source,
+    resolved_food,
+    summarize,
+)
 
 
 def _document(**changes: Any) -> dict[str, Any]:
@@ -82,20 +88,22 @@ def test_reimport_updates_but_keeps_ingredients(session: Session) -> None:
     assert len(session.scalars(select(Recipe)).all()) == 1
 
 
-def test_known_ingredients_get_their_standard_food(session: Session) -> None:
+def test_known_names_bring_their_base_ingredient(session: Session) -> None:
     egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
-    salt = make_food(session, "Speisesalz")
-    session.add_all([IngredientAlias(key="eier", food=egg), IngredientAlias(key="salz", food=salt)])
-    session.flush()
+    eggs = create_base(session, "Ei")
+    set_default_product(session, eggs, egg)
+    link_name(session, "Eier", eggs)
+    link_name(session, "Salz", create_base(session, "Salz", no_nutrients=True))
 
     result = import_document(session, _document())
 
     lines = {i.name: i for i in _imported(session).ingredients}
-    assert result.matched_lines == 2
-    assert lines["Eier"].food == egg
-    assert lines["Eier"].grams == 116
-    assert lines["Salz"].food == salt
-    assert lines["Brokkoliröschen"].food is None
+    assert result.matched_lines == 2  # Eier über den Standard, Salz ohne Nährwerte
+    assert lines["Eier"].base_ingredient == eggs
+    assert lines["Eier"].food is None  # folgt dem Standard, kein eigenes Produkt
+    assert resolved_food(lines["Eier"]) == egg
+    assert effective_grams(lines["Eier"]) == 116
+    assert lines["Brokkoliröschen"].base_ingredient is None
 
 
 def test_lines_without_quantity_do_not_block_completeness(session: Session) -> None:

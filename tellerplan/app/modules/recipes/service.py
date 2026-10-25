@@ -1,4 +1,9 @@
-"""Rezepte anlegen und pflegen; Nährwerte pro Portion über `nutrition`."""
+"""Rezepte anlegen und pflegen; Nährwerte pro Portion über `nutrition`.
+
+Welches Lebensmittel eine Zeile rechnet: das bewusst gewählte Produkt der Zeile,
+sonst das Standardprodukt ihrer Grundzutat (`resolved_food`). Grundzutaten
+„ohne Nährwerte“ (Gewürze) zählen als vollständig mit 0 kcal.
+"""
 
 import enum
 from dataclasses import asdict, dataclass
@@ -8,9 +13,9 @@ from sqlalchemy.orm import QueryableAttribute, Session, selectinload
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from modules.foods.models import Food
-from modules.foods.service import get_food
-from modules.nutrition.service import Nutrients, to_grams, total_nutrients
-from modules.recipes.models import IngredientAlias, Recipe, RecipeIngredient, RecipeReference
+from modules.foods.service import get_food, short_name
+from modules.nutrition.service import Nutrients, nutrients_for, to_grams, total_nutrients
+from modules.recipes.models import BaseIngredient, Recipe, RecipeIngredient, RecipeReference
 
 
 @dataclass(frozen=True)
@@ -58,22 +63,23 @@ class RecipeSummary:
     issues: dict[int, IngredientIssue]
 
 
-def _with_ingredients() -> list[_AbstractLoad]:
+def _ingredient_loads(ingredients: _AbstractLoad) -> list[_AbstractLoad]:
+    """Lädt zu jeder Zeile Produkt und Grundzutat samt Standardprodukt und Einheiten."""
     return [
-        selectinload(Recipe.ingredients)
-        .selectinload(RecipeIngredient.food)
-        .selectinload(Food.units)
+        ingredients.selectinload(RecipeIngredient.food).selectinload(Food.units),
+        ingredients.selectinload(RecipeIngredient.base_ingredient)
+        .selectinload(BaseIngredient.default_food)
+        .selectinload(Food.units),
     ]
 
 
-def load_recipe_details(relationship: QueryableAttribute[Recipe]) -> _AbstractLoad:
-    """Ladeoption für Module, die Rezepte über eine Beziehung holen und summarize() nutzen."""
-    return (
-        selectinload(relationship)
-        .selectinload(Recipe.ingredients)
-        .selectinload(RecipeIngredient.food)
-        .selectinload(Food.units)
-    )
+def _with_ingredients() -> list[_AbstractLoad]:
+    return _ingredient_loads(selectinload(Recipe.ingredients))
+
+
+def load_recipe_details(relationship: QueryableAttribute[Recipe]) -> list[_AbstractLoad]:
+    """Ladeoptionen für Module, die Rezepte über eine Beziehung holen und summarize() nutzen."""
+    return _ingredient_loads(selectinload(relationship).selectinload(Recipe.ingredients))
 
 
 def create_recipe(session: Session, data: RecipeInput) -> Recipe:
@@ -143,7 +149,7 @@ def add_ingredient(session: Session, recipe: Recipe, data: IngredientInput) -> R
     ingredient = RecipeIngredient(
         position=len(recipe.ingredients) + 1,
         raw_text=describe_ingredient(data.quantity, unit, food.name if food else "?"),
-        name=food.name if food else None,
+        name=short_name(food) if food else None,
         quantity=data.quantity,
         unit=unit,
         food=food,
@@ -167,17 +173,34 @@ def is_as_needed(ingredient: RecipeIngredient) -> bool:
     return ingredient.quantity is None and ingredient.grams is None
 
 
+def resolved_food(ingredient: RecipeIngredient) -> Food | None:
+    """Bewusst gewähltes Produkt der Zeile, sonst das Standardprodukt der Grundzutat."""
+    if ingredient.food is not None:
+        return ingredient.food
+    base = ingredient.base_ingredient
+    return base.default_food if base is not None else None
+
+
+def has_no_nutrients(ingredient: RecipeIngredient) -> bool:
+    """Grundzutat „ohne Nährwerte“ (z. B. Gewürz) und kein eigenes Produkt gewählt."""
+    base = ingredient.base_ingredient
+    return ingredient.food is None and base is not None and base.no_nutrients
+
+
 def effective_grams(ingredient: RecipeIngredient) -> float | None:
     """Grammzahl einer Zeile; neu berechnet, falls inzwischen eine Einheit gepflegt wurde."""
-    if ingredient.food is None:
+    food = resolved_food(ingredient)
+    if food is None:
         return None
     if ingredient.quantity is None:
         return ingredient.grams
-    return to_grams(ingredient.food, ingredient.quantity, ingredient.unit)
+    return to_grams(food, ingredient.quantity, ingredient.unit)
 
 
 def ingredient_issue(ingredient: RecipeIngredient) -> IngredientIssue | None:
-    if ingredient.food is None:
+    if has_no_nutrients(ingredient):
+        return None
+    if resolved_food(ingredient) is None:
         return IngredientIssue.NO_FOOD
     if not is_as_needed(ingredient) and effective_grams(ingredient) is None:
         return IngredientIssue.UNKNOWN_UNIT
@@ -187,23 +210,112 @@ def ingredient_issue(ingredient: RecipeIngredient) -> IngredientIssue | None:
 def summarize(recipe: Recipe) -> RecipeSummary:
     """Nährwerte pro Portion und Matching-Grad; optionale Zutaten und „nach Bedarf“ zählen nicht."""
     required = [i for i in recipe.ingredients if not i.is_optional and not is_as_needed(i)]
-    resolved = [(i.food, grams) for i in required if (grams := effective_grams(i)) is not None]
+    resolved = [
+        (food, grams)
+        for i in required
+        if (food := resolved_food(i)) is not None and (grams := effective_grams(i)) is not None
+    ]
+    without_nutrients = sum(1 for i in required if has_no_nutrients(i))
     total = total_nutrients(resolved)
     per_serving = total.scaled(1 / recipe.servings) if recipe.servings else total
     issues = {i.id: issue for i in recipe.ingredients if (issue := ingredient_issue(i))}
     return RecipeSummary(
         recipe=recipe,
         per_serving=per_serving,
-        match=MatchStatus(matched=len(resolved), total=len(required)),
+        match=MatchStatus(matched=len(resolved) + without_nutrients, total=len(required)),
         issues=issues,
     )
 
 
+@dataclass(frozen=True)
+class LineNutrition:
+    """Eine Zeile in der Aufschlüsselung: was gerechnet wird und mit wie viel."""
+
+    ingredient: RecipeIngredient
+    label: str
+    food: Food | None
+    chosen: bool
+    nutrients: Nutrients | None
+
+
+# Einheiten, die bei mehr als einem anders heißen („2 Prisen“)
+UNIT_PLURALS = {
+    "Prise": "Prisen",
+    "Dose": "Dosen",
+    "Scheibe": "Scheiben",
+    "Kugel": "Kugeln",
+    "Packung": "Packungen",
+    "Flasche": "Flaschen",
+    "Tasse": "Tassen",
+    "Zweig": "Zweige",
+    "Blatt": "Blätter",
+}
+# Zähleinheit, die der Zeilenparser ergänzt; im Text steht sie nicht („2 Zwiebeln“)
+COUNT_UNIT = "Stück"
+
+
+def _display_unit(quantity: float | None, unit: str | None) -> str | None:
+    if unit == COUNT_UNIT:
+        return None
+    if unit and quantity is not None and quantity > 1:
+        return UNIT_PLURALS.get(unit, unit)
+    return unit
+
+
+def ingredient_label(ingredient: RecipeIngredient) -> str:
+    """Zeilentext fürs Rezept und zum Kochen: „200 ml Milch“ – ohne Produktnamen."""
+    name = ingredient.name or ingredient.raw_text
+    food = ingredient.food
+    if food is not None and ingredient.base_ingredient is None and name == food.name:
+        name = short_name(food)  # ältere Zeilen von Hand trugen den vollen Lebensmittelnamen
+    unit = _display_unit(ingredient.quantity, ingredient.unit)
+    return describe_ingredient(ingredient.quantity, unit, name)
+
+
+def line_breakdown(recipe: Recipe) -> list[LineNutrition]:
+    """Je Zeile das gerechnete Produkt und seine Nährwerte (None, wenn nicht rechenbar)."""
+    result = []
+    for ingredient in recipe.ingredients:
+        food = resolved_food(ingredient)
+        grams = effective_grams(ingredient)
+        nutrients = nutrients_for(food, grams) if food is not None and grams is not None else None
+        result.append(
+            LineNutrition(
+                ingredient=ingredient,
+                label=ingredient_label(ingredient),
+                food=food,
+                chosen=ingredient.food is not None and ingredient.base_ingredient is not None,
+                nutrients=nutrients,
+            )
+        )
+    return result
+
+
+def get_ingredient(recipe: Recipe, ingredient_id: int) -> RecipeIngredient | None:
+    return next((i for i in recipe.ingredients if i.id == ingredient_id), None)
+
+
+def update_line(
+    session: Session,
+    ingredient: RecipeIngredient,
+    name: str,
+    quantity: float | None,
+    unit: str | None,
+    is_optional: bool,
+) -> None:
+    """Name, Menge und Einheit einer Zeile ändern; der Originaltext bleibt erhalten."""
+    ingredient.name = name
+    ingredient.quantity = quantity
+    ingredient.unit = unit if quantity is not None else None
+    ingredient.is_optional = is_optional
+    food = resolved_food(ingredient)
+    has_quantity = food is not None and quantity is not None
+    ingredient.grams = to_grams(food, quantity, ingredient.unit) if has_quantity else None
+    session.flush()
+
+
 def recipe_summaries(session: Session) -> list[RecipeSummary]:
     return [summarize(recipe) for recipe in list_recipes(session)]
-
-
-# --- Import und Zuordnung -------------------------------------------------
 
 
 def alias_key(name: str) -> str:
@@ -220,42 +332,6 @@ def find_recipe_by_source(session: Session, source: str, source_id: str) -> Reci
     return session.scalar(statement)
 
 
-def alias_food(session: Session, key: str) -> Food | None:
-    """Standardartikel für einen Zutatennamen, falls schon gelernt."""
-    alias = session.scalar(select(IngredientAlias).where(IngredientAlias.key == key))
-    return alias.food if alias else None
-
-
-def _set_food(ingredient: RecipeIngredient, food: Food | None) -> None:
-    ingredient.food = food
-    has_quantity = food is not None and ingredient.quantity is not None
-    ingredient.grams = (
-        to_grams(food, ingredient.quantity, ingredient.unit) if has_quantity else None
-    )
-
-
-def add_parsed_ingredient(
-    session: Session,
-    recipe: Recipe,
-    raw_text: str,
-    name: str,
-    quantity: float | None,
-    unit: str | None,
-) -> RecipeIngredient:
-    """Fügt eine importierte Zeile an; ein gelernter Standardartikel wird gleich zugeordnet."""
-    ingredient = RecipeIngredient(
-        position=len(recipe.ingredients) + 1,
-        raw_text=raw_text,
-        name=name,
-        quantity=quantity,
-        unit=unit,
-    )
-    _set_food(ingredient, alias_food(session, alias_key(name)))
-    recipe.ingredients.append(ingredient)
-    session.flush()
-    return ingredient
-
-
 def set_reference(session: Session, recipe: Recipe, values: dict[str, float | None]) -> None:
     """Vergleichswerte der Quelle pro Portion speichern – nur zur Anzeige, nie gerechnet."""
     recipe.reference = RecipeReference(
@@ -264,117 +340,4 @@ def set_reference(session: Session, recipe: Recipe, values: dict[str, float | No
         fat_g=values.get("fat_g"),
         carbs_g=values.get("carbs_g"),
     )
-    session.flush()
-
-
-# --- Zuordnungsseite ------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class OpenGroup:
-    """Alle offenen Zeilen mit demselben Zutatennamen, über alle Rezepte."""
-
-    key: str
-    name: str
-    lines: int
-    recipes: list[str]
-    examples: list[str]
-
-
-@dataclass(frozen=True)
-class UnitGap:
-    """Zeilen, deren Einheit für das zugeordnete Lebensmittel noch keine Grammzahl hat."""
-
-    food: Food
-    unit: str
-    lines: int
-    recipes: list[str]
-
-
-def _all_lines(session: Session) -> list[RecipeIngredient]:
-    statement = select(RecipeIngredient).options(
-        selectinload(RecipeIngredient.recipe),
-        selectinload(RecipeIngredient.food).selectinload(Food.units),
-    )
-    return list(session.scalars(statement))
-
-
-def _line_key(ingredient: RecipeIngredient) -> str:
-    return alias_key(ingredient.name or ingredient.raw_text)
-
-
-def open_groups(session: Session) -> list[OpenGroup]:
-    """Offene Zutaten, häufigste zuerst; Zeilen mit Menge vor denen „nach Bedarf“."""
-    groups: dict[str, list[RecipeIngredient]] = {}
-    for ingredient in _all_lines(session):
-        if ingredient.food is None:
-            groups.setdefault(_line_key(ingredient), []).append(ingredient)
-    result = []
-    for key, lines in groups.items():
-        names = [line.name or line.raw_text for line in lines]
-        result.append(
-            OpenGroup(
-                key=key,
-                name=max(set(names), key=names.count),
-                lines=len(lines),
-                recipes=sorted({line.recipe.title for line in lines}),
-                examples=sorted({line.raw_text for line in lines})[:3],
-            )
-        )
-    return sorted(result, key=lambda group: (-group.lines, group.key))
-
-
-def unit_gaps(session: Session) -> list[UnitGap]:
-    """Fehlende Grammzahlen je Lebensmittel und Einheit, häufigste zuerst."""
-    gaps: dict[tuple[int, str], tuple[Food, list[RecipeIngredient]]] = {}
-    for ingredient in _all_lines(session):
-        food = ingredient.food
-        if food is not None and ingredient_issue(ingredient) is not None:
-            unit = ingredient.unit or "g"
-            gaps.setdefault((food.id, unit), (food, []))[1].append(ingredient)
-    result = [
-        UnitGap(
-            food=food,
-            unit=unit,
-            lines=len(lines),
-            recipes=sorted({line.recipe.title for line in lines}),
-        )
-        for (_, unit), (food, lines) in gaps.items()
-    ]
-    return sorted(result, key=lambda gap: (-gap.lines, gap.food.name))
-
-
-def learned_aliases(session: Session) -> list[IngredientAlias]:
-    statement = select(IngredientAlias).options(selectinload(IngredientAlias.food))
-    return list(session.scalars(statement.order_by(IngredientAlias.key)))
-
-
-def assign_key(session: Session, key: str, food: Food) -> int:
-    """Macht `food` zum Standardartikel für `key` und ordnet die passenden Zeilen zu.
-
-    Betroffen sind offene Zeilen und Zeilen mit dem bisherigen Standardartikel; eine in
-    einem Rezept bewusst anders gewählte Zuordnung bleibt. Gibt die Zahl der Zeilen zurück.
-    """
-    alias = session.scalar(select(IngredientAlias).where(IngredientAlias.key == key))
-    previous_id = alias.food_id if alias else None
-    if alias is None:
-        alias = IngredientAlias(key=key, food=food)
-        session.add(alias)
-    else:
-        alias.food = food
-    changed = 0
-    for ingredient in _all_lines(session):
-        current_id = ingredient.food.id if ingredient.food else None
-        if _line_key(ingredient) == key and current_id in (None, previous_id):
-            _set_food(ingredient, food)
-            changed += 1
-    session.flush()
-    return changed
-
-
-def refresh_grams(session: Session, food: Food) -> None:
-    """Grammzahlen aller Zeilen eines Lebensmittels neu berechnen, z. B. nach neuer Einheit."""
-    for ingredient in _all_lines(session):
-        if ingredient.food is not None and ingredient.food.id == food.id:
-            _set_food(ingredient, food)
     session.flush()

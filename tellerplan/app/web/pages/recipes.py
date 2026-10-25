@@ -7,20 +7,27 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from db import get_session
-from modules.recipes.models import Recipe
+from modules.foods.service import get_food
+from modules.recipes.matching import base_names, choose_product, create_base, set_line_base
+from modules.recipes.models import Recipe, RecipeIngredient
 from modules.recipes.service import (
     IngredientInput,
     RecipeInput,
     add_ingredient,
     create_recipe,
     delete_recipe,
+    get_ingredient,
     get_recipe,
+    ingredient_label,
     instruction_steps,
+    line_breakdown,
     list_categories,
     recipe_summaries,
     remove_ingredient,
+    resolved_food,
     summarize,
     toggle_favorite,
+    update_line,
     update_recipe,
 )
 from web.forms import (
@@ -108,6 +115,7 @@ def _render_detail(
         "recipes/detail.html",
         tab="recipes",
         summary=summarize(recipe),
+        breakdown=line_breakdown(recipe),
         units=COMMON_UNITS,
         ingredient_error=ingredient_error,
     )
@@ -122,7 +130,10 @@ def recipes_page(request: Request, session: SessionDep) -> HTMLResponse:
         tab="recipes",
         summaries=summaries,
         open_lines=sum(
-            1 for summary in summaries for line in summary.recipe.ingredients if line.food is None
+            1
+            for summary in summaries
+            for line in summary.recipe.ingredients
+            if line.food is None and line.base_ingredient is None
         ),
         categories=list_categories(session),
         protein_weight=request.app.state.settings.ranking_protein_weight,
@@ -154,7 +165,12 @@ def recipe_cook(request: Request, session: SessionDep, recipe_id: int) -> HTMLRe
     """Kochansicht: Schritte, daneben die Zutaten zum Mitlesen."""
     recipe = _recipe_or_404(session, recipe_id)
     return render(
-        request, "recipes/cook.html", tab="recipes", recipe=recipe, steps=instruction_steps(recipe)
+        request,
+        "recipes/cook.html",
+        tab="recipes",
+        recipe=recipe,
+        lines=[(ingredient_label(i), i) for i in recipe.ingredients],
+        steps=instruction_steps(recipe),
     )
 
 
@@ -221,5 +237,76 @@ def ingredient_delete(
 ) -> Response:
     recipe = _recipe_or_404(session, recipe_id)
     remove_ingredient(session, recipe, ingredient_id)
+    session.commit()
+    return redirect_to(request, "recipe_detail", anchor="#ingredients", recipe_id=recipe.id)
+
+
+def _ingredient_or_404(recipe: Recipe, ingredient_id: int) -> RecipeIngredient:
+    ingredient = get_ingredient(recipe, ingredient_id)
+    if ingredient is None:
+        raise HTTPException(status_code=404, detail="Zutat nicht gefunden")
+    return ingredient
+
+
+def _render_line(
+    request: Request,
+    session: Session,
+    recipe: Recipe,
+    ingredient: RecipeIngredient,
+    error: str | None = None,
+) -> HTMLResponse:
+    return render(
+        request,
+        "recipes/line.html",
+        tab="recipes",
+        recipe=recipe,
+        ingredient=ingredient,
+        label=ingredient_label(ingredient),
+        resolved=resolved_food(ingredient),
+        base_names=base_names(session),
+        units=COMMON_UNITS,
+        error=error,
+    )
+
+
+@router.get("/{recipe_id}/ingredients/{ingredient_id}", response_class=HTMLResponse)
+def ingredient_edit(
+    request: Request, session: SessionDep, recipe_id: int, ingredient_id: int
+) -> HTMLResponse:
+    """Eine Zeile: Name, Menge, Einheit, Grundzutat und Produkt nur für dieses Rezept."""
+    recipe = _recipe_or_404(session, recipe_id)
+    return _render_line(request, session, recipe, _ingredient_or_404(recipe, ingredient_id))
+
+
+@router.post("/{recipe_id}/ingredients/{ingredient_id}", response_model=None)
+def ingredient_update(
+    request: Request,
+    session: SessionDep,
+    recipe_id: int,
+    ingredient_id: int,
+    name: Annotated[str, Form()] = "",
+    quantity: Annotated[str, Form()] = "",
+    unit: Annotated[str, Form()] = "",
+    is_optional: Annotated[bool, Form()] = False,
+    base_name: Annotated[str, Form()] = "",
+    food_id: Annotated[str, Form()] = "",
+) -> Response:
+    recipe = _recipe_or_404(session, recipe_id)
+    ingredient = _ingredient_or_404(recipe, ingredient_id)
+    try:
+        line_name = clean_text(name)
+        if line_name is None:
+            raise FormError("Der Name der Zutat fehlt.")
+        amount = parse_number(quantity, "Menge")
+    except FormError as error:
+        return _render_line(request, session, recipe, ingredient, error=str(error))
+
+    base_text = clean_text(base_name)
+    set_line_base(session, ingredient, create_base(session, base_text) if base_text else None)
+    food = get_food(session, int(food_id)) if food_id.strip().isdigit() else None
+    if ingredient.base_ingredient is None and food is None:
+        food = ingredient.food  # Zeile von Hand ohne Grundzutat behält ihr Lebensmittel
+    choose_product(session, ingredient, food)
+    update_line(session, ingredient, line_name, amount, clean_text(unit), is_optional)
     session.commit()
     return redirect_to(request, "recipe_detail", anchor="#ingredients", recipe_id=recipe.id)

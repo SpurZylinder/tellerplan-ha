@@ -71,7 +71,7 @@ def entries_between(session: Session, first: date, last: date) -> list[PlanEntry
     statement = (
         select(PlanEntry)
         .where(PlanEntry.day >= first, PlanEntry.day <= last)
-        .options(load_recipe_details(PlanEntry.recipe))
+        .options(*load_recipe_details(PlanEntry.recipe))
         .order_by(PlanEntry.day, PlanEntry.id)
     )
     return list(session.scalars(statement))

@@ -19,19 +19,15 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 import clock
-from modules.foods.models import Food
+from modules.foods.service import short_name
 from modules.planner.models import PlanEntry
 from modules.planner.service import entries_between, mark_shopping_sent
 from modules.recipes.models import RecipeIngredient
+from modules.recipes.service import resolved_food
 from supervisor import SupervisorError, call_service
 
 logger = logging.getLogger(__name__)
 
-# Zustandswörter am Ende von BLS-Namen, die beim Einkaufen nicht helfen („Broccoli roh“)
-STATE_WORDS = ("roh", "reif")
-# Ab hier folgen in BLS-Namen Gehaltsangaben: „Parmesan mind. 30 % Fett“, „Vollmilch 3,5 %“;
-# andere Zahlen bleiben („Weizenmehl Type 405“)
-DETAILS_START = re.compile(r"\s(?:mind\.|max\.|ca\.|<|>|\d+(?:,\d+)?\s?%)")
 WORD_PATTERN = re.compile(r"[^\W\d_]+")
 
 
@@ -69,23 +65,10 @@ def _format_amount(quantity: float, unit: str) -> str:
     return f"{number} {unit}".strip()
 
 
-def default_shopping_name(food_name: str) -> str:
-    """Kurzname aus dem Lebensmittelnamen: „Karotte/Möhre, roh“ → „Karotte“."""
-    name = food_name.split(", ", 1)[0].split("/", 1)[0]
-    words = DETAILS_START.split(name, maxsplit=1)[0].split()
-    while len(words) > 1 and words[-1].casefold() in STATE_WORDS:
-        words.pop()
-    return " ".join(words)
-
-
 def _sort_key(item: ShoppingItem) -> str:
     """Alphabetisch mit Umlauten an ihrem Grundbuchstaben („Hähnchen“ vor „Honig“)."""
     decomposed = unicodedata.normalize("NFD", item.name.casefold())
     return "".join(char for char in decomposed if not unicodedata.combining(char))
-
-
-def shopping_name(food: Food) -> str:
-    return food.shopping_name or default_shopping_name(food.name)
 
 
 def _main_word(name: str) -> str:
@@ -107,24 +90,30 @@ def is_pantry(names: Iterable[str], keywords: Sequence[str]) -> bool:
 
 
 def _item_name(ingredient: RecipeIngredient) -> str:
-    """Einkaufsname des Lebensmittels, sonst der erkannte Zutatenname, sonst der Originaltext."""
-    if ingredient.food is not None:
-        return shopping_name(ingredient.food)
+    """Einkaufsname des Lebensmittels, sonst Grundzutat, sonst Zutatenname, sonst Originaltext."""
+    food = resolved_food(ingredient)
+    if food is not None:
+        return short_name(food)
+    if ingredient.base_ingredient is not None:
+        return ingredient.base_ingredient.name
     return ingredient.name or ingredient.raw_text
 
 
 def _names_for_pantry(ingredient: RecipeIngredient) -> list[str]:
     """Namen, deren erstes Wort geprüft wird; Originaltext („1 TL Salz“) Wort für Wort."""
-    if ingredient.food is None:
+    food = resolved_food(ingredient)
+    if food is None:
         return [ingredient.name] if ingredient.name else ingredient.raw_text.split()
-    return [ingredient.food.name, shopping_name(ingredient.food)]
+    return [food.name, short_name(food)]
 
 
 def _add(
     item: ShoppingItem, ingredient: RecipeIngredient, recipe_title: str, factor: float
 ) -> None:
     # Menge auch ohne Zuordnung, wenn der Zeilenparser sie erkannt hat („350 g Brokkoliröschen“)
-    if ingredient.quantity is not None and (ingredient.food is not None or ingredient.name):
+    if ingredient.quantity is not None and (
+        resolved_food(ingredient) is not None or ingredient.name
+    ):
         unit = ingredient.unit or "g"
         item.amounts[unit] = item.amounts.get(unit, 0) + ingredient.quantity * factor
     # optional nur, wenn der Artikel in keinem Rezept Pflicht ist

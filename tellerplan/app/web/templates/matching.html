@@ -4,36 +4,49 @@
 {% block title %}Zuordnen · Tellerplan{% endblock %}
 
 {% block content %}
-  <header>
-    <a class="back" href="{{ url('recipes_page') }}">← Rezepte</a>
-    <h1>Zuordnen</h1>
-    <p class="lede">Einmal je Zutat: Die Wahl wird zum Standardartikel und gilt in allen Rezepten und bei künftigen Importen.</p>
+  <header class="page-head">
+    <div>
+      <a class="back" href="{{ url('recipes_page') }}">← Rezepte</a>
+      <h1>Zuordnen</h1>
+    </div>
+    <a class="chip" href="{{ url('bases_page') }}">Grundzutaten</a>
   </header>
+  <p class="lede">Ein Zutatenname gehört zu einer Grundzutat, z. B. „frische Milch“ → Milch. Die Grundzutat hat ein Standardprodukt, das in allen Rezepten gilt, solange ein Rezept nicht bewusst ein anderes wählt.</p>
 
   <div class="nums">
     <a class="chip" href="{{ url('matching_page') }}?view=open" aria-pressed="{{ 'true' if view == 'open' else 'false' }}">Offen · {{ open_total }}</a>
+    <a class="chip" href="{{ url('matching_page') }}?view=products" aria-pressed="{{ 'true' if view == 'products' else 'false' }}">Ohne Produkt · {{ without_product|length }}</a>
     <a class="chip" href="{{ url('matching_page') }}?view=units" aria-pressed="{{ 'true' if view == 'units' else 'false' }}">Einheiten · {{ gaps|length }}</a>
-    <a class="chip" href="{{ url('matching_page') }}?view=learned" aria-pressed="{{ 'true' if view == 'learned' else 'false' }}">Gelernt</a>
   </div>
   {{ error_message(error) }}
 
+  <datalist id="base-names">
+    {% for name in base_names %}<option value="{{ name }}">{% endfor %}
+  </datalist>
+
   {% if view == "open" %}
     {% if groups %}
-      <p class="meta">{{ open_total }} Zutaten in {{ open_lines }} Zeilen sind noch offen. Fehlt ein Artikel, z. B. deine Milch einer bestimmten Marke: <a href="{{ url('food_new') }}">Lebensmittel anlegen</a>.</p>
+      <p class="meta">{{ open_total }} Namen in {{ open_lines }} Zeilen haben noch keine Grundzutat. Fehlt ein Produkt, z. B. deine Milch einer bestimmten Marke: <a href="{{ url('food_new') }}">Lebensmittel anlegen</a>.</p>
       {% for group in groups %}
-        <form class="form card" method="post" action="{{ url('matching_assign') }}" id="group-{{ loop.index }}">
-          <input type="hidden" name="key" value="{{ group.key }}">
-          <input type="hidden" name="view" value="open">
+        <form class="form card" method="post" action="{{ url('matching_assign') }}">
+          <input type="hidden" name="name" value="{{ group.name }}">
           <div>
             <h2>{{ group.name }}</h2>
             <span class="meta">{{ group.lines }} Zeile{{ "n" if group.lines != 1 }} in {{ group.recipes|length }} Rezept{{ "en" if group.recipes|length != 1 }} · z. B. {{ group.examples|join(" · ") }}</span>
           </div>
-          <input class="input" type="search" name="q" value="{{ group.name }}" autocomplete="off"
-                 aria-label="Lebensmittel suchen für {{ group.name }}"
-                 hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search"
-                 hx-target="#picker-{{ loop.index }}">
-          <div id="picker-{{ loop.index }}" hx-get="{{ url('foods_picker') }}?preselect=false&q={{ group.name|urlencode }}"
-               hx-trigger="intersect once"><p class="meta">Vorschläge werden geladen …</p></div>
+          <label class="field">Grundzutat <span class="meta">bestehende wählen oder neue anlegen</span>
+            <input class="input" name="base_name" value="{{ group.name }}" list="base-names" required>
+          </label>
+          <label class="check"><input type="checkbox" name="no_nutrients" value="true"> ohne Nährwerte (z. B. Gewürz) – zählt als vollständig, kein Produkt nötig</label>
+          <details>
+            <summary class="meta">Standardprodukt gleich mit wählen (optional)</summary>
+            <input class="input" type="search" name="q" value="{{ group.name }}" autocomplete="off"
+                   aria-label="Produkt suchen für {{ group.name }}"
+                   hx-get="{{ url('foods_picker') }}?preselect=false&optional=true" hx-trigger="input changed delay:250ms, search"
+                   hx-target="#picker-{{ loop.index }}">
+            <div id="picker-{{ loop.index }}" hx-get="{{ url('foods_picker') }}?preselect=false&optional=true&q={{ group.name|urlencode }}"
+                 hx-trigger="intersect once"><p class="meta">Vorschläge werden geladen …</p></div>
+          </details>
           <div class="form-actions"><button class="btn small" type="submit">Zuordnen</button></div>
         </form>
       {% endfor %}
@@ -41,10 +54,41 @@
         <a class="btn ghost" href="{{ url('matching_page') }}?view=open&show_all=true">Alle {{ open_total }} anzeigen</a>
       {% endif %}
     {% else %}
-      <p class="empty">Alle Zutaten sind zugeordnet.</p>
+      <p class="empty">Alle Zutatennamen haben eine Grundzutat.</p>
     {% endif %}
 
-  {% elif view == "units" %}
+  {% elif view == "products" %}
+    {% if without_product %}
+      <p class="meta">Diese Grundzutaten werden in Rezepten verwendet, haben aber noch kein Standardprodukt.</p>
+      {% for usage in without_product %}
+        {% set base = usage.base %}
+        <section class="card">
+          <div>
+            <h2><a href="{{ url('base_detail', base_id=base.id) }}">{{ base.name }}</a></h2>
+            <span class="meta">{{ usage.lines }} Zeile{{ "n" if usage.lines != 1 }}{% if usage.names %} · Namen: {{ usage.names|join(", ") }}{% endif %}</span>
+          </div>
+          <form class="form" method="post" action="{{ url('base_set_default', base_id=base.id) }}">
+            <input type="hidden" name="back" value="matching">
+            <input class="input" type="search" name="q" value="{{ base.name }}" autocomplete="off"
+                   aria-label="Produkt suchen für {{ base.name }}"
+                   hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search"
+                   hx-target="#product-{{ loop.index }}">
+            <div id="product-{{ loop.index }}" hx-get="{{ url('foods_picker') }}?preselect=false&q={{ base.name|urlencode }}"
+                 hx-trigger="intersect once"><p class="meta">Vorschläge werden geladen …</p></div>
+            <div class="form-actions"><button class="btn small" type="submit">Als Standard</button></div>
+          </form>
+          <form method="post" action="{{ url('base_settings', base_id=base.id) }}">
+            <input type="hidden" name="back" value="matching">
+            <input type="hidden" name="no_nutrients" value="true">
+            <button class="btn ghost small" type="submit">Ohne Nährwerte (Gewürz)</button>
+          </form>
+        </section>
+      {% endfor %}
+    {% else %}
+      <p class="empty">Alle verwendeten Grundzutaten haben ein Standardprodukt.</p>
+    {% endif %}
+
+  {% else %}
     {% if gaps %}
       <p class="meta">Diesen Zeilen fehlt nur noch, wie viel Gramm die Einheit beim Lebensmittel wiegt. Ein Eintrag gilt in allen Rezepten.</p>
       {% for gap in gaps %}
@@ -65,27 +109,6 @@
       {% endfor %}
     {% else %}
       <p class="empty">Keine fehlenden Einheiten.</p>
-    {% endif %}
-
-  {% else %}
-    {% if aliases %}
-      <p class="meta">Ändern setzt einen neuen Standardartikel; in einzelnen Rezepten bewusst anders gewählte Zuordnungen bleiben.</p>
-      {% for alias in aliases %}
-        <details class="card">
-          <summary><span>{{ alias.key }}</span> <span class="meta">→ {{ alias.food.name }}</span></summary>
-          <form class="form" method="post" action="{{ url('matching_assign') }}">
-            <input type="hidden" name="key" value="{{ alias.key }}">
-            <input type="hidden" name="view" value="learned">
-            <input class="input" type="search" name="q" placeholder="Anderes Lebensmittel suchen" autocomplete="off"
-                   hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search"
-                   hx-target="#alias-{{ loop.index }}">
-            <div id="alias-{{ loop.index }}"></div>
-            <div class="form-actions"><button class="btn ghost small" type="submit">Standard ändern</button></div>
-          </form>
-        </details>
-      {% endfor %}
-    {% else %}
-      <p class="empty">Noch nichts gelernt.</p>
     {% endif %}
   {% endif %}
 {% endblock %}

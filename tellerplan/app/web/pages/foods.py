@@ -11,6 +11,7 @@ from modules.foods.models import Food, FoodSource
 from modules.foods.service import (
     FoodInput,
     create_food,
+    default_short_name,
     delete_unit,
     get_food,
     search_foods,
@@ -18,7 +19,6 @@ from modules.foods.service import (
     set_unit,
     update_food,
 )
-from modules.shopping.service import default_shopping_name
 from web.forms import FormError, clean_text, parse_number, redirect_to, required_number
 from web.templating import render
 
@@ -55,7 +55,8 @@ def _editable_food_or_error(session: Session, food_id: int) -> Food:
 async def _food_input(request: Request) -> tuple[FoodInput | None, dict[str, str], str | None]:
     """Liest das Lebensmittel-Formular; liefert Eingabe, Rohwerte und ggf. Fehler."""
     form = await request.form()
-    values = {key: str(form.get(key, "")) for key in ("name", *(f for f, _ in NUTRIENT_FIELDS))}
+    keys = ("name", "brand", *(f for f, _ in NUTRIENT_FIELDS))
+    values = {key: str(form.get(key, "")) for key in keys}
     try:
         name = clean_text(values["name"])
         if name is None:
@@ -70,11 +71,11 @@ async def _food_input(request: Request) -> tuple[FoodInput | None, dict[str, str
         }
     except FormError as error:
         return None, values, str(error)
-    return FoodInput(name=name, **numbers), values, None
+    return FoodInput(name=name, brand=clean_text(values["brand"]), **numbers), values, None
 
 
 def _form_values(food: Food) -> dict[str, str]:
-    values = {"name": food.name}
+    values = {"name": food.name, "brand": food.brand or ""}
     for field, _ in NUTRIENT_FIELDS:
         value = getattr(food, field)
         values[field] = "" if value is None else f"{value:g}".replace(".", ",")
@@ -93,14 +94,21 @@ def foods_search(request: Request, session: SessionDep, q: str = "") -> HTMLResp
 
 @router.get("/picker", response_class=HTMLResponse)
 def foods_picker(
-    request: Request, session: SessionDep, q: str = "", preselect: bool = True
+    request: Request,
+    session: SessionDep,
+    q: str = "",
+    preselect: bool = True,
+    optional: bool = False,
 ) -> HTMLResponse:
     """Auswahlliste für Formulare, z. B. Zutat zum Rezept hinzufügen.
 
-    `preselect=false` wählt nichts vor, z. B. beim Zuordnen für viele Rezepte auf einmal.
+    `preselect=false` wählt nichts vor, z. B. beim Zuordnen für viele Rezepte auf einmal;
+    `optional=true` macht die Auswahl nicht zur Pflicht.
     """
     foods = search_foods(session, q) if q.strip() else []
-    return render(request, "foods/_picker.html", foods=foods, q=q, preselect=preselect)
+    return render(
+        request, "foods/_picker.html", foods=foods, q=q, preselect=preselect, optional=optional
+    )
 
 
 @router.get("/new", response_class=HTMLResponse)
@@ -137,7 +145,7 @@ def _render_detail(request: Request, food: Food, unit_error: str | None = None) 
         "foods/detail.html",
         food=food,
         fields=NUTRIENT_FIELDS,
-        default_shopping_name=default_shopping_name(food.name),
+        default_shopping_name=default_short_name(food.name),
         unit_error=unit_error,
     )
 

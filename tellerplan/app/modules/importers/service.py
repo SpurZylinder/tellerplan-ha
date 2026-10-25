@@ -14,12 +14,14 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from modules.importers.line_parser import parse_line
+from modules.recipes.matching import add_parsed_ingredient
 from modules.recipes.models import Recipe
 from modules.recipes.service import (
     RecipeInput,
-    add_parsed_ingredient,
     create_recipe,
     find_recipe_by_source,
+    has_no_nutrients,
+    resolved_food,
     set_reference,
     update_recipe,
 )
@@ -138,7 +140,9 @@ def import_document(session: Session, document: object) -> ImportResult:
         created=created,
         updated=updated,
         lines=len(lines),
-        matched_lines=sum(1 for ingredient in lines if ingredient.food is not None),
+        matched_lines=sum(
+            1 for line in lines if resolved_food(line) is not None or has_no_nutrients(line)
+        ),
     )
 
 

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message, food_source %}
+
+{% block title %}{{ base.name }} · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('bases_page') }}">← Grundzutaten</a>
+    <h1>{{ base.name }}</h1>
+    <p class="meta">{{ usage.lines }} Zeile{{ "n" if usage.lines != 1 }} in Rezepten{% if usage.names %} · Namen: {{ usage.names|join(", ") }}{% endif %}</p>
+  </header>
+  {{ error_message(error) }}
+
+  <section class="card">
+    <h2>Produkte</h2>
+    {% if base.no_nutrients %}
+      <p class="meta">Ohne Nährwerte: Zeilen zählen als vollständig mit 0 kcal, ein Produkt ist nicht nötig.</p>
+    {% endif %}
+    {% if base.products %}
+      <ul class="list">
+        {% for food in base.products %}
+          {% set is_default = base.default_food and base.default_food.id == food.id %}
+          <li>
+            <div class="grow">
+              <a href="{{ url('food_detail', food_id=food.id) }}">{{ food.name }}</a>
+              <span class="meta">{{ food.kcal|num }} kcal · {{ food.protein_g|num(1) }} g Eiweiß je 100 g{% if is_default %} · <b>Standard</b>{% endif %}</span>
+            </div>
+            {{ food_source(food) }}
+            {% if not is_default %}
+              <form method="post" action="{{ url('base_set_default', base_id=base.id) }}">
+                <input type="hidden" name="food_id" value="{{ food.id }}">
+                <button class="btn ghost small" type="submit">Als Standard</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{{ url('base_remove_product', base_id=base.id, food_id=food.id) }}">
+              <button class="icon-btn" type="submit" aria-label="{{ food.name }} entfernen">×</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="meta">Noch keine Produkte.</p>
+    {% endif %}
+
+    <form class="form" method="post" action="{{ url('base_set_default', base_id=base.id) }}">
+      <h3>Produkt als Standard setzen</h3>
+      <input class="input" type="search" name="q" value="{{ base.name }}" autocomplete="off" aria-label="Produkt suchen"
+             hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search, load"
+             hx-target="#base-picker">
+      <div id="base-picker"></div>
+      <p class="meta">Fehlt ein Markenprodukt? <a href="{{ url('food_new') }}">Lebensmittel anlegen</a> und dann hier wählen.</p>
+      <div class="form-actions"><button class="btn small" type="submit">Als Standard</button></div>
+    </form>
+  </section>
+
+  <form class="form card" method="post" action="{{ url('base_settings', base_id=base.id) }}">
+    <h2>Einstellungen</h2>
+    <label class="field">Name
+      <input class="input" name="name" value="{{ base.name }}" required>
+    </label>
+    <label class="check"><input type="checkbox" name="no_nutrients" value="true"{% if base.no_nutrients %} checked{% endif %}> ohne Nährwerte (z. B. Gewürz)</label>
+    <div class="form-actions"><button class="btn ghost small" type="submit">Speichern</button></div>
+  </form>
+{% endblock %}

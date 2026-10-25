@@ -9,13 +9,12 @@ from sqlalchemy.orm import Session
 import modules.shopping.service as shopping_service
 from factories import make_food, make_recipe
 from main import create_app
-from modules.foods.service import set_shopping_name
+from modules.foods.service import default_short_name, set_shopping_name
 from modules.planner.service import add_entry
 from modules.recipes.models import RecipeIngredient
 from modules.shopping.service import (
     ShoppingItem,
     build_shopping_list,
-    default_shopping_name,
     is_pantry,
     send_shopping_list,
     send_to_todo_list,
@@ -42,8 +41,8 @@ PANTRY = ["salz", "mehl", "zucker"]
         ("Tofu", "Tofu"),
     ],
 )
-def test_default_shopping_name_drops_qualifiers(bls_name: str, expected: str) -> None:
-    assert default_shopping_name(bls_name) == expected
+def test_default_short_name_drops_qualifiers(bls_name: str, expected: str) -> None:
+    assert default_short_name(bls_name) == expected
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message, food_source %}
+
+{% block title %}{{ label }} · {{ recipe.title }} · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('recipe_detail', recipe_id=recipe.id) }}#ingredients">← {{ recipe.title }}</a>
+    <h1>{{ label }}</h1>
+    <p class="meta">Original: {{ ingredient.raw_text }}</p>
+  </header>
+
+  <form class="form card" method="post" action="{{ url('ingredient_update', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">
+    {{ error_message(error) }}
+    <h2>Im Rezept</h2>
+    <label class="field">Name <span class="meta">so steht die Zutat im Rezept und beim Kochen</span>
+      <input class="input" name="name" value="{{ ingredient.name or ingredient.raw_text }}" required>
+    </label>
+    <div class="field-row">
+      <label class="field">Menge <span class="meta">leer = nach Bedarf</span>
+        <input class="input" name="quantity" inputmode="decimal" value="{{ ingredient.quantity|amount }}">
+      </label>
+      <label class="field">Einheit
+        <input class="input" name="unit" value="{{ ingredient.unit or '' }}" list="units">
+      </label>
+    </div>
+    <datalist id="units">{% for unit in units %}<option value="{{ unit }}">{% endfor %}</datalist>
+    <label class="check"><input type="checkbox" name="is_optional" value="true"{% if ingredient.is_optional %} checked{% endif %}> optional</label>
+
+    <h2>Rechnung</h2>
+    <label class="field">Grundzutat <span class="meta">bestimmt das Standardprodukt</span>
+      <input class="input" name="base_name" value="{{ ingredient.base_ingredient.name if ingredient.base_ingredient else '' }}" list="base-names">
+    </label>
+    <datalist id="base-names">{% for name in base_names %}<option value="{{ name }}">{% endfor %}</datalist>
+
+    {% set base = ingredient.base_ingredient %}
+    <div class="picker">
+      {% if base %}
+        <label>
+          <input type="radio" name="food_id" value=""{% if ingredient.food is none %} checked{% endif %}>
+          <span class="grow">
+            <span>Standard der Grundzutat</span>
+            <span class="meta">
+              {%- if base.no_nutrients %}ohne Nährwerte
+              {%- elif base.default_food %}{{ base.default_food.name }}{% if base.default_food.brand %} · {{ base.default_food.brand }}{% endif %}
+              {%- else %}noch kein Standardprodukt{% endif -%}
+            </span>
+          </span>
+        </label>
+        {% for food in base.products if not (base.default_food and food.id == base.default_food.id) %}
+          <label>
+            <input type="radio" name="food_id" value="{{ food.id }}"{% if ingredient.food and ingredient.food.id == food.id %} checked{% endif %}>
+            <span class="grow"><span>{{ food.name }} {{ food_source(food) }}</span><span class="meta">nur in diesem Rezept</span></span>
+          </label>
+        {% endfor %}
+      {% elif ingredient.food %}
+        <label>
+          <input type="radio" name="food_id" value="{{ ingredient.food.id }}" checked>
+          <span class="grow"><span>{{ ingredient.food.name }} {{ food_source(ingredient.food) }}</span></span>
+        </label>
+      {% endif %}
+    </div>
+    {% if base and not base.no_nutrients and not base.default_food %}
+      <p class="meta"><a href="{{ url('base_detail', base_id=base.id) }}">Standardprodukt für „{{ base.name }}“ festlegen</a></p>
+    {% endif %}
+    <input class="input" type="search" name="q" placeholder="Anderes Produkt suchen" autocomplete="off"
+           hx-get="{{ url('foods_picker') }}?preselect=false&optional=true" hx-trigger="input changed delay:250ms, search"
+           hx-target="#line-picker">
+    <div id="line-picker"></div>
+    <p class="meta">Ein hier gewähltes Produkt gilt nur in diesem Rezept; ändert sich später der Standard der Grundzutat, bleibt es.</p>
+
+    <div class="form-actions"><button class="btn" type="submit">Speichern</button></div>
+  </form>
+{% endblock %}

@@ -1,6 +1,7 @@
 """Lebensmittel anlegen, ändern, suchen; Einheiten pflegen."""
 
 import re
+import uuid
 from dataclasses import asdict, dataclass
 
 from rapidfuzz import fuzz, process
@@ -34,6 +35,7 @@ class FoodInput:
     fiber_g: float | None = None
     sugar_g: float | None = None
     salt_g: float | None = None
+    brand: str | None = None
 
 
 def create_food(
@@ -42,6 +44,10 @@ def create_food(
     source: FoodSource = FoodSource.CUSTOM,
     source_id: str | None = None,
 ) -> Food:
+    # Eigene Lebensmittel bekommen eine übertragbare Kennung (BLS: Code, OFF: Barcode),
+    # damit Grundzutaten und Standards zwischen Datenbanken austauschbar sind.
+    if source == FoodSource.CUSTOM and source_id is None:
+        source_id = uuid.uuid4().hex
     food = Food(source=source, source_id=source_id, **asdict(data))
     session.add(food)
     session.flush()
@@ -170,3 +176,24 @@ def set_shopping_name(session: Session, food: Food, name: str | None) -> Food:
 def delete_unit(session: Session, food: Food, unit_id: int) -> None:
     food.units[:] = [unit for unit in food.units if unit.id != unit_id]
     session.flush()
+
+
+# Zustandswörter am Ende von BLS-Namen, die beim Kochen und Einkaufen nicht helfen („Broccoli roh“)
+STATE_WORDS = ("roh", "reif")
+# Ab hier folgen in BLS-Namen Gehaltsangaben: „Parmesan mind. 30 % Fett“, „Vollmilch 3,5 %“;
+# andere Zahlen bleiben („Weizenmehl Type 405“)
+DETAILS_START = re.compile(r"\s(?:mind\.|max\.|ca\.|<|>|\d+(?:,\d+)?\s?%)")
+
+
+def default_short_name(food_name: str) -> str:
+    """Kurzname aus dem Lebensmittelnamen: „Karotte/Möhre, roh“ → „Karotte“."""
+    name = food_name.split(", ", 1)[0].split("/", 1)[0]
+    words = DETAILS_START.split(name, maxsplit=1)[0].split()
+    while len(words) > 1 and words[-1].casefold() in STATE_WORDS:
+        words.pop()
+    return " ".join(words)
+
+
+def short_name(food: Food) -> str:
+    """Kurzname fürs Kochen und Einkaufen: gepflegter Kurzname, sonst aus dem Namen abgeleitet."""
+    return food.shopping_name or default_short_name(food.name)

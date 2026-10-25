@@ -44,15 +44,16 @@
     <h2>Zutaten</h2>
     {% if recipe.ingredients %}
       <ul class="list">
-        {% for ingredient in recipe.ingredients %}
+        {% for line in breakdown %}
+          {% set ingredient = line.ingredient %}
           <li>
             <div class="grow">
-              <span>{{ ingredient.raw_text }}{% if ingredient.is_optional %} <span class="meta">(optional)</span>{% endif %}</span>
+              <a href="{{ url('ingredient_edit', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">{{ line.label }}</a>{% if ingredient.is_optional %} <span class="meta">(optional)</span>{% endif %}
               {% set issue = summary.issues.get(ingredient.id) %}
               {% if issue == "no_food" %}
-                <span class="note">Kein Lebensmittel zugeordnet</span>
+                <span class="note">{{ "Grundzutat ohne Standardprodukt" if ingredient.base_ingredient else "Noch nicht zugeordnet" }}</span>
               {% elif issue == "unknown_unit" %}
-                <span class="note">Grammzahl für „{{ ingredient.unit or 'ohne Menge' }}“ fehlt – <a href="{{ url('food_detail', food_id=ingredient.food.id) }}#units">beim Lebensmittel pflegen</a></span>
+                <span class="note">Grammzahl für „{{ ingredient.unit or 'ohne Menge' }}“ fehlt – <a href="{{ url('food_detail', food_id=line.food.id) }}#units">beim Lebensmittel pflegen</a></span>
               {% endif %}
             </div>
             <form method="post" action="{{ url('ingredient_delete', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">
@@ -63,6 +64,27 @@
       </ul>
     {% else %}
       <p class="meta">Noch keine Zutaten.</p>
+    {% endif %}
+
+    {% if recipe.ingredients %}
+      <details class="breakdown">
+        <summary class="meta">Nährwerte je Zutat – welches Produkt gerechnet wird</summary>
+        <ul class="list">
+          {% for line in breakdown %}
+            <li>
+              <div class="grow">
+                <span>{{ line.label }}</span>
+                <span class="meta">
+                  {%- if line.ingredient.base_ingredient and line.ingredient.base_ingredient.no_nutrients and not line.food %}ohne Nährwerte
+                  {%- elif line.food %}→ {{ line.food.name }}{% if line.food.brand %} ({{ line.food.brand }}){% endif %}{{ " · im Rezept gewählt" if line.chosen }}
+                  {%- else %}nicht zugeordnet{% endif %}
+                </span>
+              </div>
+              {% if line.nutrients %}<span class="pill k">{{ line.nutrients.kcal|num }} kcal</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </details>
     {% endif %}
 
     <form class="form" method="post" action="{{ url('ingredient_add', recipe_id=recipe.id) }}">

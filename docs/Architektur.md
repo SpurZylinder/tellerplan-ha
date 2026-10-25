@@ -68,11 +68,12 @@ Nährwerte existieren nur an `food`, alles andere verweist darauf oder hält ein
 
 | Tabelle | Wichtige Felder | Regel |
 | --- | --- | --- |
-| `food` | Name, Quelle (bls / off / custom), Quell-ID, Nährwerte pro 100 g (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz, weitere als JSON) | Einzige Stelle mit Nährwerten |
+| `food` | Name, Quelle (bls / off / custom), Quell-ID (BLS-Code, Barcode, bei eigenen eine erzeugte Kennung), Hersteller, Kurzname, Nährwerte pro 100 g | Einzige Stelle mit Nährwerten; Quelle + Quell-ID ist der übertragbare Schlüssel zwischen Datenbanken |
 | `food_unit` | food_id, Einheit (EL, TL, Stück, Becher, Prise), Gramm | Umrechnung pro Lebensmittel; Dichte für ml |
 | `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
-| `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, erkannter Name, Menge, Einheit, food_id (leer = offen), Gramm, optional-Flag | Jede Zeile frei editierbar, auch nach dem Matching. Ohne Menge („Salz“) gilt sie als „nach Bedarf“: keine Nährwerte, zählt nicht gegen die Vollständigkeit |
-| `ingredient_alias` | Schlüssel des Zutatennamens (klein, z. B. „milch“) → food_id als Standardartikel | Wird beim Zuordnen gelernt und bei jedem Import sofort angewendet; einzelne Rezepte dürfen abweichen |
+| `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Name („Milch“), Menge, Einheit, Grundzutat, food_id nur bei im Rezept bewusst gewähltem Produkt, optional-Flag | Gerechnet wird das gewählte Produkt, sonst das Standardprodukt der Grundzutat. Ohne Menge („Salz“): „nach Bedarf“, zählt nicht gegen die Vollständigkeit |
+| `base_ingredient` | Name („Milch“, „Vollmilch“, „Kreuzkümmel“), Standardprodukt, Kennzeichen „ohne Nährwerte“; Produkte über `base_ingredient_food` (ein Produkt kann zu mehreren gehören) | Spezialisierungen sind eigene Grundzutaten, auch mit gleichem Standardprodukt |
+| `ingredient_alias` | Schlüssel des Zutatennamens (klein, z. B. „frische milch“) → Grundzutat | Beim Zuordnen gelernt, bei jedem Import sofort angewendet |
 | `recipe_reference` | recipe_id, kcal, Eiweiß, Fett, KH pro Portion laut Quelle | Nur Vergleichswert zum Erkennen falscher Zuordnungen, nie gerechnet (Regel 1 und 2) |
 | `plan_entry` | Datum, recipe_id, Portionen | Ohne Mahlzeit; Portionen beim Einplanen wählbar, Vorgabe sind die Standardportionen des Rezepts (Migration 0007) |
 | `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge + Einheit + Gramm bzw. gegessene Portionen, plan_entry_id, Bezeichnung und Nährwert-Snapshot (kcal, Eiweiß, Fett, KH), Vollständigkeit | Nur diese Einträge zählen für den Tag |
@@ -95,14 +96,24 @@ Vier Abläufe tragen die App: Rezept anlegen, Zutaten zuordnen, planen, loggen.
 
 **Zutaten zuordnen (Matching)**
 
-Seite „Zuordnen“ (Rezepte → „Zuordnen · N offen“), umgesetzt am 2026-10-25. Zugeordnet wird einmal je Zutatenname über alle Rezepte, nicht pro Rezept: bei der Cookidoo-Sammlung 481 verschiedene Zutaten statt 2.529 Zeilen; die 100 häufigsten decken drei Viertel der Zeilen.
+Festgelegt am 2026-10-25 (Grundzutaten). Drei Ebenen, damit das Rezept von „Milch“ spricht und die Rechnung ein bestimmtes Produkt nimmt:
 
-1. **Offen:** jede offene Zutat einmal, häufigste zuerst, mit Beispielzeilen und Vorschlägen aus der Lebensmittelsuche (laden beim Hineinscrollen). Nichts ist vorausgewählt, weil eine Wahl hier viele Rezepte auf einmal ändert.
-2. **Zuordnen** macht das Lebensmittel zum Standardartikel für den Namen (`ingredient_alias`, z. B. „milch“ → eigene laktosefreie Milch 1,5 %) und ordnet alle offenen Zeilen dieses Namens zu. Künftige Importe übernehmen den Standard sofort. Fehlt ein Artikel, legt man ihn unter Lebensmittel an.
-3. **Standard ändern** (Bereich „Gelernt“) zieht alle Zeilen mit dem bisherigen Standard nach; in einem Rezept bewusst anders gewählte Zuordnungen bleiben.
-4. **Einheiten:** Zeilen, deren Einheit beim Lebensmittel noch keine Grammzahl hat, gesammelt je Lebensmittel und Einheit („Speisezwiebel roh · 1 Stück = … g“); ein Eintrag gilt in allen Rezepten.
-5. Zeilen ohne Menge („Salz“, „Öl zum Braten“) gelten als „nach Bedarf“: keine Nährwerte, zählen nicht gegen die Vollständigkeit, lassen sich aber zuordnen (Einkaufsliste, Vorrat).
-6. Das Rezept zeigt die Vergleichswerte der Quelle („Zum Vergleich laut Cookidoo: 410 kcal …“), um falsche Zuordnungen zu erkennen.
+```
+Rezeptzeile   "200 ml Milch"   Name, Menge, Einheit · optional bewusst gewähltes Produkt
+   ▼
+Grundzutat    Milch            Standardprodukt · „ohne Nährwerte“ ja/nein · Namen, die darauf zeigen
+   ▼
+Produkte      Laktosefreie H-Milch 1,5 % (Berchtesgadener Land) ← Standard, weitere zur Auswahl
+```
+
+1. **Zuordnen** (Rezepte → „Zuordnen“): Jeder Zutatenname ohne Grundzutat erscheint einmal, häufigste zuerst. Man wählt eine bestehende Grundzutat oder legt eine neue an, optional gleich mit Standardprodukt, oder markiert sie als „ohne Nährwerte“ (Gewürze: zählen als vollständig mit 0 kcal, weder Produkt noch Grammzahl nötig). Der Name wird gelernt und gilt für alle Rezepte und künftigen Importe.
+2. **Spezialisierungen** wie „Vollmilch“ oder „Kokosmilch“ sind eigene Grundzutaten, auch wenn sie dasselbe Standardprodukt haben wie „Milch“; so lassen sie sich später getrennt umstellen.
+3. **Standard ändern** (Seite „Grundzutaten“) wirkt sofort in allen Rezepten, ohne Zeilen umzuschreiben, weil Zeilen nur auf die Grundzutat zeigen.
+4. **Ausnahme im Rezept:** Ein Klick auf eine Zeile zeigt Standard und Produkte ihrer Grundzutat; ein dort gewähltes Produkt gilt nur in diesem Rezept und bleibt, wenn sich der Standard ändert.
+5. **Ohne Produkt:** Grundzutaten, die in Rezepten vorkommen, aber noch kein Standardprodukt haben, sammelt ein eigener Bereich.
+6. **Einheiten:** fehlende Grammzahlen je gerechnetem Produkt und Einheit; ein Eintrag gilt überall.
+7. **Anzeige:** Rezept und Kochansicht zeigen nur „200 ml Milch“ (ohne ergänztes „Stück“, Einheiten im Plural: „2 Prisen“). Die Aufschlüsselung „Nährwerte je Zutat“ zeigt das gerechnete Produkt mit Hersteller und kcal, dazu die Vergleichswerte der Quelle.
+8. **Hersteller:** Markenprodukte zeigen in Listen den Hersteller statt „eigen“/„BLS“; die BLS-Quellenangabe bleibt auf Detailseite und in der Lebensmittel-Liste.
 
 **Suche nach deutscher Wortbildung:** Zuerst zählt das Hauptwort (erstes Wort): gleich vor „endet mit“ vor „beginnt mit“, denn „Speisesalz“ ist ein Salz, „Salzkartoffeln“ sind Kartoffeln. Erst danach zählt, wie oft der Begriff sonst im Namen steht. Vorher lieferte „Salz“ zuerst „Salzkartoffeln (Kartoffeln mit Salz gekocht)“.
 
@@ -187,7 +198,10 @@ Die Tab-Leiste hat drei Einträge: **Heute · Plan · Rezepte**. Einstellungen e
 | Plan | 3 Tage zurück bis 2 Wochen voraus, Spalten oder Liste (Umschalter oben rechts), nur Rezepttitel, Verschieben auf andere Tage; Knopf „🛒 Einkaufsliste“ |
 | Einkaufsliste | Unterseite des Plans: gesendete Artikel mit Mengen und Rezepten, übersprungener Vorrat, Liste als Text zum Kopieren |
 | Einstellungen | Zahnrad auf „Heute“: Tageslimit kcal und Makro-Ziele, Bring-Liste und Vorrat, Link zu den Lebensmitteln; Mahlzeitnamen und API-Token nur in Home Assistant |
-| Lebensmittel | Unterseite der Einstellungen: Suche in BLS/OFF/eigenen, eigenes Lebensmittel anlegen, Einheiten und Einkaufsname pflegen |
+| Lebensmittel | Unterseite der Einstellungen: Suche in BLS/OFF/eigenen, eigenes Lebensmittel mit Hersteller anlegen, Einheiten und Kurzname pflegen |
+| Zuordnen | Von Rezepte aus: offene Zutatennamen → Grundzutat, Grundzutaten ohne Produkt, fehlende Einheiten |
+| Grundzutaten | Standardprodukt, weitere Produkte, Namen, „ohne Nährwerte“ |
+| Zeile im Rezept | Name, Menge, Einheit, Grundzutat und Produkt nur für dieses Rezept |
 
 ## Tech-Stack, Repo-Struktur, Konfiguration, Deployment
 
@@ -319,6 +333,8 @@ Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 
 **Weitere offene Punkte**
 
+- [ ] Open Food Facts: einzelne Markenprodukte per Suche nach Name oder Barcode übernehmen (`source = off`, Barcode als Quell-ID), nicht die ganze Datenbank (mehrere Millionen Produkte, schwankende Qualität, ODbL). Vorschlag vom 2026-10-25, noch nicht umgesetzt.
+- [ ] Konfigset für Grundzutaten exportieren/importieren (Namen, Standardprodukte über Quelle + Quell-ID), um sie am Rechner vorzubereiten.
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
 - [x] Welche Nährstoffe werden übernommen? Aus BLS die sieben vorhandenen Felder (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz); weitere lassen sich aus der Excel-Datei nachziehen. Offen bleibt, welche davon die Oberfläche zeigt.
 - [ ] HTTPS für die API auf Port 8099, vor dem Cookidoo-Kurzbefehl in Stufe 4: Bisher spricht der Port direkt HTTP, ein Token von unterwegs ginge unverschlüsselt. Optionen: Zertifikate von Home Assistant einbinden (`map: ssl` in `config.yaml`, uvicorn mit `/ssl/fullchain.pem` und `/ssl/privkey.pem`) oder Zugriff über einen vorhandenen Reverse Proxy. Ingress ist nicht betroffen, dort übernimmt Home Assistant HTTPS. Lokal bleibt HTTP; Browser-Funktionen wie Kamera (Barcode, Stufe 5) oder Bildschirm wach halten brauchen auf dem iPhone eine HTTPS-Verbindung, also Ingress.

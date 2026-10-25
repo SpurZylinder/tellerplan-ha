@@ -9,11 +9,12 @@
       <a class="back" href="{{ url('foods_page') }}">← Lebensmittel</a>
       <h1>{{ food.name }}</h1>
     </div>
-    {% if food.source == "bls" %}
+    <div class="nums">
       {{ food_source(food) }}
-    {% else %}
-      <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
-    {% endif %}
+      {% if food.source != "bls" %}
+        <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
+      {% endif %}
+    </div>
   </header>
 
   <section class="card">

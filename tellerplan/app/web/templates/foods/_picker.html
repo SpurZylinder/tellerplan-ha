@@ -4,7 +4,7 @@
   <div class="picker">
     {% for food in foods %}
       <label>
-        <input type="radio" name="food_id" value="{{ food.id }}" required{% if preselect and loop.first %} checked{% endif %}>
+        <input type="radio" name="food_id" value="{{ food.id }}" {% if not optional %} required{% endif %}{% if preselect and loop.first %} checked{% endif %}>
         <span class="grow">
           <span>{{ food.name }} {{ food_source(food) }}</span>
           <span class="meta">

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import food_source %}
+
+{% block title %}Grundzutaten · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('matching_page') }}">← Zuordnen</a>
+    <h1>Grundzutaten</h1>
+    <p class="lede">Je Grundzutat ein Standardprodukt für alle Rezepte. Neue Grundzutaten entstehen beim Zuordnen.</p>
+  </header>
+
+  {% if usages %}
+    <section class="card"><ul class="list">
+      {% for usage in usages %}
+        {% set base = usage.base %}
+        <li>
+          <div class="grow">
+            <a href="{{ url('base_detail', base_id=base.id) }}">{{ base.name }}</a>
+            <span class="meta">
+              {%- if base.no_nutrients %}ohne Nährwerte
+              {%- elif base.default_food %}{{ base.default_food.name }}
+              {%- else %}noch kein Standardprodukt{% endif %} · {{ usage.lines }} Zeile{{ "n" if usage.lines != 1 }}
+            </span>
+          </div>
+          {% if base.default_food and not base.no_nutrients %}{{ food_source(base.default_food) }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul></section>
+  {% else %}
+    <p class="empty">Noch keine Grundzutaten. Sie entstehen auf der Seite <a href="{{ url('matching_page') }}">Zuordnen</a>.</p>
+  {% endif %}
+{% endblock %}

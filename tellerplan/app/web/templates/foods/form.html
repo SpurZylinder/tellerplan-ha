@@ -16,6 +16,9 @@
     <label class="field">Name
       <input class="input" name="name" value="{{ values.name or '' }}" required autofocus>
     </label>
+    <label class="field">Hersteller <span class="meta">optional, z. B. Berchtesgadener Land – erscheint in Listen statt „eigen“</span>
+      <input class="input" name="brand" value="{{ values.brand or '' }}" maxlength="120">
+    </label>
     <div class="field-row">
       {% for field, label in fields %}
         <label class="field">{{ label }}{% if loop.index > 4 %} <span class="meta">optional</span>{% endif %}

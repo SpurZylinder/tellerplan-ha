@@ -18,9 +18,9 @@
       <h2>Zutaten</h2>
       {% if recipe.ingredients %}
         <ul>
-          {% for ingredient in recipe.ingredients %}
+          {% for label, ingredient in lines %}
             <li{% if ingredient.is_optional %} class="optional"{% endif %}>
-              {{ ingredient.raw_text }}{% if ingredient.is_optional %} (optional){% endif %}
+              {{ label }}{% if ingredient.is_optional %} (optional){% endif %}
             </li>
           {% endfor %}
         </ul>
