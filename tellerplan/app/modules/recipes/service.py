@@ -265,3 +265,116 @@ def set_reference(session: Session, recipe: Recipe, values: dict[str, float | No
         carbs_g=values.get("carbs_g"),
     )
     session.flush()
+
+
+# --- Zuordnungsseite ------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class OpenGroup:
+    """Alle offenen Zeilen mit demselben Zutatennamen, über alle Rezepte."""
+
+    key: str
+    name: str
+    lines: int
+    recipes: list[str]
+    examples: list[str]
+
+
+@dataclass(frozen=True)
+class UnitGap:
+    """Zeilen, deren Einheit für das zugeordnete Lebensmittel noch keine Grammzahl hat."""
+
+    food: Food
+    unit: str
+    lines: int
+    recipes: list[str]
+
+
+def _all_lines(session: Session) -> list[RecipeIngredient]:
+    statement = select(RecipeIngredient).options(
+        selectinload(RecipeIngredient.recipe),
+        selectinload(RecipeIngredient.food).selectinload(Food.units),
+    )
+    return list(session.scalars(statement))
+
+
+def _line_key(ingredient: RecipeIngredient) -> str:
+    return alias_key(ingredient.name or ingredient.raw_text)
+
+
+def open_groups(session: Session) -> list[OpenGroup]:
+    """Offene Zutaten, häufigste zuerst; Zeilen mit Menge vor denen „nach Bedarf“."""
+    groups: dict[str, list[RecipeIngredient]] = {}
+    for ingredient in _all_lines(session):
+        if ingredient.food is None:
+            groups.setdefault(_line_key(ingredient), []).append(ingredient)
+    result = []
+    for key, lines in groups.items():
+        names = [line.name or line.raw_text for line in lines]
+        result.append(
+            OpenGroup(
+                key=key,
+                name=max(set(names), key=names.count),
+                lines=len(lines),
+                recipes=sorted({line.recipe.title for line in lines}),
+                examples=sorted({line.raw_text for line in lines})[:3],
+            )
+        )
+    return sorted(result, key=lambda group: (-group.lines, group.key))
+
+
+def unit_gaps(session: Session) -> list[UnitGap]:
+    """Fehlende Grammzahlen je Lebensmittel und Einheit, häufigste zuerst."""
+    gaps: dict[tuple[int, str], tuple[Food, list[RecipeIngredient]]] = {}
+    for ingredient in _all_lines(session):
+        food = ingredient.food
+        if food is not None and ingredient_issue(ingredient) is not None:
+            unit = ingredient.unit or "g"
+            gaps.setdefault((food.id, unit), (food, []))[1].append(ingredient)
+    result = [
+        UnitGap(
+            food=food,
+            unit=unit,
+            lines=len(lines),
+            recipes=sorted({line.recipe.title for line in lines}),
+        )
+        for (_, unit), (food, lines) in gaps.items()
+    ]
+    return sorted(result, key=lambda gap: (-gap.lines, gap.food.name))
+
+
+def learned_aliases(session: Session) -> list[IngredientAlias]:
+    statement = select(IngredientAlias).options(selectinload(IngredientAlias.food))
+    return list(session.scalars(statement.order_by(IngredientAlias.key)))
+
+
+def assign_key(session: Session, key: str, food: Food) -> int:
+    """Macht `food` zum Standardartikel für `key` und ordnet die passenden Zeilen zu.
+
+    Betroffen sind offene Zeilen und Zeilen mit dem bisherigen Standardartikel; eine in
+    einem Rezept bewusst anders gewählte Zuordnung bleibt. Gibt die Zahl der Zeilen zurück.
+    """
+    alias = session.scalar(select(IngredientAlias).where(IngredientAlias.key == key))
+    previous_id = alias.food_id if alias else None
+    if alias is None:
+        alias = IngredientAlias(key=key, food=food)
+        session.add(alias)
+    else:
+        alias.food = food
+    changed = 0
+    for ingredient in _all_lines(session):
+        current_id = ingredient.food.id if ingredient.food else None
+        if _line_key(ingredient) == key and current_id in (None, previous_id):
+            _set_food(ingredient, food)
+            changed += 1
+    session.flush()
+    return changed
+
+
+def refresh_grams(session: Session, food: Food) -> None:
+    """Grammzahlen aller Zeilen eines Lebensmittels neu berechnen, z. B. nach neuer Einheit."""
+    for ingredient in _all_lines(session):
+        if ingredient.food is not None and ingredient.food.id == food.id:
+            _set_food(ingredient, food)
+    session.flush()

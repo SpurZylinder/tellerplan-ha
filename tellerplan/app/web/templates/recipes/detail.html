@@ -26,7 +26,10 @@
       {{ match_badge(summary.match) }}
     </span>
     {% if not summary.match.complete %}
-      <p class="note">Unvollständig: Nicht alle Zutaten haben ein Lebensmittel mit Grammangabe.</p>
+      <p class="note">Unvollständig: Nicht alle Zutaten haben ein Lebensmittel mit Grammangabe. <a href="{{ url('matching_page') }}">Zuordnen</a></p>
+    {% endif %}
+    {% if recipe.reference and recipe.reference.kcal is not none %}
+      <p class="meta">Zum Vergleich laut {{ "Cookidoo" if recipe.source == "cookidoo" else "Quelle" }}: {{ recipe.reference.kcal|num }} kcal · {{ recipe.reference.protein_g|num }} g Eiweiß pro Portion (nicht gerechnet)</p>
     {% endif %}
     <div class="form-actions">
       <a class="btn" href="{{ url('plan_add') }}?recipe_id={{ recipe.id }}">Einplanen</a>

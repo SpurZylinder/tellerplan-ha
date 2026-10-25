@@ -92,10 +92,15 @@ def foods_search(request: Request, session: SessionDep, q: str = "") -> HTMLResp
 
 
 @router.get("/picker", response_class=HTMLResponse)
-def foods_picker(request: Request, session: SessionDep, q: str = "") -> HTMLResponse:
-    """Auswahlliste für Formulare, z. B. Zutat zum Rezept hinzufügen."""
+def foods_picker(
+    request: Request, session: SessionDep, q: str = "", preselect: bool = True
+) -> HTMLResponse:
+    """Auswahlliste für Formulare, z. B. Zutat zum Rezept hinzufügen.
+
+    `preselect=false` wählt nichts vor, z. B. beim Zuordnen für viele Rezepte auf einmal.
+    """
     foods = search_foods(session, q) if q.strip() else []
-    return render(request, "foods/_picker.html", foods=foods, q=q)
+    return render(request, "foods/_picker.html", foods=foods, q=q, preselect=preselect)
 
 
 @router.get("/new", response_class=HTMLResponse)

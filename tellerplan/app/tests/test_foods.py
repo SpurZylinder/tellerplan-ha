@@ -34,7 +34,17 @@ def test_search_prefers_whole_word_and_main_word(session: Session) -> None:
     names = [food.name for food in search_foods(session, "reis")]
 
     assert names[:2] == ["Reis poliert, roh", "Reis Mehl"]
-    assert names.index("Reisrand") < names.index("Curryreis")
+    # Grundwort hinten: Curryreis ist ein Reis, ein Reisrand ist kein Reis
+    assert names.index("Curryreis") < names.index("Reisrand")
+
+
+def test_search_prefers_main_word_over_later_mentions(session: Session) -> None:
+    _bls(
+        session, "Salzkartoffeln (Kartoffeln mit Salz gekocht)", "Lachs in Öl", "Meersalz", "Rapsöl"
+    )
+
+    assert search_foods(session, "salz")[0].name == "Meersalz"
+    assert search_foods(session, "öl")[0].name == "Rapsöl"
 
 
 def test_search_prefers_raw_and_own_foods(session: Session) -> None:

@@ -115,11 +115,15 @@ def _render_detail(
 
 @router.get("", response_class=HTMLResponse)
 def recipes_page(request: Request, session: SessionDep) -> HTMLResponse:
+    summaries = recipe_summaries(session)
     return render(
         request,
         "recipes/list.html",
         tab="recipes",
-        summaries=recipe_summaries(session),
+        summaries=summaries,
+        open_lines=sum(
+            1 for summary in summaries for line in summary.recipe.ingredients if line.food is None
+        ),
         categories=list_categories(session),
         protein_weight=request.app.state.settings.ranking_protein_weight,
     )

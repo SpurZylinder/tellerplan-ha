@@ -95,11 +95,16 @@ Vier Abläufe tragen die App: Rezept anlegen, Zutaten zuordnen, planen, loggen.
 
 **Zutaten zuordnen (Matching)**
 
-1. Alias-Tabelle prüfen: bekannte Zutat → Lebensmittel direkt setzen.
-2. Sonst Volltextsuche in `food` mit Vorschlägen nach Ähnlichkeit.
-3. Prüfansicht zeigt pro Zeile Vorschlag, Gramm und Status; du bestätigst, präzisierst („Sahne“ → „Schlagsahne 30 %“) oder legst ein eigenes Lebensmittel an.
-4. Jede manuelle Wahl wird als Alias gelernt und hilft beim nächsten Rezept.
-5. Einheiten ohne Grammangabe (EL, Stück) holen ihre Umrechnung aus `food_unit`; fehlt sie, fragt die Ansicht einmal nach.
+Seite „Zuordnen“ (Rezepte → „Zuordnen · N offen“), umgesetzt am 2026-10-25. Zugeordnet wird einmal je Zutatenname über alle Rezepte, nicht pro Rezept: bei der Cookidoo-Sammlung 481 verschiedene Zutaten statt 2.529 Zeilen; die 100 häufigsten decken drei Viertel der Zeilen.
+
+1. **Offen:** jede offene Zutat einmal, häufigste zuerst, mit Beispielzeilen und Vorschlägen aus der Lebensmittelsuche (laden beim Hineinscrollen). Nichts ist vorausgewählt, weil eine Wahl hier viele Rezepte auf einmal ändert.
+2. **Zuordnen** macht das Lebensmittel zum Standardartikel für den Namen (`ingredient_alias`, z. B. „milch“ → eigene laktosefreie Milch 1,5 %) und ordnet alle offenen Zeilen dieses Namens zu. Künftige Importe übernehmen den Standard sofort. Fehlt ein Artikel, legt man ihn unter Lebensmittel an.
+3. **Standard ändern** (Bereich „Gelernt“) zieht alle Zeilen mit dem bisherigen Standard nach; in einem Rezept bewusst anders gewählte Zuordnungen bleiben.
+4. **Einheiten:** Zeilen, deren Einheit beim Lebensmittel noch keine Grammzahl hat, gesammelt je Lebensmittel und Einheit („Speisezwiebel roh · 1 Stück = … g“); ein Eintrag gilt in allen Rezepten.
+5. Zeilen ohne Menge („Salz“, „Öl zum Braten“) gelten als „nach Bedarf“: keine Nährwerte, zählen nicht gegen die Vollständigkeit, lassen sich aber zuordnen (Einkaufsliste, Vorrat).
+6. Das Rezept zeigt die Vergleichswerte der Quelle („Zum Vergleich laut Cookidoo: 410 kcal …“), um falsche Zuordnungen zu erkennen.
+
+**Suche nach deutscher Wortbildung:** Zuerst zählt das Hauptwort (erstes Wort): gleich vor „endet mit“ vor „beginnt mit“, denn „Speisesalz“ ist ein Salz, „Salzkartoffeln“ sind Kartoffeln. Erst danach zählt, wie oft der Begriff sonst im Namen steht. Vorher lieferte „Salz“ zuerst „Salzkartoffeln (Kartoffeln mit Salz gekocht)“.
 
 **Planen**
 
@@ -256,7 +261,7 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 1. **Kern:** Repo, Add-on-Gerüst, CI/Release, UI-Rahmen mit Tab-Leiste, Lebensmittel manuell und als Demo-Set, Nährwertrechnung
 2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan als Tagesliste
 3. **Tagebuch:** vier Mahlzeiten, Tageslimit als Halbkreis und Makro-Balken, Übernahme aus dem Plan mit gegessenen Portionen
-4. **Importe:** BLS-Import (erledigt), Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
+4. **Importe:** BLS-Import, Zeilenparser, Matching mit Alias-Lernen und Cookidoo-Sammlung am Rechner (erledigt 2026-10-25); offen: Freitext-Import, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health
 
 **Vor Stufe 4** (festgelegt am 2026-10-25)

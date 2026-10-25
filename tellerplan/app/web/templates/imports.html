@@ -15,7 +15,10 @@
       <h2>Import abgeschlossen</h2>
       <p class="success" role="status">{{ result.created }} neu, {{ result.updated }} schon vorhanden und aktualisiert.</p>
       <p class="meta">{{ result.matched_lines }} von {{ result.lines }} Zutatenzeilen sind einem Lebensmittel zugeordnet. Die übrigen ordnest du einmal je Zutat zu; danach gilt die Zuordnung in allen Rezepten.</p>
-      <div class="form-actions"><a class="btn" href="{{ url('recipes_page') }}">Zu den Rezepten</a></div>
+      <div class="form-actions">
+        <a class="btn" href="{{ url('matching_page') }}">Zutaten zuordnen</a>
+        <a class="btn ghost" href="{{ url('recipes_page') }}">Zu den Rezepten</a>
+      </div>
     </section>
   {% endif %}
 

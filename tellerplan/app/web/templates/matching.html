@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_macros.html" import error_message %}
+
+{% block title %}Zuordnen · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('recipes_page') }}">← Rezepte</a>
+    <h1>Zuordnen</h1>
+    <p class="lede">Einmal je Zutat: Die Wahl wird zum Standardartikel und gilt in allen Rezepten und bei künftigen Importen.</p>
+  </header>
+
+  <div class="nums">
+    <a class="chip" href="{{ url('matching_page') }}?view=open" aria-pressed="{{ 'true' if view == 'open' else 'false' }}">Offen · {{ open_total }}</a>
+    <a class="chip" href="{{ url('matching_page') }}?view=units" aria-pressed="{{ 'true' if view == 'units' else 'false' }}">Einheiten · {{ gaps|length }}</a>
+    <a class="chip" href="{{ url('matching_page') }}?view=learned" aria-pressed="{{ 'true' if view == 'learned' else 'false' }}">Gelernt</a>
+  </div>
+  {{ error_message(error) }}
+
+  {% if view == "open" %}
+    {% if groups %}
+      <p class="meta">{{ open_total }} Zutaten in {{ open_lines }} Zeilen sind noch offen. Fehlt ein Artikel, z. B. deine Milch einer bestimmten Marke: <a href="{{ url('food_new') }}">Lebensmittel anlegen</a>.</p>
+      {% for group in groups %}
+        <form class="form card" method="post" action="{{ url('matching_assign') }}" id="group-{{ loop.index }}">
+          <input type="hidden" name="key" value="{{ group.key }}">
+          <input type="hidden" name="view" value="open">
+          <div>
+            <h2>{{ group.name }}</h2>
+            <span class="meta">{{ group.lines }} Zeile{{ "n" if group.lines != 1 }} in {{ group.recipes|length }} Rezept{{ "en" if group.recipes|length != 1 }} · z. B. {{ group.examples|join(" · ") }}</span>
+          </div>
+          <input class="input" type="search" name="q" value="{{ group.name }}" autocomplete="off"
+                 aria-label="Lebensmittel suchen für {{ group.name }}"
+                 hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search"
+                 hx-target="#picker-{{ loop.index }}">
+          <div id="picker-{{ loop.index }}" hx-get="{{ url('foods_picker') }}?preselect=false&q={{ group.name|urlencode }}"
+               hx-trigger="intersect once"><p class="meta">Vorschläge werden geladen …</p></div>
+          <div class="form-actions"><button class="btn small" type="submit">Zuordnen</button></div>
+        </form>
+      {% endfor %}
+      {% if groups|length < open_total %}
+        <a class="btn ghost" href="{{ url('matching_page') }}?view=open&show_all=true">Alle {{ open_total }} anzeigen</a>
+      {% endif %}
+    {% else %}
+      <p class="empty">Alle Zutaten sind zugeordnet.</p>
+    {% endif %}
+
+  {% elif view == "units" %}
+    {% if gaps %}
+      <p class="meta">Diesen Zeilen fehlt nur noch, wie viel Gramm die Einheit beim Lebensmittel wiegt. Ein Eintrag gilt in allen Rezepten.</p>
+      {% for gap in gaps %}
+        <form class="form card" method="post" action="{{ url('matching_unit') }}">
+          <input type="hidden" name="food_id" value="{{ gap.food.id }}">
+          <input type="hidden" name="unit" value="{{ gap.unit }}">
+          <div>
+            <h2><a href="{{ url('food_detail', food_id=gap.food.id) }}">{{ gap.food.name }}</a></h2>
+            <span class="meta">{{ gap.lines }} Zeile{{ "n" if gap.lines != 1 }} in {{ gap.recipes|length }} Rezept{{ "en" if gap.recipes|length != 1 }}</span>
+          </div>
+          <div class="field-row">
+            <label class="field">1 {{ gap.unit }} = … g
+              <input class="input" name="grams" inputmode="decimal" required>
+            </label>
+          </div>
+          <div class="form-actions"><button class="btn small" type="submit">Speichern</button></div>
+        </form>
+      {% endfor %}
+    {% else %}
+      <p class="empty">Keine fehlenden Einheiten.</p>
+    {% endif %}
+
+  {% else %}
+    {% if aliases %}
+      <p class="meta">Ändern setzt einen neuen Standardartikel; in einzelnen Rezepten bewusst anders gewählte Zuordnungen bleiben.</p>
+      {% for alias in aliases %}
+        <details class="card">
+          <summary><span>{{ alias.key }}</span> <span class="meta">→ {{ alias.food.name }}</span></summary>
+          <form class="form" method="post" action="{{ url('matching_assign') }}">
+            <input type="hidden" name="key" value="{{ alias.key }}">
+            <input type="hidden" name="view" value="learned">
+            <input class="input" type="search" name="q" placeholder="Anderes Lebensmittel suchen" autocomplete="off"
+                   hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search"
+                   hx-target="#alias-{{ loop.index }}">
+            <div id="alias-{{ loop.index }}"></div>
+            <div class="form-actions"><button class="btn ghost small" type="submit">Standard ändern</button></div>
+          </form>
+        </details>
+      {% endfor %}
+    {% else %}
+      <p class="empty">Noch nichts gelernt.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

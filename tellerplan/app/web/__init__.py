@@ -3,13 +3,13 @@
 from fastapi import APIRouter, Depends
 
 from web.access import require_login
-from web.pages import foods, imports, login, options, plan, recipes, shopping, today
+from web.pages import foods, imports, login, matching, options, plan, recipes, shopping, today
 
 router = APIRouter(include_in_schema=False)
 router.include_router(login.router)
 
 # Alle übrigen Seiten: auf dem Port der Vollbild-App nur mit Anmeldung über Home Assistant
 protected_pages = APIRouter(dependencies=[Depends(require_login)])
-for page in (today, shopping, plan, recipes, foods, imports, options):
+for page in (today, shopping, plan, matching, recipes, foods, imports, options):
     protected_pages.include_router(page.router)
 router.include_router(protected_pages)

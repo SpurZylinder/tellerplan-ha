@@ -29,4 +29,6 @@ Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: e
 - [x] Einstellseite in der App: kcal-Limit und Makro-Ziele, gespeichert in den Add-on-Optionen
 - [ ] Erstes Release `v0.1.0` (Release-Workflow lief noch nie)
 - [ ] Live-Betrieb in Home Assistant auf dem Raspberry Pi
-- [ ] Importe: Freitext, Zeilenparser, Matching mit Alias-Lernen, Cookidoo (Stufe 4)
+- [x] Vollbild-App mit Anmeldung über Home Assistant
+- [x] Cookidoo-Sammlung: Abruf am Rechner, Zeilenparser, Import, Zuordnen mit Standardartikeln (Stufe 4)
+- [ ] Importe: Freitext, Kurzbefehl an die API (Stufe 4)

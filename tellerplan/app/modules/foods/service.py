@@ -78,13 +78,33 @@ def _match_level(term: str, words: list[str]) -> int:
     return INSIDE
 
 
+def _main_word_level(term: str, main_word: str) -> int:
+    """Treffer im Hauptwort (erstes Wort) nach deutscher Wortbildung.
+
+    Das Grundwort steht hinten: „Speisesalz“ ist ein Salz, „Salzkartoffeln“ sind
+    Kartoffeln. Endet das Hauptwort mit dem Suchbegriff, zählt das daher mehr, als
+    wenn es damit beginnt.
+    """
+    if main_word == term:
+        return EXACT_WORD
+    if main_word.endswith(term):
+        return WORD_START
+    if main_word.startswith(term):
+        return WORD_END
+    return INSIDE
+
+
 def _rank(food: Food, terms: list[str]) -> tuple[int, int, bool, bool, int]:
-    """Sortierschlüssel: Trefferqualität, Hauptwort, roh, eigene zuerst, kurze Namen."""
+    """Sortierschlüssel: Hauptwort, Trefferqualität, roh, eigene zuerst, kurze Namen.
+
+    Das Hauptwort kommt zuerst, damit „Salz“ nicht „Salzkartoffeln (… mit Salz gekocht)“
+    vor „Speisesalz“ liefert, nur weil „Salz“ weiter hinten als eigenes Wort steht.
+    """
     words = RANK_WORD_PATTERN.findall(food.name.casefold())
-    main_word = words[:1]
+    main_word = words[0] if words else ""
     return (
+        -_main_word_level(terms[0], main_word),
         -sum(_match_level(term, words) for term in terms),
-        -_match_level(terms[0], main_word),
         RAW_WORD not in words,
         food.source != FoodSource.CUSTOM,
         len(food.name),
