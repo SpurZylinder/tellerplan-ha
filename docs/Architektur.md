@@ -213,7 +213,7 @@ tellerplan-ha/
 
 **Konfiguration:** Eine Datei `settings.py` liest `options.json` (lokal `./dev/options.json`, im Add-on `/data/options.json`). Darin stehen kcal-Limit, Makro-Ziele, Mahlzeitnamen, API-Token und Datenbankpfad; im Code gibt es keine weiteren Konstanten.
 
-**Deployment:** Push lässt CI laufen. Ein Tag `vX.Y.Z` baut das arm64-Image nach GHCR, Home Assistant zeigt das Update an. Datenbank-Migrationen laufen beim Start des Add-ons automatisch; vorher legt `run.sh` eine Kopie der Datenbank an.
+**Deployment:** Push lässt CI laufen. Ein Tag `vX.Y.Z` baut das arm64-Image nach GHCR, Home Assistant zeigt das Update an. Datenbank-Migrationen laufen beim Start des Add-ons automatisch; steht eine an, sichert `serve.py` die Datenbank vorher als `app.db.<Zeitstempel>.bak` (die letzten drei bleiben).
 
 **Lokal:** `uvicorn main:create_app --factory --reload` auf `localhost:8000`, Test am iPhone über die PC-IP im WLAN.
 
@@ -242,9 +242,9 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 
 - **Einkaufsliste** (erledigt, im Add-on noch zu testen): Der Knopf „🛒 Einkaufsliste“ im Plan sendet alle Zutaten der Planeinträge von heute bis heute + 13 Tage direkt an Bring und zeigt danach die Seite „Einkaufsliste“ mit dem Ergebnis. Modul `shopping`, nutzt `planner` und `recipes`, rechnet keine Nährwerte.
   - **Zusammenfassen:** Gleiche Artikel (gleicher Einkaufsname) werden je Einheit addiert, nicht in Gramm, weil „5 Stück“ beim Einkaufen mehr hilft als „290 g“: „2 Stück + 3 Stück“ → „5 Stück“, gemischt „1 Dose + 200 g“. Offene Zutaten erscheinen mit ihrem Originaltext; Artikel, die in allen Rezepten optional sind, tragen „optional“.
-  - **Vorrat:** Stichwörter in `pantry_keywords` (Regel 6, einstellbar in HA und auf der Einstellseite). Ein Stichwort trifft jedes Wort, das damit endet; deutsche Zusammensetzungen tragen das Grundwort hinten, also trifft „salz“ „Meersalz“, „zucker“ aber nicht „Zuckerschote“. Übersprungene Artikel zeigt die Seite einklappbar an.
+  - **Vorrat:** Stichwörter in `pantry_keywords` (Regel 6, einstellbar in HA und auf der Einstellseite). Ein Stichwort trifft das erste Wort des Lebensmittelnamens, wenn es damit endet (also nicht „Thunfisch in Öl“); deutsche Zusammensetzungen tragen das Grundwort hinten, also trifft „salz“ „Meersalz“, „zucker“ aber nicht „Zuckerschote“. Übersprungene Artikel zeigt die Seite einklappbar an.
   - **Name:** `food.shopping_name`, sonst aus dem BLS-Namen abgeleitet: Teil vor „, “ und „/“, ohne Gehaltsangaben („mind. 30 % Fett“) und ohne „roh“/„reif“ am Ende. „Karotte/Möhre, roh“ → „Karotte“.
-  - **Senden:** Je Artikel `todo.add_item` über die Supervisor-API mit dem Namen als `item` und der Menge als `description` (in Bring die Spezifikation). Bring führt gleichnamige Artikel zusammen, erneutes Senden aktualisiert also nur die Menge. Ziel-Liste ist `bring_list_entity` (z. B. `todo.furth`), Recht `homeassistant_api: true`. Tellerplan kennt kein Bring-Passwort. Lokal ohne Supervisor sendet der Knopf nichts; die Seite bietet die Liste zum Kopieren an.
+  - **Senden:** Je Artikel `todo.add_item` über die Supervisor-API mit dem Namen als `item` und der Menge als `description` (in Bring die Spezifikation). Gesendet werden nur Planeinträge, die noch nicht gesendet wurden (`plan_entry.shopping_sent_at`); „Alles erneut senden“ schickt alle. Ziel-Liste ist `bring_list_entity` (z. B. `todo.furth`), Recht `homeassistant_api: true`. Tellerplan kennt kein Bring-Passwort. Lokal ohne Supervisor sendet der Knopf nichts; die Seite bietet die Liste zum Kopieren an.
 - **Einstellseite** (erledigt, im Add-on noch zu testen): Tageslimit kcal, Eiweißziel sowie Fett- und KH-Ziel lassen sich in der App ändern, bisher geht das nur in Home Assistant unter Add-on → Konfiguration. Beim Speichern schreibt das Add-on seine eigenen Optionen über die Supervisor-API (`POST /addons/self/options`, dafür `hassio_api: true` in `config.yaml`) und lädt danach `settings` neu, ein Neustart ist nicht nötig. Lokal schreibt die Seite direkt in `dev/options.json`. `options.json` bleibt damit die einzige Quelle (Regel 6). Vergangene Tage zeigen danach das neue Ziel, denn Ziele werden nicht pro Tag gespeichert.
 - **CI und Release prüfen:** CI läuft bei jedem Push erfolgreich. Der Release-Workflow lief noch nie, es gibt noch keinen Tag; der erste Tag `v0.1.0` muss also das arm64-Image bauen und nach GHCR legen.
 - **Live-Betrieb auf dem Raspberry Pi:** Repository in Home Assistant hinzufügen, Add-on installieren, `api_token` setzen und Ingress auf dem iPhone testen. Port 8099 erst freigeben, wenn HTTPS geklärt ist (siehe unten).
@@ -256,6 +256,42 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 - [ ] Braucht die Einstellseite `hassio_api` wirklich? Laut Supervisor-Quellcode sind Aufrufe an `/addons/self/…` womöglich auch ohne erreichbar. Beim ersten Test im Add-on prüfen und den Schalter entfernen, falls er unnötig ist.
 - [x] Vorratsliste: Stichwörter als Option `pantry_keywords` in `options.json` (z. B. „salz“ trifft alle Salz-Einträge aus BLS), einstellbar in HA und auf der Einstellseite. Kein Kennzeichen am Lebensmittel.
 - [x] Artikelnamen: neues optionales Feld „Einkaufsname“ an `food` (z. B. „Hähnchenbrust“), gepflegt in der Lebensmittel-Ansicht, Migration 0006. Ohne Eintrag wird der Name aus dem BLS-Namen abgeleitet.
+
+**Befunde der Projektprüfung vom 2026-10-25**
+
+Konzept, nach Gewicht:
+
+- [x] **K1 Einkaufsliste erneut senden:** Der Knopf sendete jedes Mal alle Zutaten der nächsten 14 Tage; Bring setzte schon Gekauftes wieder auf „zu kaufen“. *Behoben:* Jeder Planeintrag merkt sich `shopping_sent_at` (Migration 0008); gesendet werden nur neue Rezepte, und erst wenn alle Artikel ankommen. „Alles erneut senden“ auf der Seite Einkaufsliste schickt alle. Bleibt: Steht ein Artikel noch ungekauft in Bring, ersetzt ein neues Rezept mit demselben Artikel dessen Mengenangabe, statt sie zu addieren.
+- [x] **K2 Vorrat trifft eingelegte Lebensmittel:** Geprüft wurde jedes Wort des BLS-Namens, daher fiel „Thunfisch in Öl“ als Vorrat weg. *Behoben:* Nur das erste Wort des Namens zählt (bei BLS das Lebensmittel selbst); offene Zeilen wie „1 TL Salz“ weiter Wort für Wort.
+- [x] **K3 Sicherung beim Start:** Kopierte nur `app.db` ohne WAL-Datei und überschrieb bei jedem Start die einzige Kopie. *Behoben:* Gesichert wird nur, wenn eine Migration ansteht, mit der Backup-Funktion von SQLite (enthält die WAL-Daten), als `app.db.<Zeitstempel>.bak`; die letzten drei bleiben.
+- [ ] **K4 HA-Sicherung „hot“:** Home Assistant kopiert `/data` bei laufender SQLite-Datenbank; die Kopie kann inkonsistent sein. Abhilfe: `backup_pre` mit Checkpoint oder `backup: cold`.
+- [x] **K5 Zeitzone:** `date.today()` nutzte die Zeit des Containers. *Behoben:* Zentrale Uhr `clock.py` mit der Zeitzone aus `TZ` (setzt der Supervisor) und den Zeitzonendaten aus dem Paket `tzdata`; der Start schreibt Zeitzone und Datum ins Protokoll.
+- [ ] **K6 Planportionen und „eingetragen“:** Ein Planeintrag gilt nach der ersten eingetragenen Portion als erledigt; Reste (Meal-Prep) bildet das Modell nicht ab. Nach dem Verschieben erscheint ein eingetragener Eintrag wieder als offen.
+- [ ] **K7 Doku und Umsetzung:** Das Datenmodell nennt eine historisierte Tabelle `goal`, umgesetzt sind Ziele als Optionen (alte Tage zeigen das neue Ziel). Außerdem fehlen die Tabellen `ingredient_alias`, `weight`, `import_job` noch, und die Systemübersicht zeigt `shopping` nicht.
+- [ ] **K8 Zwei Schreiber für die Optionen:** Eine Änderung in HA ohne Neustart geht verloren, wenn danach die Einstellseite speichert (letzter Schreiber gewinnt).
+- [ ] **K9 Zutat ohne Einheit = Gramm:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
+- [ ] **K10 Einheiten-Schreibweisen:** Die Einkaufsliste addiert je Einheitstext; „EL“/„el“, „g“/„kg“, „Stück“/„Stk.“ bleiben getrennt.
+- [ ] **K11 Zeiträume:** Der Plan zeigt bis heute + 14, die Einkaufsliste rechnet bis heute + 13.
+- [ ] **K12 Ingress-Port im internen Netz offen:** Andere Add-ons erreichen Port 8000 ohne Login; empfohlen ist, nur `172.30.32.2` zuzulassen.
+- [ ] **K13 Browser-Cache nach Updates:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
+- [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
+- [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
+
+Code, nach Gewicht:
+
+- [ ] **C-A Senden blockiert:** `send_to_todo_list` ruft Home Assistant nacheinander mit 10 s Timeout je Artikel auf; bei hängendem Supervisor bricht der Ingress-Proxy vorher ab.
+- [x] **C-B Kaum Logging:** *Behoben:* Protokolliert werden Start (Zeitzone, Sicherung), jede Ablehnung durch den Supervisor, jedes Senden der Einkaufsliste mit Ergebnis und gespeicherte Optionen.
+- [ ] **C-C Zwei Quellen für Optionen:** `settings.py` und `config.yaml` pflegen Optionen und Wertebereiche getrennt; kein Test prüft, ob sie übereinstimmen.
+- [ ] **C-D Optionen nicht atomar geschrieben:** Abbruch beim Schreiben beschädigt `options.json`; schlägt das Schreiben nach dem Supervisor-Aufruf fehl, weichen HA und App voneinander ab.
+- [ ] **C-E Netzwerk im Fachmodul:** `modules/shopping` importiert `supervisor` direkt; das Senden sollte hereingereicht werden.
+- [x] **C-F Keine zentrale Uhr:** *Behoben mit K5:* alle Seiten nutzen `clock.today()`.
+- [ ] **C-G Testlücken:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.
+- [ ] **C-H Kein CSRF-Schutz** für POST-Formulare (geringes Risiko, Ingress setzt eine HA-Sitzung voraus).
+- [ ] **C-I Kleinigkeiten:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
+
+Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
+
+**Weitere offene Punkte**
 
 - [ ] Liefern Chefkoch und Einfach Backen strukturierte Rezeptdaten? Vor Stufe 5 prüfen.
 - [x] Welche Nährstoffe werden übernommen? Aus BLS die sieben vorhandenen Felder (kcal, Eiweiß, Fett, KH, Ballaststoffe, Zucker, Salz); weitere lassen sich aus der Excel-Datei nachziehen. Offen bleibt, welche davon die Oberfläche zeigt.
