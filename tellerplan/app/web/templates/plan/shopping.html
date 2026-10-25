@@ -12,16 +12,18 @@
     <div>
       <a class="back" href="{{ url('plan_page') }}">← Plan</a>
       <h1>Einkaufsliste</h1>
-      <p class="meta">{{ shopping.first|day }} – {{ shopping.last|day }} · alle geplanten Rezepte</p>
+      <p class="meta">{{ shopping.first|day }} – {{ shopping.last|day }} · Rezepte, die noch nicht gesendet wurden</p>
     </div>
     <form method="post" action="{{ url('shopping_send') }}">
       <button class="btn small" type="submit"{% if not shopping.items %} disabled{% endif %}>An Bring senden</button>
     </form>
   </header>
 
-  {% if sent is not none %}
+  {% if sent is not none and not sent and not failed %}
+    <p class="meta" role="status">Keine neuen Rezepte im Plan, nichts gesendet.</p>
+  {% elif sent is not none %}
     <p class="{{ 'error' if failed else 'success' }}" role="status">
-      {{ sent }} Artikel an {{ list_entity }} gesendet{% if failed %}, {{ failed }} fehlgeschlagen{% endif %}.
+      {{ sent }} Artikel an {{ list_entity }} gesendet{% if failed %}, {{ failed }} fehlgeschlagen. Die Rezepte gelten noch nicht als gesendet{% endif %}.
     </p>
     {{ error_message(error) }}
   {% elif status == "local" %}
@@ -45,8 +47,29 @@
         {% endfor %}
       </ul>
     </section>
+  {% elif shopping.already_sent %}
+    <p class="empty">Alle geplanten Rezepte sind schon gesendet.</p>
   {% else %}
     <p class="empty">In den nächsten zwei Wochen ist nichts geplant.</p>
+  {% endif %}
+
+  {% if shopping.already_sent %}
+    <section class="card">
+      <h2>Bereits gesendet</h2>
+      <ul class="list">
+        {% for entry in shopping.already_sent %}
+          <li>
+            <span>{{ entry.recipe.title }}</span>
+            <span class="meta">{{ entry.day|day }} · gesendet {{ entry.shopping_sent_at.date()|day }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="meta">Ihre Zutaten kommen nicht noch einmal auf die Liste. Wenn die Bring-Liste geleert wurde, alles neu senden:</p>
+      <form method="post" action="{{ url('shopping_send') }}">
+        <input type="hidden" name="resend" value="true">
+        <button class="btn ghost small" type="submit">Alles erneut senden</button>
+      </form>
+    </section>
   {% endif %}
 
   {% if shopping.pantry %}

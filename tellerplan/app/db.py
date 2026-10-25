@@ -1,8 +1,9 @@
 """Datenbankzugang: Engine, Sessions und deklarative Basis für alle Module."""
 
 import re
-import shutil
+import sqlite3
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection as SQLiteConnection
 
@@ -14,6 +15,8 @@ from sqlalchemy.pool import ConnectionPoolEntry
 from settings import Settings
 
 BACKUP_SUFFIX = ".bak"
+# So viele Sicherungen vor Migrationen bleiben liegen; ältere werden gelöscht.
+BACKUPS_TO_KEEP = 3
 
 
 class Base(DeclarativeBase):
@@ -60,10 +63,30 @@ def get_session(request: Request) -> Iterator[Session]:
         yield session
 
 
-def backup_database(database_path: Path) -> Path | None:
-    """Kopiert die Datenbank vor Migrationen; gibt den Pfad der Kopie zurück."""
+def backup_database(database_path: Path, now: datetime | None = None) -> Path | None:
+    """Sichert die Datenbank vor Migrationen, z. B. nach `app.db.20261025-101530.bak`.
+
+    Nutzt die Backup-Funktion von SQLite statt einer Dateikopie, damit auch
+    Änderungen aus der WAL-Datei enthalten sind. Die letzten `BACKUPS_TO_KEEP`
+    Sicherungen bleiben erhalten. Gibt den Pfad der Sicherung zurück.
+    """
     if not database_path.exists():
         return None
-    backup_path = database_path.with_name(database_path.name + BACKUP_SUFFIX)
-    shutil.copy2(database_path, backup_path)
+    stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    backup_path = database_path.with_name(f"{database_path.name}.{stamp}{BACKUP_SUFFIX}")
+    source = sqlite3.connect(database_path)
+    target = sqlite3.connect(backup_path)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    _remove_old_backups(database_path)
     return backup_path
+
+
+def _remove_old_backups(database_path: Path) -> None:
+    pattern = f"{database_path.name}.*{BACKUP_SUFFIX}"
+    backups = sorted(database_path.parent.glob(pattern))
+    for old in backups[:-BACKUPS_TO_KEEP]:
+        old.unlink()

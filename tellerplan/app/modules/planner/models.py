@@ -16,6 +16,8 @@ class PlanEntry(Base):
     day: Mapped[date] = mapped_column(index=True)
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"), index=True)
     servings: Mapped[float]
+    # Wann die Zutaten an die Einkaufsliste gingen; leer = noch nicht gesendet
+    shopping_sent_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     recipe: Mapped[Recipe] = relationship()

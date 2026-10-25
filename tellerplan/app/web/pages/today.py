@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
+import clock
 from db import get_session
 from modules.diary.service import (
     UnknownUnitError,
@@ -75,7 +76,7 @@ def _macro_bars(total: Nutrients, settings: Settings) -> list[MacroBar]:
 
 
 def _back_to_day(request: Request, day: date, meal: str | None = None) -> Response:
-    query = {} if day == date.today() else {"day": day.isoformat()}
+    query = {} if day == clock.today() else {"day": day.isoformat()}
     anchor = f"#meal-{meal}" if meal else ""
     return redirect_to(request, "today_page", anchor=anchor, query=query)
 
@@ -89,7 +90,7 @@ def _meal_or_error(meal: str, settings: Settings) -> str:
 @router.get("/", response_class=HTMLResponse)
 def today_page(request: Request, session: SessionDep, day: date | None = None) -> HTMLResponse:
     settings = request.app.state.settings
-    day = day or date.today()
+    day = day or clock.today()
     log = day_log(session, day, settings.meal_names)
     return render(
         request,
@@ -100,7 +101,7 @@ def today_page(request: Request, session: SessionDep, day: date | None = None) -
         macros=_macro_bars(log.total, settings),
         planned=planned_for_day(session, day),
         planned_meal=settings.plan_default_meal,
-        is_today=day == date.today(),
+        is_today=day == clock.today(),
         previous=day - timedelta(days=1),
         following=day + timedelta(days=1),
     )
@@ -147,7 +148,7 @@ def diary_add(
     return _render_add(
         request,
         session,
-        day=day or date.today(),
+        day=day or clock.today(),
         mode=mode,
         meal=meal,
         recipe_id=recipe_id,

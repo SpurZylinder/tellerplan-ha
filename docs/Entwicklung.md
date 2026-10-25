@@ -67,7 +67,7 @@ CI führt beides bei jedem Push und Pull Request aus (`.github/workflows/ci.yml`
   alembic revision --autogenerate -m "<beschreibung>"
   ```
 
-- Beim Add-on-Start legt `serve.py` zuerst `app.db.bak` an und migriert dann auf den neuesten Stand.
+- Beim Add-on-Start sichert `serve.py` die Datenbank, wenn eine Migration ansteht (`app.db.<Zeitstempel>.bak`, die letzten drei bleiben), und migriert dann auf den neuesten Stand.
 
 ## BLS aktualisieren
 

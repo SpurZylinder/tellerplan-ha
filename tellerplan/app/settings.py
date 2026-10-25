@@ -8,6 +8,7 @@ zusätzlich an den Supervisor, damit Home Assistant dieselben Werte zeigt.
 """
 
 import json
+import logging
 import os
 from collections.abc import Mapping
 from functools import lru_cache
@@ -21,6 +22,8 @@ from supervisor import set_own_options, supervisor_token
 
 OPTIONS_ENV_VAR = "TELLERPLAN_OPTIONS"
 DEFAULT_OPTIONS_PATH = Path("/data/options.json")
+logger = logging.getLogger(__name__)
+
 # Entität einer To-do-Liste in Home Assistant, z. B. „todo.furth“; leer = keine
 TODO_ENTITY_PATTERN = r"^(todo\.\w+)?$"
 
@@ -100,6 +103,7 @@ def save_options(path: Path, changes: Mapping[str, Any]) -> Settings:
     if token:
         set_own_options(options, token)
     path.write_text(json.dumps(options, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    logger.info("Optionen gespeichert: %s", ", ".join(sorted(changes)))
     return load_settings(path)
 
 

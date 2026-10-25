@@ -6,6 +6,7 @@ Lokal fehlt der Schlüssel, dann gibt es keine Supervisor-Aufrufe.
 """
 
 import json
+import logging
 import os
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -14,6 +15,8 @@ from urllib.request import Request, urlopen
 SUPERVISOR_URL = "http://supervisor"
 TOKEN_ENV_VAR = "SUPERVISOR_TOKEN"
 TIMEOUT_SECONDS = 10
+
+logger = logging.getLogger(__name__)
 
 
 class SupervisorError(RuntimeError):
@@ -46,8 +49,11 @@ def _post(path: str, payload: dict[str, Any], token: str) -> None:
         with urlopen(request, timeout=TIMEOUT_SECONDS):
             return
     except HTTPError as error:
-        raise SupervisorError(_error_message(error)) from error
+        message = _error_message(error)
+        logger.warning("Supervisor lehnt %s ab (%s): %s", path, error.code, message)
+        raise SupervisorError(message) from error
     except URLError as error:
+        logger.warning("Supervisor nicht erreichbar für %s: %s", path, error.reason)
         raise SupervisorError(f"Supervisor nicht erreichbar: {error.reason}") from error
 
 

@@ -49,14 +49,15 @@ tellerplan-ha/
     ├── Dockerfile · run.sh · DOCS.md
     └── app/
         ├── main.py · settings.py · db.py · migrate.py
+        ├── clock.py           zentrale Uhr (Zeitzone aus TZ)
         ├── security.py        Zugriff je Port (Ingress ohne Login, 8099 mit Token)
         ├── supervisor.py      Aufrufe an die Supervisor-API (nur im Add-on)
-        ├── serve.py           Add-on-Start: Backup, Migration, beide Ports
+        ├── serve.py           Add-on-Start: Sicherung vor Migrationen, Migration, beide Ports
         ├── modules/           foods · nutrition · recipes · importers · planner · shopping · diary
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```

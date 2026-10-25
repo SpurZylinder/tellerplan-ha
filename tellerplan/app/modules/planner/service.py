@@ -4,8 +4,9 @@ Ein Planeintrag hat eigene Portionen; ohne Angabe die Standardportionen des
 Rezepts. Was davon gegessen wird, hält erst das Tagebuch fest.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -51,6 +52,13 @@ def move_entry(session: Session, entry: PlanEntry, day: date) -> PlanEntry:
     entry.day = day
     session.flush()
     return entry
+
+
+def mark_shopping_sent(session: Session, entries: Iterable[PlanEntry], at: datetime) -> None:
+    """Merkt sich, dass die Zutaten dieser Einträge auf der Einkaufsliste stehen."""
+    for entry in entries:
+        entry.shopping_sent_at = at
+    session.flush()
 
 
 def delete_entry(session: Session, entry: PlanEntry) -> None:

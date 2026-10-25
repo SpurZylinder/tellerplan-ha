@@ -23,4 +23,4 @@ Kalorien zählen, Rezepte verwalten und die Woche planen – direkt in Home Assi
 
 Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“.
 
-Vor jeder Migration legt das Add-on eine Kopie der Datenbank als `app.db.bak` an.
+Steht beim Start eine Migration an, sichert das Add-on die Datenbank vorher als `app.db.<Zeitstempel>.bak`; die letzten drei Sicherungen bleiben erhalten.

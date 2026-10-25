@@ -17,6 +17,7 @@ from modules.shopping.service import (
     build_shopping_list,
     default_shopping_name,
     is_pantry,
+    send_shopping_list,
     send_to_todo_list,
 )
 from settings import Settings
@@ -52,6 +53,8 @@ def test_default_shopping_name_drops_qualifiers(bls_name: str, expected: str) ->
         ("Weizenmehl Type 405", True),
         ("Zucker weiß", True),
         ("Zuckerschote roh", False),
+        ("Thunfisch in Öl, Konserve", False),
+        ("Artischocke in Öl, Konserve, abgetropft", False),
         ("Salzstangen", False),
         ("Broccoli roh", False),
     ],
@@ -292,3 +295,98 @@ def test_items_sort_umlauts_like_their_base_letter(session: Session) -> None:
     items = build_shopping_list(session, MONDAY, 1, PANTRY).items
 
     assert [item.name for item in items] == ["Hähnchen", "Honig"]
+
+
+def test_unmatched_line_with_pantry_word_is_set_aside(session: Session) -> None:
+    recipe = make_recipe(session, "Suppe")
+    recipe.ingredients.append(RecipeIngredient(position=1, raw_text="1 TL Salz"))
+    session.flush()
+    add_entry(session, MONDAY, recipe)
+
+    shopping = build_shopping_list(session, MONDAY, 1, PANTRY)
+
+    assert [item.name for item in shopping.pantry] == ["1 TL Salz"]
+
+
+# --- Erneutes Senden -----------------------------------------------------
+
+
+def _plan(session: Session, day: date, title: str, food_name: str) -> None:
+    food = make_food(session, food_name)
+    add_entry(session, day, make_recipe(session, title, ingredients=[(food, 300, "g")]))
+
+
+def test_sent_entries_are_not_sent_again(monkeypatch: pytest.MonkeyPatch, session: Session) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        shopping_service, "call_service", lambda *args: calls.append(args[2]["item"])
+    )
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+
+    first = build_shopping_list(session, MONDAY, 14, PANTRY)
+    send_shopping_list(session, first, "todo.einkauf", "token")
+    _plan(session, MONDAY + timedelta(days=2), "Curry", "Kichererbse")
+    second = build_shopping_list(session, MONDAY, 14, PANTRY)
+
+    assert calls == ["Broccoli"]
+    assert [item.name for item in second.items] == ["Kichererbse"]
+    assert [entry.recipe.title for entry in second.already_sent] == ["Pfanne"]
+
+
+def test_resend_includes_sent_entries(monkeypatch: pytest.MonkeyPatch, session: Session) -> None:
+    monkeypatch.setattr(shopping_service, "call_service", lambda *args: None)
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+    send_shopping_list(session, build_shopping_list(session, MONDAY, 1, PANTRY), "todo.x", "t")
+
+    again = build_shopping_list(session, MONDAY, 1, PANTRY, include_sent=True)
+
+    assert [item.name for item in again.items] == ["Broccoli"]
+    assert again.already_sent == []
+
+
+def test_failed_send_marks_nothing(monkeypatch: pytest.MonkeyPatch, session: Session) -> None:
+    def reject(*args: Any) -> None:
+        raise SupervisorError("weg")
+
+    monkeypatch.setattr(shopping_service, "call_service", reject)
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+
+    send_shopping_list(session, build_shopping_list(session, MONDAY, 1, PANTRY), "todo.x", "t")
+
+    assert [item.name for item in build_shopping_list(session, MONDAY, 1, PANTRY).items] == [
+        "Broccoli"
+    ]
+
+
+@pytest.mark.usefixtures("planned_today")
+def test_second_press_sends_nothing_new(
+    monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
+) -> None:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
+    monkeypatch.setattr(shopping_service, "call_service", lambda *args: calls.append(args[2]))
+
+    ingress_client.post("/plan/shopping")
+    second = ingress_client.post("/plan/shopping")
+    resent = ingress_client.post("/plan/shopping", data={"resend": "true"})
+
+    assert "Keine neuen Rezepte im Plan, nichts gesendet." in second.text
+    assert "Bereits gesendet" in second.text
+    assert "1 Artikel an todo.einkauf gesendet." in resent.text
+    assert len(calls) == 2
+
+
+def test_send_result_is_logged(
+    monkeypatch: pytest.MonkeyPatch, session: Session, caplog: pytest.LogCaptureFixture
+) -> None:
+    def reject(*args: Any) -> None:
+        raise SupervisorError("Entität unbekannt")
+
+    monkeypatch.setattr(shopping_service, "call_service", reject)
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+
+    with caplog.at_level("INFO"):
+        send_shopping_list(session, build_shopping_list(session, MONDAY, 1, PANTRY), "todo.x", "t")
+
+    assert "0 Artikel aus 1 Rezepten an todo.x gesendet, 1 fehlgeschlagen" in caplog.text
+    assert "Broccoli: Entität unbekannt" in caplog.text

@@ -4,8 +4,12 @@ Jeder Planeintrag zählt mit allen Zutaten des Rezepts, umgerechnet auf seine
 geplanten Portionen (4 statt 2 Portionen → doppelte Mengen).
 Gleiche Artikel werden je Einheit addiert („2 Stück + 1 Stück“ → „3 Stück“),
 Vorratsartikel (Salz, Mehl …) kommen in eine eigene Liste. Keine Nährwerte.
+
+Gesendete Planeinträge werden markiert; ohne `include_sent` zählen nur neue,
+damit erneutes Senden Gekauftes nicht wieder auf die Liste setzt.
 """
 
+import logging
 import re
 import unicodedata
 from collections.abc import Iterable, Sequence
@@ -14,10 +18,14 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
+import clock
 from modules.foods.models import Food
-from modules.planner.service import entries_between
+from modules.planner.models import PlanEntry
+from modules.planner.service import entries_between, mark_shopping_sent
 from modules.recipes.models import RecipeIngredient
 from supervisor import SupervisorError, call_service
+
+logger = logging.getLogger(__name__)
 
 # Zustandswörter am Ende von BLS-Namen, die beim Einkaufen nicht helfen („Broccoli roh“)
 STATE_WORDS = ("roh", "reif")
@@ -51,6 +59,9 @@ class ShoppingList:
     last: date
     items: list[ShoppingItem]
     pantry: list[ShoppingItem]
+    # Planeinträge, deren Zutaten in `items` stecken, und bereits gesendete
+    entries: list[PlanEntry]
+    already_sent: list[PlanEntry]
 
 
 def _format_amount(quantity: float, unit: str) -> str:
@@ -77,13 +88,20 @@ def shopping_name(food: Food) -> str:
     return food.shopping_name or default_shopping_name(food.name)
 
 
+def _main_word(name: str) -> str:
+    """Erstes Wort eines Namens; bei BLS steht dort das Lebensmittel selbst."""
+    words = WORD_PATTERN.findall(name.casefold())
+    return words[0] if words else ""
+
+
 def is_pantry(names: Iterable[str], keywords: Sequence[str]) -> bool:
-    """Vorratsartikel, wenn ein Wort mit einem Stichwort endet.
+    """Vorratsartikel, wenn das erste Wort eines Namens mit einem Stichwort endet.
 
     Deutsche Zusammensetzungen tragen das Grundwort hinten: „Meersalz“ und
     „Weizenmehl“ passen zu „salz“ und „mehl“, „Zuckerschote“ aber nicht zu „zucker“.
+    Nur das erste Wort zählt, damit „Thunfisch in Öl“ nicht als Öl gilt.
     """
-    words = {word for name in names for word in WORD_PATTERN.findall(name.casefold())}
+    words = {_main_word(name) for name in names} - {""}
     clean = [keyword.strip().casefold() for keyword in keywords if keyword.strip()]
     return any(word.endswith(keyword) for word in words for keyword in clean)
 
@@ -93,8 +111,9 @@ def _item_name(ingredient: RecipeIngredient) -> str:
 
 
 def _names_for_pantry(ingredient: RecipeIngredient) -> list[str]:
+    """Namen, deren erstes Wort geprüft wird; offene Zeilen („1 TL Salz“) Wort für Wort."""
     if ingredient.food is None:
-        return [ingredient.raw_text]
+        return ingredient.raw_text.split()
     return [ingredient.food.name, shopping_name(ingredient.food)]
 
 
@@ -111,13 +130,22 @@ def _add(
 
 
 def build_shopping_list(
-    session: Session, first: date, days: int, pantry_keywords: Sequence[str]
+    session: Session,
+    first: date,
+    days: int,
+    pantry_keywords: Sequence[str],
+    include_sent: bool = False,
 ) -> ShoppingList:
-    """Fasst alle Planeinträge von `first` an über `days` Tage zusammen."""
+    """Fasst die Planeinträge von `first` an über `days` Tage zusammen.
+
+    Ohne `include_sent` nur Einträge, die noch nicht gesendet wurden.
+    """
     last = first + timedelta(days=days - 1)
+    in_range = entries_between(session, first, last)
+    entries = [e for e in in_range if include_sent or e.shopping_sent_at is None]
     items: dict[str, ShoppingItem] = {}
     pantry: dict[str, ShoppingItem] = {}
-    for entry in entries_between(session, first, last):
+    for entry in entries:
         recipe = entry.recipe
         factor = entry.servings / recipe.servings if recipe.servings else 1
         for ingredient in recipe.ingredients:
@@ -130,6 +158,8 @@ def build_shopping_list(
         last=last,
         items=sorted(items.values(), key=_sort_key),
         pantry=sorted(pantry.values(), key=_sort_key),
+        entries=entries,
+        already_sent=[e for e in in_range if e.shopping_sent_at is not None and e not in entries],
     )
 
 
@@ -155,3 +185,22 @@ def send_to_todo_list(items: Sequence[ShoppingItem], entity_id: str, token: str)
         except SupervisorError as error:
             errors.append(f"{item.name}: {error}")
     return SendResult(sent=len(items) - len(errors), errors=errors)
+
+
+def send_shopping_list(
+    session: Session, shopping: ShoppingList, entity_id: str, token: str
+) -> SendResult:
+    """Sendet die Artikel; nur wenn alle ankommen, gelten die Planeinträge als gesendet."""
+    result = send_to_todo_list(shopping.items, entity_id, token)
+    logger.info(
+        "Einkaufsliste: %d Artikel aus %d Rezepten an %s gesendet, %d fehlgeschlagen",
+        result.sent,
+        len(shopping.entries),
+        entity_id,
+        len(result.errors),
+    )
+    for error in result.errors:
+        logger.warning("Einkaufsliste: %s", error)
+    if not result.errors:
+        mark_shopping_sent(session, shopping.entries, clock.now())
+    return result

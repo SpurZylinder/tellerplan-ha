@@ -11,6 +11,7 @@ from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
+import clock
 from db import get_session
 from modules.planner.models import PlanEntry
 from modules.planner.service import add_entry, delete_entry, get_entry, move_entry, plan_days
@@ -53,7 +54,7 @@ def plan_page(
     plan_layout: Annotated[str | None, Cookie()] = None,
 ) -> HTMLResponse:
     current = _layout(layout or plan_layout)
-    today = date.today()
+    today = clock.today()
     response = render(
         request,
         "plan/week.html",
@@ -111,7 +112,7 @@ def plan_add(
     recipe_id: int | None = None,
 ) -> HTMLResponse:
     fixed = recipe_id is not None
-    return _render_add(request, session, day or date.today(), recipe_id, fixed=fixed)
+    return _render_add(request, session, day or clock.today(), recipe_id, fixed=fixed)
 
 
 @router.post("/add", response_model=None)
