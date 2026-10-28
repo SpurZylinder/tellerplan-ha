@@ -137,6 +137,19 @@ def day_log(session: Session, day: date, meal_names: Sequence[str]) -> DayLog:
     )
 
 
+def recipes_eaten(session: Session, day: date, meal: str) -> list[DiaryEntry]:
+    """Rezepteinträge einer Mahlzeit an einem Tag, je Rezept der erste (z. B. „wie gestern“)."""
+    statement = (
+        select(DiaryEntry)
+        .where(DiaryEntry.day == day, DiaryEntry.meal == meal, DiaryEntry.recipe_id.is_not(None))
+        .order_by(DiaryEntry.id)
+    )
+    first_per_recipe: dict[int | None, DiaryEntry] = {}
+    for entry in session.scalars(statement):
+        first_per_recipe.setdefault(entry.recipe_id, entry)
+    return list(first_per_recipe.values())
+
+
 def planned_for_day(session: Session, day: date) -> list[PlannedForDay]:
     """Für den Tag geplante Rezepte, markiert, ob sie schon eingetragen wurden."""
     (plan_day,) = plan_days(session, day, 1)

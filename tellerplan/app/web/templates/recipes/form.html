@@ -21,12 +21,14 @@
         <input class="input" name="servings" value="{{ values.servings or '' }}" inputmode="decimal" required>
       </label>
       <label class="field">Kategorie
-        <input class="input" name="category" value="{{ values.category or '' }}" list="categories" placeholder="z. B. Hauptgericht">
+        <select class="input" name="category">
+          <option value=""{% if not values.category %} selected{% endif %}>Keine</option>
+          {% for category in categories %}
+            <option value="{{ category }}"{% if category == values.category %} selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
       </label>
     </div>
-    <datalist id="categories">
-      {% for category in categories %}<option value="{{ category }}">{% endfor %}
-    </datalist>
     <label class="field">Link zur Quelle <span class="meta">optional, z. B. Cookidoo-Rezeptseite</span>
       <input class="input" name="source_url" value="{{ values.source_url or '' }}" type="url" inputmode="url">
     </label>

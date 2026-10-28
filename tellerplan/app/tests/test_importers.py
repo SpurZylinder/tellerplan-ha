@@ -88,6 +88,21 @@ def test_reimport_updates_but_keeps_ingredients(session: Session) -> None:
     assert len(session.scalars(select(Recipe)).all()) == 1
 
 
+def test_source_categories_map_to_the_list(session: Session) -> None:
+    import_document(session, _document(category="Snack/Beilage"))
+
+    assert _imported(session).category == "Snack"
+
+
+def test_reimport_keeps_category_set_by_hand(session: Session) -> None:
+    import_document(session, _document(category="Snack/Beilage"))
+    _imported(session).category = "Beilage"
+
+    import_document(session, _document(category="Snack/Beilage"))
+
+    assert _imported(session).category == "Beilage"
+
+
 def test_known_names_bring_their_base_ingredient(session: Session) -> None:
     egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
     eggs = create_base(session, "Ei")

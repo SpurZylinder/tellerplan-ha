@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from db import create_db_engine, create_session_factory
 from main import create_app
 from migrate import upgrade_to_head
+from modules.nutrition.service import set_standard_units
 from security import INGRESS_PROXY_IP
 from settings import Settings, load_settings
 
@@ -20,6 +21,14 @@ TEST_OPTIONS = {
     "carbs_goal_g": 200,
     "meal_names": ["Frühstück", "Mittag", "Abendessen", "Snacks"],
     "plan_default_meal": "Abendessen",
+    "suggest_yesterday_meals": ["Mittag", "Snacks"],
+    "recipe_categories": ["Frühstück", "Hauptgericht", "Beilage", "Snack", "Salat"],
+    "meal_categories": [
+        {"meal": "Mittag", "category": "Hauptgericht"},
+        {"meal": "Mittag", "category": "Salat"},
+        {"meal": "Snacks", "category": "Snack"},
+    ],
+    "standard_units": [{"unit": "EL", "grams": 15}, {"unit": "TL", "grams": 5}],
     "ranking_protein_weight": 0.7,
     "pantry_keywords": ["salz", "mehl", "zucker", "öl"],
     "bring_list_entity": "todo.einkauf",
@@ -39,6 +48,12 @@ def options_file(tmp_path: Path) -> Path:
 @pytest.fixture
 def settings(options_file: Path) -> Settings:
     return load_settings(options_file)
+
+
+@pytest.fixture(autouse=True)
+def standard_units(settings: Settings) -> None:
+    """Wie beim Start der App: Standard-Einheiten aus den Einstellungen setzen."""
+    set_standard_units(settings.standard_unit_grams)
 
 
 @pytest.fixture(scope="session")

@@ -30,6 +30,24 @@ TODO_ENTITY_PATTERN = r"^(todo\.\w+)?$"
 HOMEASSISTANT_URL_PATTERN = r"^(https?://[^/\s]+)?$"
 
 
+class StandardUnit(BaseModel):
+    """Gramm je Einheit für alle Lebensmittel ohne eigene Angabe, z. B. 1 EL = 15 g."""
+
+    model_config = ConfigDict(frozen=True)
+
+    unit: str = Field(min_length=1)
+    grams: float = Field(ge=0.1, le=1000)
+
+
+class MealCategory(BaseModel):
+    """Beim Eintragen für `meal` zuerst nur Rezepte dieser Kategorie zeigen."""
+
+    model_config = ConfigDict(frozen=True)
+
+    meal: str
+    category: str
+
+
 class Settings(BaseModel):
     """Laufzeit-Einstellungen; die Felder entsprechen den Add-on-Optionen."""
 
@@ -42,6 +60,11 @@ class Settings(BaseModel):
     carbs_goal_g: int = Field(ge=0, le=1000)
     meal_names: list[str] = Field(min_length=1)
     plan_default_meal: str
+    # Mahlzeiten, für die beim Eintragen das Rezept vom Vortag (gleiche Mahlzeit) oben steht
+    suggest_yesterday_meals: list[str]
+    recipe_categories: list[str] = Field(min_length=1)
+    meal_categories: list[MealCategory]
+    standard_units: list[StandardUnit]
     ranking_protein_weight: float = Field(ge=0, le=1)
     # Einkaufsliste: Stichwörter für Vorratsartikel und Ziel-Liste in Home Assistant
     pantry_keywords: list[str]
@@ -57,14 +80,30 @@ class Settings(BaseModel):
     api_port: int = 8099
 
     @model_validator(mode="after")
-    def _plan_default_meal_exists(self) -> Settings:
+    def _meals_and_categories_exist(self) -> Settings:
         if self.plan_default_meal not in self.meal_names:
             raise ValueError("plan_default_meal muss einer der meal_names sein")
+        if unknown := set(self.suggest_yesterday_meals) - set(self.meal_names):
+            raise ValueError(f"suggest_yesterday_meals kennt {sorted(unknown)} nicht")
+        for pair in self.meal_categories:
+            if pair.meal not in self.meal_names:
+                raise ValueError(f"meal_categories: Mahlzeit „{pair.meal}“ unbekannt")
+            if pair.category not in self.recipe_categories:
+                raise ValueError(f"meal_categories: Kategorie „{pair.category}“ unbekannt")
         return self
 
     @property
     def database_url(self) -> str:
         return f"sqlite:///{self.database_path.as_posix()}"
+
+    @property
+    def standard_unit_grams(self) -> dict[str, float]:
+        """Standard-Einheiten als Zuordnung Einheit → Gramm, z. B. {"EL": 15.0}."""
+        return {item.unit: item.grams for item in self.standard_units}
+
+    def categories_for_meal(self, meal: str | None) -> list[str]:
+        """Kategorien, die beim Eintragen für diese Mahlzeit vorgefiltert werden."""
+        return [pair.category for pair in self.meal_categories if pair.meal == meal]
 
 
 def options_path() -> Path:

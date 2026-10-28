@@ -14,7 +14,14 @@ from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from modules.foods.models import Food
 from modules.foods.service import get_food, short_name
-from modules.nutrition.service import Nutrients, nutrients_for, to_grams, total_nutrients
+from modules.nutrition.service import (
+    Nutrients,
+    StandardUnit,
+    nutrients_for,
+    to_grams,
+    total_nutrients,
+    uses_standard_unit,
+)
 from modules.recipes.models import BaseIngredient, Recipe, RecipeIngredient, RecipeReference
 
 
@@ -235,6 +242,9 @@ class LineNutrition:
     label: str
     food: Food | None
     chosen: bool
+    grams: float | None
+    # Gerechnet mit einer Standard-Einheit (z. B. 1 EL = 15 g), weil das Produkt keine eigene hat
+    standard_unit: StandardUnit | None
     nutrients: Nutrients | None
 
 
@@ -272,6 +282,12 @@ def ingredient_label(ingredient: RecipeIngredient) -> str:
     return describe_ingredient(ingredient.quantity, unit, name)
 
 
+def _standard_unit_of(ingredient: RecipeIngredient, food: Food | None) -> StandardUnit | None:
+    if food is None or ingredient.quantity is None:
+        return None
+    return uses_standard_unit(food, ingredient.unit)
+
+
 def line_breakdown(recipe: Recipe) -> list[LineNutrition]:
     """Je Zeile das gerechnete Produkt und seine Nährwerte (None, wenn nicht rechenbar)."""
     result = []
@@ -285,6 +301,8 @@ def line_breakdown(recipe: Recipe) -> list[LineNutrition]:
                 label=ingredient_label(ingredient),
                 food=food,
                 chosen=ingredient.food is not None and ingredient.base_ingredient is not None,
+                grams=grams,
+                standard_unit=_standard_unit_of(ingredient, food),
                 nutrients=nutrients,
             )
         )

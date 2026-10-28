@@ -15,7 +15,7 @@ Tellerplan ist eine selbst gehostete App, die Kalorienzählen und Rezeptverwaltu
 | Portionen             | Rezept hat Standardportionen; der Plan hat eigene Portionen (Vorgabe: Standard); das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen                              |
 | Historie              | Tagebucheinträge speichern einen Nährwert-Snapshot                                                      | Spätere Rezeptänderungen verändern keine vergangenen Tage              |
 | Eintragen             | Nur auf der Seite „Heute“; der Plan kennt keine Mahlzeiten                                              | Ein Ort für das, was wirklich gegessen wurde                           |
-| Cookidoo-Planung      | Link zur Rezeptseite wird gespeichert, Planung dort per Link                                            | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt         |
+| Cookidoo-Planung      | Link zur Rezeptseite wird gespeichert, Planung dort per Link; Abgleich mit dem Cookidoo-Kalender geplant (siehe „Wünsche vom 2026-10-28“) | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt         |
 
 ## Systemüberblick
 
@@ -69,8 +69,8 @@ Nährwerte existieren nur an `food`, alles andere verweist darauf oder hält ein
 | Tabelle | Wichtige Felder | Regel |
 | --- | --- | --- |
 | `food` | Name, Quelle (bls / off / rewe / custom), Quell-ID (BLS-Code, Barcode, bei eigenen eine erzeugte Kennung), Barcode (eindeutig), Hersteller, Packungsgröße, Kurzname, Nährwerte pro 100 g | Einzige Stelle mit Nährwerten; ein Produkt mit Barcode gibt es nur einmal, egal aus welcher Quelle |
-| `food_unit` | food_id, Einheit (EL, TL, Stück, Becher, Prise), Gramm | Umrechnung pro Lebensmittel; Dichte für ml |
-| `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie, Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
+| `food_unit` | food_id, Einheit (EL, TL, Stück, Becher, Prise), Gramm | Umrechnung pro Lebensmittel; Dichte für ml. Ohne eigenen Eintrag gelten die Standard-Einheiten aus `standard_units` (1 EL = 15 g, 1 TL = 5 g) |
+| `recipe` | Titel, Quelle, `source_url`, Quell-ID, Standardportionen, Kategorie (Auswahl aus `recipe_categories`), Tags, Favorit, Notiz, Kochschritte (ein Schritt pro Zeile) | Keine Nährwertfelder |
 | `recipe_ingredient` | recipe_id, Reihenfolge, Originaltext, Name („Milch“), Menge, Einheit, Grundzutat, food_id nur bei im Rezept bewusst gewähltem Produkt, optional-Flag | Gerechnet wird das gewählte Produkt, sonst das Standardprodukt der Grundzutat. Ohne Menge („Salz“): „nach Bedarf“, zählt nicht gegen die Vollständigkeit |
 | `base_ingredient` | Name („Milch“, „Vollmilch“, „Kreuzkümmel“), Standardprodukt, Kennzeichen „ohne Nährwerte“; Produkte über `base_ingredient_food` (ein Produkt kann zu mehreren gehören) | Spezialisierungen sind eigene Grundzutaten, auch mit gleichem Standardprodukt |
 | `ingredient_alias` | Schlüssel des Zutatennamens (klein, z. B. „frische milch“) → Grundzutat | Beim Zuordnen gelernt, bei jedem Import sofort angewendet |
@@ -111,8 +111,8 @@ Produkte      Laktosefreie H-Milch 1,5 % (Berchtesgadener Land) ← Standard, we
 3. **Standard ändern** (Seite „Grundzutaten“) wirkt sofort in allen Rezepten, ohne Zeilen umzuschreiben, weil Zeilen nur auf die Grundzutat zeigen.
 4. **Ausnahme im Rezept:** Ein Klick auf eine Zeile zeigt Standard und Produkte ihrer Grundzutat; ein dort gewähltes Produkt gilt nur in diesem Rezept und bleibt, wenn sich der Standard ändert.
 5. **Ohne Produkt:** Grundzutaten, die in Rezepten vorkommen, aber noch kein Standardprodukt haben, sammelt ein eigener Bereich.
-6. **Einheiten:** fehlende Grammzahlen je gerechnetem Produkt und Einheit; ein Eintrag gilt überall.
-7. **Anzeige:** Rezept und Kochansicht zeigen nur „200 ml Milch“ (ohne ergänztes „Stück“, Einheiten im Plural: „2 Prisen“). Die Aufschlüsselung „Nährwerte je Zutat“ zeigt das gerechnete Produkt mit Hersteller und kcal, dazu die Vergleichswerte der Quelle.
+6. **Einheiten:** fehlende Grammzahlen je gerechnetem Produkt und Einheit; ein Eintrag gilt überall. Für EL und TL gibt es Standardwerte (`standard_units`, Vorgabe 1 EL = 15 g, 1 TL = 5 g), festgelegt am 2026-10-28. Reihenfolge der Umrechnung: Masse (g, kg) → Einheit am Lebensmittel → Behälter als Packung → Standard-Einheit. Wird mit einem Standardwert gerechnet, trägt die Zeile im Rezept das Kennzeichen „Standard 1 EL = 15 g“; ein Tipp darauf führt zum Lebensmittel, wo „Anpassen“ einen eigenen Wert speichert. `modules/nutrition` bekommt die Standardwerte beim Start der App (`set_standard_units`).
+7. **Anzeige:** Rezept und Kochansicht zeigen nur „200 ml Milch“ (ohne ergänztes „Stück“, Einheiten im Plural: „2 Prisen“). Die Zutatenliste im Rezept zeigt je Zeile die kcal und bei Einheiten außer Gramm die gerechnete Grammzahl („2 EL Öl = 30 g · 270 kcal“). Die Aufschlüsselung „Nährwerte je Zutat“ zeigt das gerechnete Produkt mit Hersteller und kcal, dazu die Vergleichswerte der Quelle.
 8. **Hersteller:** Markenprodukte zeigen in Listen den Hersteller statt „eigen“/„BLS“; die BLS-Quellenangabe bleibt auf Detailseite und in der Lebensmittel-Liste.
 
 **Suche nach deutscher Wortbildung:** Zuerst zählt das Hauptwort (erstes Wort): gleich vor „endet mit“ vor „beginnt mit“, denn „Speisesalz“ ist ein Salz, „Salzkartoffeln“ sind Kartoffeln. Erst danach zählt, wie oft der Begriff sonst im Namen steht. Vorher lieferte „Salz“ zuerst „Salzkartoffeln (Kartoffeln mit Salz gekocht)“.
@@ -130,7 +130,7 @@ Produkte      Laktosefreie H-Milch 1,5 % (Berchtesgadener Land) ← Standard, we
 1. Eingetragen wird nur auf „Heute“. Ganz oben zeigt ein Halbkreis den Stand gegen das Tageslimit: gefüllt ist das Gegessene, in der Mitte steht der Rest (oder die Überschreitung). Darunter Balken für Eiweiß, Fett und KH gegen die Ziele.
 2. Darunter stehen die für den Tag geplanten Rezepte; „Eintragen“ übernimmt eines mit Mahlzeit und gegessenen Portionen (Vorgabe 1, Schritte 0,25) und markiert es als eingetragen.
 3. Dann die vier Bereiche Frühstück, Mittag, Abendessen, Snacks, je mit „+“ zum Hinzufügen:
-   - **Rezept:** Auswahl aus der Rezeptliste, Portionen wählen
+   - **Rezept:** Auswahl aus der Rezeptliste, Portionen wählen. Die Liste ist nach der Mahlzeit vorgefiltert (`meal_categories`, z. B. Snacks → Snack), ein Chip „Alle Rezepte“ hebt den Filter auf. Bei den Mahlzeiten aus `suggest_yesterday_meals` (Mittag, Snacks) steht das Rezept, das am Vortag in **derselben Mahlzeit** eingetragen wurde, oben mit dem Hinweis „gestern“, ist vorausgewählt und bringt seine Portionen mit. Ein Rezept aus dem Plan bleibt immer auswählbar, auch wenn der Filter es sonst ausblenden würde.
    - **Lebensmittel:** einzelnes Lebensmittel, Menge in g oder als Einheit
    - **Text** (Stufe 4): freie Eingabe wie „200 g Skyr, 1 Banane“, zeilenweise geparst und gegen `foods` gematcht
 4. Jeder Eintrag wird ein `diary_entry` mit Nährwert-Snapshot; nur diese Einträge zählen für den Tagesbalken.
@@ -172,6 +172,8 @@ Alle Importer erfüllen dasselbe Interface `parse(eingabe) → RecipeDraft` und 
 | Einfach Backen | Rezept-URL | wie Chefkoch | Vor Umsetzung prüfen |
 | Freitext | Eingefügte Zutatenliste | Zeilenweise parsen | Immer verfügbar als Fallback |
 
+**Kategorien** (festgelegt am 2026-10-28): Die Kategorie eines Rezepts wird aus `recipe_categories` gewählt (Frühstück, Hauptgericht, Beilage, Snack, Salat, Dessert, Getränk, Grundrezept). Migration 0013 stellt die Sammelkategorien aus Cookidoo um: „Snack/Beilage“ → Snack, „Grundrezept/Getränk“ → Grundrezept; der Importer übersetzt sie ebenso. Ein erneuter Import überschreibt eine schon gesetzte Kategorie nicht, damit von Hand Nachgeschärftes bleibt. Eine ältere Kategorie, die nicht mehr in der Liste steht, bleibt beim Bearbeiten wählbar.
+
 Der Cookidoo-Abruf läuft am Rechner, nicht auf dem Pi. Das hält Login-Fragen und Abruflast vom Pi fern; der Pi nimmt nur fertige Entwürfe an, hochgeladen unter Einstellungen → „Rezepte importieren“. Bestehende Rezepte werden über Quelle und Quell-ID erkannt (eindeutiger Index) und nicht doppelt angelegt; ein erneuter Import aktualisiert Titel, Portionen, Kategorie, Link, Notiz und Vergleichswerte, lässt aber Zutaten und Zuordnungen unverändert.
 
 **Zeilenparser** (`modules/importers/line_parser.py`): Menge mit Brüchen und Bereichen (Mittelwert), Zusätze wie „geh.“ als Notiz, Einheiten in einheitlicher Schreibweise („Prisen“ → „Prise“, „Pck.“ → „Packung“), Notizen aus Klammern und nach „, “. Eine Menge ohne Einheit bekommt „Stück“, nie Gramm (K9).
@@ -204,7 +206,7 @@ Die Tab-Leiste hat drei Einträge: **Heute · Plan · Rezepte**. Einstellungen e
 | --- | --- |
 | Heute | Tages-Dashboard: Halbkreis kcal gegen Limit, Makro-Balken, geplante Rezepte zum Übernehmen, vier Mahlzeiten mit Einträgen; einziger Ort zum Eintragen |
 | Rezepte | Ranking-Ansicht mit Filtern |
-| Rezept | Zutatenliste mit Matching-Status, Nährwerte pro Portion; Buttons Einplanen, Kochen, Bearbeiten und rechts „In Cookidoo öffnen“ |
+| Rezept | Zutatenliste mit Matching-Status, Grammzahl und kcal je Zutat, Nährwerte pro Portion; Kategorie per Auswahl; Buttons Einplanen, Kochen, Bearbeiten und rechts „In Cookidoo öffnen“ |
 | Kochen | Unterseite eines Rezepts: nummerierte Kochschritte, links schmal die mitlaufende Zutatenliste; die Schritte erscheinen nur hier |
 | Plan | 3 Tage zurück bis 2 Wochen voraus, Spalten oder Liste (Umschalter oben rechts), nur Rezepttitel, Verschieben auf andere Tage; Knopf „🛒 Einkaufsliste“ |
 | Einkaufsliste | Unterseite des Plans: gesendete Artikel mit Mengen und Rezepten, übersprungener Vorrat, Liste als Text zum Kopieren |
@@ -246,7 +248,7 @@ tellerplan-ha/
         └── tests/
 ```
 
-**Konfiguration:** Eine Datei `settings.py` liest `options.json` (lokal `./dev/options.json`, im Add-on `/data/options.json`). Darin stehen kcal-Limit, Makro-Ziele, Mahlzeitnamen, API-Token und Datenbankpfad; im Code gibt es keine weiteren Konstanten.
+**Konfiguration:** Eine Datei `settings.py` liest `options.json` (lokal `./dev/options.json`, im Add-on `/data/options.json`). Darin stehen kcal-Limit, Makro-Ziele, Mahlzeitnamen, Rezeptkategorien mit Vorfilter je Mahlzeit, Vorschlag vom Vortag, Standard-Einheiten, API-Token und Datenbankpfad; im Code gibt es keine weiteren Konstanten. Beschreibung aller Optionen in `tellerplan/DOCS.md`.
 
 **Deployment:** Push lässt CI laufen. Ein Tag `vX.Y.Z` baut das arm64-Image nach GHCR, Home Assistant zeigt das Update an. Datenbank-Migrationen laufen beim Start des Add-ons automatisch; steht eine an, sichert `serve.py` die Datenbank vorher als `app.db.<Zeitstempel>.bak` (die letzten drei bleiben).
 
@@ -352,6 +354,19 @@ Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 - [ ] HTTPS für die API auf Port 8099, vor dem Cookidoo-Kurzbefehl in Stufe 4: Bisher spricht der Port direkt HTTP, ein Token von unterwegs ginge unverschlüsselt. Optionen: Zertifikate von Home Assistant einbinden (`map: ssl` in `config.yaml`, uvicorn mit `/ssl/fullchain.pem` und `/ssl/privkey.pem`) oder Zugriff über einen vorhandenen Reverse Proxy. Ingress ist nicht betroffen, dort übernimmt Home Assistant HTTPS. Lokal bleibt HTTP; Browser-Funktionen wie Kamera (Barcode, Stufe 5) oder Bildschirm wach halten brauchen auf dem iPhone eine HTTPS-Verbindung, also Ingress.
 - [ ] Kochschritte von Cookidoo übernehmen? Entschieden am 2026-10-25: im ersten Schritt nicht, zum Kochen genügt „In Cookidoo öffnen“. Später ergänzen (JSON-LD `recipeInstructions`, `tools/cookidoo_fetch.py`); dafür Regel 2 erweitern.
 - [ ] Wie groß ist die Sammlung „Fürth“, und soll sie komplett oder schrittweise importiert werden?
+
+**Wünsche vom 2026-10-28**
+
+Aufgenommen, noch nicht umgesetzt. Vor der Umsetzung je Punkt die offenen Fragen klären.
+
+- [ ] **Cookidoo-Kalender synchronisieren:** Ist ein Cookidoo-Zugang hinterlegt, erscheint im Plan ein Knopf „Sync“. Er
+  1. lädt den Cookidoo-Kalender mit den Rezepten (Zeitraum wie der Plan),
+  2. vergleicht über die Cookidoo-ID (`recipe.source = cookidoo`, `source_id` wie `r753850`) mit dem Tellerplan-Plan. Liegt ein Rezept in Cookidoo an einem anderen Wochentag, wird der Tellerplan angepasst (Cookidoo gewinnt),
+  3. schreibt Rezepte mit Cookidoo-ID, die in Tellerplan an einem Tag geplant sind, an dem der Cookidoo-Kalender leer ist, in den Cookidoo-Kalender.
+
+  Schnittstelle (festgelegt am 2026-10-28): die inoffizielle Bibliothek `cookidoo-api` (Grundlage der Cookidoo-Integration in Home Assistant), die den Kalender lesen und Rezepte einplanen kann. Sie meldet sich mit E-Mail und Passwort an, nicht mit einem API-Token; die Zugangsdaten werden neue Optionen (Regel 6, Typ `password`), der Knopf erscheint, wenn sie gesetzt sind. Offene Fragen: Was passiert mit Tellerplan-Rezepten, die in Cookidoo entfernt wurden, und mit Rezepten ohne Cookidoo-ID? Die bisherige Festlegung „keine Schnittstelle zum Einplanen“ (Tabelle oben) wird damit abgelöst; Netzwerkaufrufe gehören wie bei `supervisor.py` nicht in ein Fachmodul (vgl. C-E).
+- [ ] **REWE-ID an eigenen Lebensmitteln:** Lebensmittel, die nicht aus BLS stammen, bekommen auf ihrer Seite ein aufklappbares Feld für die REWE-Artikelnummer. Offene Fragen: Wofür wird sie genutzt (Link zur Produktseite, Abgleich in `tools/rewe_fetch.py`, Erkennen beim Import)? Eigenes Feld an `food` (Migration) oder bei `source = rewe` die vorhandene Quell-ID?
+- [ ] **Heute und Ziele je HA-Benutzer:** „Heute“ (Tagebuch) und Kalorienziele gelten je angemeldetem Home-Assistant-Benutzer; Plan, Rezepte und Lebensmittel bleiben für alle gleich. Ansätze: Über Ingress setzt Home Assistant die Kopfzeilen `X-Remote-User-Id` und `X-Remote-User-Name`, die Vollbild-App kennt den Benutzer aus der OAuth-Anmeldung. `diary_entry` bekommt eine Benutzer-ID (Migration, bestehende Einträge gehören dem bisherigen Benutzer). Die Ziele liegen bisher als Add-on-Optionen vor (Regel 6, K7); je Benutzer braucht es eine Tabelle `goal` mit Benutzer-ID, Regel 6 ist dafür anzupassen. Offene Frage: Wie wird ein Benutzer ohne Eintrag behandelt (Vorgabewerte aus den Optionen)?
 
 ## Quellen
 

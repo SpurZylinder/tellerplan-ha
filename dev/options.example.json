@@ -10,6 +10,56 @@
     "Snacks"
   ],
   "plan_default_meal": "Abendessen",
+  "suggest_yesterday_meals": [
+    "Mittag",
+    "Snacks"
+  ],
+  "recipe_categories": [
+    "Frühstück",
+    "Hauptgericht",
+    "Beilage",
+    "Snack",
+    "Salat",
+    "Dessert",
+    "Getränk",
+    "Grundrezept"
+  ],
+  "meal_categories": [
+    {
+      "meal": "Frühstück",
+      "category": "Frühstück"
+    },
+    {
+      "meal": "Mittag",
+      "category": "Hauptgericht"
+    },
+    {
+      "meal": "Mittag",
+      "category": "Salat"
+    },
+    {
+      "meal": "Abendessen",
+      "category": "Hauptgericht"
+    },
+    {
+      "meal": "Abendessen",
+      "category": "Salat"
+    },
+    {
+      "meal": "Snacks",
+      "category": "Snack"
+    }
+  ],
+  "standard_units": [
+    {
+      "unit": "EL",
+      "grams": 15
+    },
+    {
+      "unit": "TL",
+      "grams": 5
+    }
+  ],
   "ranking_protein_weight": 0.7,
   "pantry_keywords": [
     "salz",

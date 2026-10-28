@@ -47,14 +47,25 @@
 
   <section class="card" id="units">
     <h2>Einheiten</h2>
-    <p class="meta">Wie viel Gramm sind z. B. 1 EL oder 1 Stück? Damit lassen sich Zutaten ohne Grammangabe umrechnen.</p>
-    {% if food.units %}
+    <p class="meta">Wie viel Gramm sind z. B. 1 EL oder 1 Stück? Damit lassen sich Zutaten ohne Grammangabe umrechnen. Einheiten mit dem Kennzeichen „Standard“ gelten für alle Lebensmittel ohne eigene Angabe; ein eigener Wert geht vor.</p>
+    {% if food.units or standard_units %}
       <ul class="list">
         {% for unit in food.units %}
           <li>
             <span>1 {{ unit.name }} = {{ unit.grams|amount }} g</span>
             <form method="post" action="{{ url('unit_delete', food_id=food.id, unit_id=unit.id) }}">
               <button class="btn danger small" type="submit">Entfernen</button>
+            </form>
+          </li>
+        {% endfor %}
+        {% for unit in standard_units %}
+          <li>
+            <span>1 {{ unit.name }} = {{ unit.grams|amount }} g <span class="pill d">Standard</span></span>
+            <form class="nums" method="post" action="{{ url('unit_add', food_id=food.id) }}">
+              <input type="hidden" name="name" value="{{ unit.name }}">
+              <input class="input small" name="grams" inputmode="decimal" placeholder="{{ unit.grams|amount }}"
+                     aria-label="Eigene Gramm je {{ unit.name }}" required>
+              <button class="btn ghost small" type="submit">Anpassen</button>
             </form>
           </li>
         {% endfor %}

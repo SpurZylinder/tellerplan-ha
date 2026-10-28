@@ -59,7 +59,7 @@ tellerplan-ha/
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte, 0011 Grundzutaten, 0012 Barcode und Packung
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte, 0011 Grundzutaten, 0012 Barcode und Packung, 0013 Rezeptkategorien
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```

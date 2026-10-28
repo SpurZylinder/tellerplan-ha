@@ -19,6 +19,7 @@ from migrate import upgrade_to_head
 from modules.diary.models import DiaryEntry
 from modules.foods.models import Food, FoodSource
 from modules.foods.service import find_by_source, set_unit
+from modules.nutrition.service import set_standard_units
 from modules.recipes.models import Recipe, RecipeIngredient
 from modules.recipes.service import (
     IngredientInput,
@@ -258,6 +259,7 @@ def seed_recipes(session: Session, foods: dict[str, Food]) -> int:
 
 def main() -> None:
     settings = get_settings()
+    set_standard_units(settings.standard_unit_grams)
     upgrade_to_head(settings)
     engine = create_db_engine(settings)
     with create_session_factory(engine)() as session:

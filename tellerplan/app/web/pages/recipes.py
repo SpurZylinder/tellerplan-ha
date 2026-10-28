@@ -51,7 +51,21 @@ def _recipe_or_404(session: Session, recipe_id: int) -> Recipe:
     return recipe
 
 
-async def _recipe_input(request: Request) -> tuple[RecipeInput | None, dict[str, str], str | None]:
+def _category_choices(request: Request, current: str | None = None) -> list[str]:
+    """Kategorien aus den Einstellungen; eine ältere Kategorie des Rezepts bleibt wählbar."""
+    configured = list(request.app.state.settings.recipe_categories)
+    return configured if not current or current in configured else [*configured, current]
+
+
+def _ordered_categories(request: Request, used: list[str]) -> list[str]:
+    """Vorkommende Kategorien in der Reihenfolge der Einstellungen, unbekannte am Ende."""
+    configured = request.app.state.settings.recipe_categories
+    return [c for c in configured if c in used] + [c for c in used if c not in configured]
+
+
+async def _recipe_input(
+    request: Request, recipe: Recipe | None
+) -> tuple[RecipeInput | None, dict[str, str], str | None]:
     form = await request.form()
     keys = ("title", "servings", "category", "source_url", "note", "instructions")
     values = {key: str(form.get(key, "")) for key in keys}
@@ -59,6 +73,9 @@ async def _recipe_input(request: Request) -> tuple[RecipeInput | None, dict[str,
         title = clean_text(values["title"])
         if title is None:
             raise FormError("Titel fehlt.")
+        category = clean_text(values["category"])
+        if category and category not in _category_choices(request, recipe and recipe.category):
+            raise FormError("Bitte eine Kategorie aus der Liste wählen.")
         source_url = clean_text(values["source_url"])
         if source_url and not source_url.startswith(("https://", "http://")):
             raise FormError("Der Link muss mit https:// beginnen.")
@@ -68,7 +85,7 @@ async def _recipe_input(request: Request) -> tuple[RecipeInput | None, dict[str,
         data = RecipeInput(
             title=title,
             servings=servings,
-            category=clean_text(values["category"]),
+            category=category,
             source_url=source_url,
             note=clean_text(values["note"]),
             instructions=clean_text(values["instructions"]),
@@ -91,7 +108,6 @@ def _form_values(recipe: Recipe) -> dict[str, str]:
 
 def _render_form(
     request: Request,
-    session: Session,
     recipe: Recipe | None,
     values: dict[str, str],
     error: str | None = None,
@@ -102,7 +118,7 @@ def _render_form(
         tab="recipes",
         recipe=recipe,
         values=values,
-        categories=list_categories(session),
+        categories=_category_choices(request, recipe and recipe.category),
         error=error,
     )
 
@@ -135,21 +151,21 @@ def recipes_page(request: Request, session: SessionDep) -> HTMLResponse:
             for line in summary.recipe.ingredients
             if line.food is None and line.base_ingredient is None
         ),
-        categories=list_categories(session),
+        categories=_ordered_categories(request, list_categories(session)),
         protein_weight=request.app.state.settings.ranking_protein_weight,
     )
 
 
 @router.get("/new", response_class=HTMLResponse)
-def recipe_new(request: Request, session: SessionDep) -> HTMLResponse:
-    return _render_form(request, session, None, {"servings": "2"})
+def recipe_new(request: Request) -> HTMLResponse:
+    return _render_form(request, None, {"servings": "2"})
 
 
 @router.post("/new", response_model=None)
 async def recipe_create(request: Request, session: SessionDep) -> Response:
-    data, values, error = await _recipe_input(request)
+    data, values, error = await _recipe_input(request, None)
     if data is None:
-        return _render_form(request, session, None, values, error)
+        return _render_form(request, None, values, error)
     recipe = create_recipe(session, data)
     session.commit()
     return redirect_to(request, "recipe_detail", recipe_id=recipe.id)
@@ -177,15 +193,15 @@ def recipe_cook(request: Request, session: SessionDep, recipe_id: int) -> HTMLRe
 @router.get("/{recipe_id}/edit", response_class=HTMLResponse)
 def recipe_edit(request: Request, session: SessionDep, recipe_id: int) -> HTMLResponse:
     recipe = _recipe_or_404(session, recipe_id)
-    return _render_form(request, session, recipe, _form_values(recipe))
+    return _render_form(request, recipe, _form_values(recipe))
 
 
 @router.post("/{recipe_id}/edit", response_model=None)
 async def recipe_update(request: Request, session: SessionDep, recipe_id: int) -> Response:
     recipe = _recipe_or_404(session, recipe_id)
-    data, values, error = await _recipe_input(request)
+    data, values, error = await _recipe_input(request, recipe)
     if data is None:
-        return _render_form(request, session, recipe, values, error)
+        return _render_form(request, recipe, values, error)
     update_recipe(session, recipe, data)
     session.commit()
     return redirect_to(request, "recipe_detail", recipe_id=recipe.id)

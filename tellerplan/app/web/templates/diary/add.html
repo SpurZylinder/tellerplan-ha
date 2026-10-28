@@ -3,14 +3,26 @@
 
 {% block title %}Eintragen · Tellerplan{% endblock %}
 
-{% macro meal_select() %}
+{% macro meal_select(reload_url=none) %}
   <label class="field">Mahlzeit
-    <select class="input" name="meal" required>
+    <select class="input" name="meal" required{% if reload_url %} data-reload-meal="{{ reload_url }}"{% endif %}>
       <option value="" disabled{% if not meal %} selected{% endif %}>Bitte wählen</option>
       {% for name in meal_names %}
         <option value="{{ name }}"{% if name == meal %} selected{% endif %}>{{ name }}</option>
       {% endfor %}
     </select>
+  </label>
+{% endmacro %}
+
+{% macro recipe_option(summary, hint=none, servings=none) %}
+  {% set recipe = summary.recipe %}
+  <label data-title="{{ recipe.title|lower }}">
+    <input type="radio" name="recipe_id" value="{{ recipe.id }}" required{% if recipe.id == recipe_id %} checked{% endif %}
+           {%- if servings %} data-servings="{{ '%g' % servings }}"{% endif %}>
+    <span class="grow">
+      <span>{% if recipe.is_favorite %}★ {% endif %}{{ recipe.title }}{% if hint %} <span class="pill p">{{ hint }}</span>{% endif %}</span>
+      <span class="meta">{{ summary.per_serving.kcal|num }} kcal · {{ summary.per_serving.protein_g|num }} g Eiweiß pro Portion</span>
+    </span>
   </label>
 {% endmacro %}
 
@@ -36,26 +48,30 @@
       {{ error_message(error) }}
       <input type="hidden" name="day" value="{{ day }}">
       {% if plan_entry_id %}<input type="hidden" name="plan_entry_id" value="{{ plan_entry_id }}">{% endif %}
+      {% set base_url %}{{ url('diary_add') }}?day={{ day }}&mode=recipe{% if plan_entry_id %}&plan_entry_id={{ plan_entry_id }}{% endif %}{% if plan_entry_id and recipe_id %}&recipe_id={{ recipe_id }}{% endif %}{% endset %}
       <div class="field-row">
-        {{ meal_select() }}
+        {{ meal_select(base_url) }}
         <label class="field">Gegessene Portionen
-          <input class="input" type="number" name="servings" value="1" min="{{ step }}" step="{{ step }}"
+          <input class="input" type="number" name="servings" value="{{ '%g' % servings }}" min="{{ step }}" step="{{ step }}"
                  inputmode="decimal" required>
         </label>
       </div>
 
-      {% if summaries %}
+      {% if choices.suggestions or choices.others %}
+        {% if choices.filterable %}
+          {% set meal_url %}{{ base_url }}{% if meal %}&meal={{ meal|urlencode }}{% endif %}{% endset %}
+          <div class="nums">
+            <a class="chip" aria-pressed="{{ 'true' if choices.categories else 'false' }}" href="{{ meal_url }}">{{ choices.categories|join(" · ") if choices.categories else "Passend zu " ~ meal }}</a>
+            <a class="chip" aria-pressed="{{ 'false' if choices.categories else 'true' }}" href="{{ meal_url }}&all=1">Alle Rezepte</a>
+          </div>
+        {% endif %}
         <input class="search input" type="search" placeholder="Rezept suchen" data-filter-picker>
         <div class="picker">
-          {% for summary in summaries %}
-            {% set recipe = summary.recipe %}
-            <label data-title="{{ recipe.title|lower }}">
-              <input type="radio" name="recipe_id" value="{{ recipe.id }}" required{% if recipe.id == recipe_id %} checked{% endif %}>
-              <span class="grow">
-                <span>{% if recipe.is_favorite %}★ {% endif %}{{ recipe.title }}</span>
-                <span class="meta">{{ summary.per_serving.kcal|num }} kcal · {{ summary.per_serving.protein_g|num }} g Eiweiß pro Portion</span>
-              </span>
-            </label>
+          {% for summary, eaten in choices.suggestions %}
+            {{ recipe_option(summary, "gestern " ~ eaten|amount ~ (" Portion" if eaten == 1 else " Portionen"), eaten) }}
+          {% endfor %}
+          {% for summary in choices.others %}
+            {{ recipe_option(summary) }}
           {% endfor %}
         </div>
       {% else %}

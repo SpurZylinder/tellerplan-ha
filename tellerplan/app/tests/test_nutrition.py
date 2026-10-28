@@ -2,7 +2,14 @@ import pytest
 from sqlalchemy.orm import Session
 
 from factories import make_food
-from modules.nutrition.service import Nutrients, nutrients_for, to_grams, total_nutrients
+from modules.nutrition.service import (
+    Nutrients,
+    StandardUnit,
+    nutrients_for,
+    to_grams,
+    total_nutrients,
+    uses_standard_unit,
+)
 
 
 def test_to_grams_handles_mass_units(session: Session) -> None:
@@ -20,7 +27,24 @@ def test_to_grams_uses_food_units_case_insensitive(session: Session) -> None:
 
 
 def test_to_grams_returns_none_for_unknown_unit(session: Session) -> None:
-    assert to_grams(make_food(session), 1, "EL") is None
+    assert to_grams(make_food(session), 1, "Handvoll") is None
+
+
+def test_standard_units_apply_without_own_unit(session: Session) -> None:
+    food = make_food(session)
+
+    assert to_grams(food, 2, "EL") == 30
+    assert to_grams(food, 1, "tl") == 5
+    assert uses_standard_unit(food, "EL") == StandardUnit("EL", 15)
+    assert uses_standard_unit(food, "g") is None
+
+
+def test_own_unit_beats_standard_unit(session: Session) -> None:
+    oil = make_food(session, "Rapsöl", units={"EL": 10})
+
+    assert to_grams(oil, 2, "EL") == 20
+    assert uses_standard_unit(oil, "EL") is None
+    assert uses_standard_unit(oil, "TL") == StandardUnit("TL", 5)
 
 
 def test_nutrients_for_scales_per_100_g(session: Session) -> None:
@@ -57,4 +81,4 @@ def test_containers_count_as_one_package(session: Session) -> None:
     assert to_grams(coconut, 0.5, "Glas") == 200
     assert to_grams(tomatoes, 1, "Dose") == 240  # eigene Angabe geht vor
     assert to_grams(plain, 1, "Dose") is None  # ohne Packungsgröße weiter fragen
-    assert to_grams(coconut, 1, "EL") is None
+    assert to_grams(coconut, 1, "Prise") is None

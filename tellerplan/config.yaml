@@ -1,5 +1,5 @@
 name: Tellerplan
-version: "0.3.1"
+version: "0.4.0"
 slug: tellerplan
 description: Kalorien zählen, Rezepte verwalten und die Woche planen
 url: https://github.com/SpurZylinder/tellerplan-ha
@@ -33,6 +33,36 @@ options:
     - Abendessen
     - Snacks
   plan_default_meal: Abendessen
+  suggest_yesterday_meals:
+    - Mittag
+    - Snacks
+  recipe_categories:
+    - Frühstück
+    - Hauptgericht
+    - Beilage
+    - Snack
+    - Salat
+    - Dessert
+    - Getränk
+    - Grundrezept
+  meal_categories:
+    - meal: Frühstück
+      category: Frühstück
+    - meal: Mittag
+      category: Hauptgericht
+    - meal: Mittag
+      category: Salat
+    - meal: Abendessen
+      category: Hauptgericht
+    - meal: Abendessen
+      category: Salat
+    - meal: Snacks
+      category: Snack
+  standard_units:
+    - unit: EL
+      grams: 15
+    - unit: TL
+      grams: 5
   ranking_protein_weight: 0.7
   pantry_keywords:
     - salz
@@ -64,6 +94,16 @@ schema:
   meal_names:
     - str
   plan_default_meal: str
+  suggest_yesterday_meals:
+    - str
+  recipe_categories:
+    - str
+  meal_categories:
+    - meal: str
+      category: str
+  standard_units:
+    - unit: str
+      grams: float(0.1,1000)
   ranking_protein_weight: float(0,1)
   pantry_keywords:
     - str

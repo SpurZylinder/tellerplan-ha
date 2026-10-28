@@ -19,6 +19,7 @@ from modules.foods.service import (
     set_unit,
     update_food,
 )
+from modules.nutrition.service import standard_units, uses_standard_unit
 from web.forms import FormError, clean_text, parse_number, redirect_to, required_number
 from web.templating import render
 
@@ -151,6 +152,8 @@ def _render_detail(request: Request, food: Food, unit_error: str | None = None) 
         food=food,
         fields=NUTRIENT_FIELDS,
         default_shopping_name=default_short_name(food.name),
+        # Standard-Einheiten, für die das Lebensmittel keine eigene Angabe hat
+        standard_units=[unit for unit in standard_units() if uses_standard_unit(food, unit.name)],
         unit_error=unit_error,
     )
 

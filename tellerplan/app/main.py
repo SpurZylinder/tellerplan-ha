@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.v1 import router as api_v1_router
 from db import create_db_engine, create_session_factory
+from modules.nutrition.service import set_standard_units
 from security import PortAccessMiddleware
 from settings import Settings, get_settings, options_path
 from web import router as web_router
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None, options_file: Path | None = Non
     app.state.options_file = options_file or options_path()
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
+    set_standard_units(settings.standard_unit_grams)
 
     app.add_middleware(PortAccessMiddleware, settings=settings)
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")

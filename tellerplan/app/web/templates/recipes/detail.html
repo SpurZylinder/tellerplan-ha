@@ -49,6 +49,13 @@
           <li>
             <div class="grow">
               <a href="{{ url('ingredient_edit', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">{{ line.label }}</a>{% if ingredient.is_optional %} <span class="meta">(optional)</span>{% endif %}
+              {% if line.grams is not none and (ingredient.unit or "g")|lower not in ("g", "gramm") %}
+                <span class="meta">= {{ line.grams|amount }} g</span>
+              {% endif %}
+              {% if line.standard_unit %}
+                <a class="pill d" href="{{ url('food_detail', food_id=line.food.id) }}#units"
+                   title="Standardwert für alle Lebensmittel ohne eigene Angabe – beim Lebensmittel anpassen">Standard 1 {{ line.standard_unit.name }} = {{ line.standard_unit.grams|amount }} g</a>
+              {% endif %}
               {% set issue = summary.issues.get(ingredient.id) %}
               {% if issue == "no_food" %}
                 <span class="note">{{ "Grundzutat ohne Standardprodukt" if ingredient.base_ingredient else "Noch nicht zugeordnet" }}</span>
@@ -56,6 +63,7 @@
                 <span class="note">Grammzahl für „{{ ingredient.unit or 'ohne Menge' }}“ fehlt – <a href="{{ url('food_detail', food_id=line.food.id) }}#units">beim Lebensmittel pflegen</a></span>
               {% endif %}
             </div>
+            {% if line.nutrients %}<span class="pill k">{{ line.nutrients.kcal|num }} kcal</span>{% endif %}
             <form method="post" action="{{ url('ingredient_delete', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">
               <button class="icon-btn" type="submit" aria-label="Zutat entfernen">×</button>
             </form>

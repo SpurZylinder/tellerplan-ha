@@ -4,8 +4,9 @@ Regel 2: Ein Entwurf liefert Titel, Portionen, Link, Quell-ID und rohe Zutatenze
 nie Nährwerte. Werte der Quelle kommen nur als Vergleich (`reference`) mit.
 
 Ein Rezept mit derselben Quelle und Quell-ID wird nicht doppelt angelegt. Bei einem
-erneuten Import werden Titel, Portionen, Kategorie, Link, Notiz und Vergleichswerte
-aktualisiert; die Zutaten bleiben, damit Zuordnungen nicht verloren gehen.
+erneuten Import werden Titel, Portionen, Link, Notiz und Vergleichswerte aktualisiert;
+Zutaten, Kochschritte und eine schon gesetzte Kategorie bleiben, damit von Hand
+Gepflegtes nicht verloren geht.
 """
 
 from dataclasses import dataclass
@@ -36,6 +37,8 @@ REFERENCE_FIELDS = {
     "fat_g": "fat_g_per_serving",
     "carbs_g": "carbs_g_per_serving",
 }
+# Sammelkategorien der Quelle → Kategorie der Auswahl (siehe Migration 0013)
+CATEGORY_NAMES = {"Snack/Beilage": "Snack", "Grundrezept/Getränk": "Grundrezept"}
 
 
 class ImportFormatError(ValueError):
@@ -79,6 +82,12 @@ def _servings(value: object) -> float:
     return FALLBACK_SERVINGS
 
 
+def _category(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return CATEGORY_NAMES.get(value.strip(), value.strip())
+
+
 def _note(draft: dict[str, Any]) -> str | None:
     parts = []
     if draft.get("total_time"):
@@ -92,7 +101,7 @@ def _recipe_input(draft: dict[str, Any]) -> RecipeInput:
     return RecipeInput(
         title=draft["title"].strip(),
         servings=_servings(draft.get("servings")),
-        category=draft.get("category") or None,
+        category=_category(draft.get("category")),
         source_url=draft.get("source_url") or None,
         note=_note(draft),
     )
@@ -147,11 +156,11 @@ def import_document(session: Session, document: object) -> ImportResult:
 
 
 def _with_instructions(recipe: Recipe, data: RecipeInput) -> RecipeInput:
-    """Von Hand eingetragene Kochschritte überstehen einen erneuten Import."""
+    """Von Hand eingetragene Kochschritte und Kategorien überstehen einen erneuten Import."""
     return RecipeInput(
         title=data.title,
         servings=data.servings,
-        category=data.category,
+        category=recipe.category or data.category,
         source_url=data.source_url,
         note=data.note,
         instructions=recipe.instructions,

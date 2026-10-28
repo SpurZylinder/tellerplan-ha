@@ -98,6 +98,27 @@ def test_migration_0007_fills_plan_servings_from_recipe(settings: Settings) -> N
     connection.close()
 
 
+def test_migration_0013_maps_cookidoo_categories(settings: Settings) -> None:
+    command.upgrade(alembic_config(settings, skip_data_migrations=True), "0012")
+    connection = sqlite3.connect(settings.database_path)
+    connection.executescript(
+        """
+        INSERT INTO recipe (id, title, source, servings, is_favorite, category)
+            VALUES (1, 'Hummus', 'cookidoo', 4, 0, 'Snack/Beilage'),
+                   (2, 'Brühe', 'cookidoo', 4, 0, 'Grundrezept/Getränk'),
+                   (3, 'Chili', 'cookidoo', 4, 0, 'Hauptgericht');
+        """
+    )
+    connection.close()
+
+    upgrade_to_head(settings, skip_data_migrations=True)
+
+    connection = sqlite3.connect(settings.database_path)
+    rows = connection.execute("SELECT category FROM recipe ORDER BY id").fetchall()
+    connection.close()
+    assert rows == [("Snack",), ("Grundrezept",), ("Hauptgericht",)]
+
+
 def test_migrations_keep_dependent_rows(settings: Settings) -> None:
     # SQLite baut Tabellen bei manchen Migrationen neu auf; mit aktiven Fremdschlüsseln
     # hätte ON DELETE CASCADE dabei Zutaten, Planeinträge und Verweise gelöscht.

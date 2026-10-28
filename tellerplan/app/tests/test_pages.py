@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from modules.foods.models import FoodSource
 from modules.foods.service import FoodInput, create_food
+from modules.recipes.models import Recipe
 
 
 def _last_id(url: str) -> str:
@@ -411,3 +412,73 @@ def test_recipes_api_lists_summaries(api_client: TestClient, ingress_client: Tes
 
     assert response.status_code == 200
     assert response.json()[0]["title"] == "Skyr-Bowl"
+
+
+def test_recipe_lines_show_grams_kcal_and_standard_unit(ingress_client: TestClient) -> None:
+    food_id = _last_id(_create_food(ingress_client, name="Rapsöl", kcal="900"))
+    recipe_url = _create_recipe(ingress_client)
+    ingress_client.post(
+        f"{recipe_url}/ingredients", data={"food_id": food_id, "quantity": "2", "unit": "EL"}
+    )
+
+    detail = ingress_client.get(recipe_url).text
+    assert "= 30 g" in detail
+    assert "Standard 1 EL = 15 g" in detail
+    assert "270 kcal" in detail
+
+    ingress_client.post(f"/foods/{food_id}/units", data={"name": "EL", "grams": "10"})
+    detail = ingress_client.get(recipe_url).text
+    assert "= 20 g" in detail
+    assert "Standard 1 EL" not in detail
+    assert "180 kcal" in detail
+
+
+def test_food_detail_offers_to_override_standard_units(ingress_client: TestClient) -> None:
+    food_id = _last_id(_create_food(ingress_client, name="Honig"))
+
+    detail = ingress_client.get(f"/foods/{food_id}").text
+    assert 'value="TL"' in detail
+    assert "1 TL = 5 g" in detail
+
+    ingress_client.post(f"/foods/{food_id}/units", data={"name": "TL", "grams": "7"})
+    detail = ingress_client.get(f"/foods/{food_id}").text
+    assert "1 TL = 7 g" in detail
+    assert "1 TL = 5 g" not in detail
+    assert "1 EL = 15 g" in detail
+
+
+def test_category_is_chosen_from_the_list(ingress_client: TestClient) -> None:
+    form = ingress_client.get("/recipes/new").text
+    assert '<option value="Snack">Snack</option>' in form
+
+    response = ingress_client.post(
+        "/recipes/new",
+        data={"title": "Riegel", "servings": "1", "category": "Mitternachtssnack"},
+    )
+    assert "Bitte eine Kategorie aus der Liste wählen." in response.text
+
+    recipe_url = ingress_client.post(
+        "/recipes/new",
+        data={"title": "Riegel", "servings": "1", "category": "Snack"},
+        follow_redirects=False,
+    ).headers["location"]
+    assert "· Snack" in ingress_client.get(recipe_url).text
+
+
+def test_older_category_stays_selectable(ingress_client: TestClient) -> None:
+    recipe_url = _create_recipe(ingress_client)
+    with ingress_client.app.state.session_factory() as session:
+        recipe = session.get(Recipe, int(_last_id(recipe_url)))
+        assert recipe is not None
+        recipe.category = "Fingerfood"
+        session.commit()
+
+    form = ingress_client.get(f"{recipe_url}/edit").text
+    assert '<option value="Fingerfood" selected>' in form
+
+    response = ingress_client.post(
+        f"{recipe_url}/edit",
+        data={"title": "Skyr-Bowl", "servings": "2", "category": "Fingerfood"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303

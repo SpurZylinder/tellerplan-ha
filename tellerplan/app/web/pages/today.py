@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
@@ -18,11 +18,12 @@ from modules.diary.service import (
     log_food,
     log_recipe,
     planned_for_day,
+    recipes_eaten,
 )
 from modules.foods.service import get_food
 from modules.nutrition.service import Nutrients
 from modules.planner.service import get_entry as get_plan_entry
-from modules.recipes.service import get_recipe, recipe_summaries
+from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries
 from settings import Settings
 from web.forms import COMMON_UNITS, FormError, clean_text, redirect_to, required_number
 from web.templating import render
@@ -107,6 +108,45 @@ def today_page(request: Request, session: SessionDep, day: date | None = None) -
     )
 
 
+@dataclass(frozen=True)
+class RecipeChoices:
+    """Rezeptauswahl beim Eintragen: Vorschläge von gestern oben, darunter der Rest."""
+
+    suggestions: list[tuple[RecipeSummary, float]]
+    others: list[RecipeSummary]
+    # Kategorien, auf die vorgefiltert ist; leer = alle Rezepte
+    categories: list[str]
+    # Ohne Filter gäbe es mehr Rezepte („Alle Rezepte“ anbieten)
+    filterable: bool
+
+
+def _recipe_choices(
+    session: Session,
+    settings: Settings,
+    day: date,
+    meal: str | None,
+    recipe_id: int | None,
+    show_all: bool,
+) -> RecipeChoices:
+    summaries = recipe_summaries(session)
+    by_id = {summary.recipe.id: summary for summary in summaries}
+    suggestions = []
+    if meal in settings.suggest_yesterday_meals:
+        eaten = recipes_eaten(session, day - timedelta(days=1), meal)
+        suggestions = [(by_id[e.recipe_id], e.servings or 1) for e in eaten if e.recipe_id in by_id]
+    suggested = {summary.recipe.id for summary, _ in suggestions}
+    others = [summary for summary in summaries if summary.recipe.id not in suggested]
+
+    categories = settings.categories_for_meal(meal)
+    matching = {summary.recipe.id for summary in summaries if summary.recipe.category in categories}
+    # Ein vorgegebenes Rezept (z. B. aus dem Plan) muss in der Auswahl stehen
+    chosen_hidden = recipe_id is not None and recipe_id not in matching | suggested
+    if show_all or not matching or chosen_hidden:
+        return RecipeChoices(suggestions, others, [], filterable=bool(matching))
+    filtered = [summary for summary in others if summary.recipe.id in matching]
+    return RecipeChoices(suggestions, filtered, categories, filterable=True)
+
+
 def _render_add(
     request: Request,
     session: Session,
@@ -116,19 +156,32 @@ def _render_add(
     meal: str | None = None,
     recipe_id: int | None = None,
     plan_entry_id: int | None = None,
+    show_all: bool = False,
     error: str | None = None,
 ) -> HTMLResponse:
+    settings = request.app.state.settings
+    mode = mode if mode in ADD_MODES else ADD_MODES[0]
+    choices = (
+        _recipe_choices(session, settings, day, meal, recipe_id, show_all)
+        if mode == "recipe"
+        else None
+    )
+    servings: float = 1
+    if choices and choices.suggestions and recipe_id is None:
+        first, servings = choices.suggestions[0]
+        recipe_id = first.recipe.id
     return render(
         request,
         "diary/add.html",
         tab="today",
         day=day,
-        mode=mode if mode in ADD_MODES else ADD_MODES[0],
+        mode=mode,
         meal=meal,
         recipe_id=recipe_id,
         plan_entry_id=plan_entry_id,
-        meal_names=request.app.state.settings.meal_names,
-        summaries=recipe_summaries(session) if mode == "recipe" else [],
+        meal_names=settings.meal_names,
+        choices=choices,
+        servings=servings,
         units=COMMON_UNITS,
         step=SERVINGS_STEP,
         error=error,
@@ -144,6 +197,7 @@ def diary_add(
     mode: str = ADD_MODES[0],
     recipe_id: int | None = None,
     plan_entry_id: int | None = None,
+    show_all: Annotated[bool, Query(alias="all")] = False,
 ) -> HTMLResponse:
     return _render_add(
         request,
@@ -153,6 +207,7 @@ def diary_add(
         meal=meal,
         recipe_id=recipe_id,
         plan_entry_id=plan_entry_id,
+        show_all=show_all,
     )
 
 

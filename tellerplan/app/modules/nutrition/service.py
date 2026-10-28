@@ -1,6 +1,11 @@
-"""Menge + Einheit → Gramm → Nährwerte. Einzige Stelle, an der gerechnet wird."""
+"""Menge + Einheit → Gramm → Nährwerte. Einzige Stelle, an der gerechnet wird.
 
-from collections.abc import Iterable
+Standard-Einheiten (z. B. 1 EL = 15 g) gelten für jedes Lebensmittel ohne eigene
+Angabe. Sie kommen aus den Einstellungen und werden beim Start der App einmal mit
+`set_standard_units` gesetzt; eine Einheit am Lebensmittel geht immer vor.
+"""
+
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
 
 from modules.foods.models import Food
@@ -11,6 +16,9 @@ MASS_UNITS_IN_GRAMS = {"g": 1.0, "gramm": 1.0, "kg": 1000.0}
 # Behälter, die ohne eigene Angabe genau eine Packung des Produkts sind („1 Dose Kokosmilch“)
 PACKAGE_UNIT = "packung"
 CONTAINER_UNITS = {"dose", "glas", "flasche", "becher", "beutel", "tüte", "schale", "tube"}
+
+# Einheit (klein geschrieben) → (Schreibweise, Gramm); gesetzt aus den Einstellungen
+_standard_units: dict[str, tuple[str, float]] = {}
 
 
 @dataclass(frozen=True)
@@ -29,16 +37,57 @@ class Nutrients:
         return Nutrients(**{f.name: getattr(self, f.name) * factor for f in fields(self)})
 
 
-def to_grams(food: Food, quantity: float, unit: str | None) -> float | None:
-    """Rechnet eine Menge in Gramm um; None, wenn die Einheit unbekannt ist."""
-    key = (unit or "g").strip().casefold()
-    if key in MASS_UNITS_IN_GRAMS:
-        return quantity * MASS_UNITS_IN_GRAMS[key]
+@dataclass(frozen=True)
+class StandardUnit:
+    """Eine Standard-Einheit, wie sie in der Oberfläche erscheint: „1 EL = 15 g“."""
+
+    name: str
+    grams: float
+
+
+def set_standard_units(units: Mapping[str, float]) -> None:
+    """Standard-Einheiten aus den Einstellungen übernehmen, z. B. {"EL": 15, "TL": 5}."""
+    _standard_units.clear()
+    _standard_units.update({name.casefold(): (name, grams) for name, grams in units.items()})
+
+
+def standard_units() -> list[StandardUnit]:
+    return [StandardUnit(name, grams) for name, grams in _standard_units.values()]
+
+
+def _key(unit: str | None) -> str:
+    return (unit or "g").strip().casefold()
+
+
+def _own_unit_grams(food: Food, key: str) -> float | None:
     grams_per_unit = {food_unit.name.casefold(): food_unit.grams for food_unit in food.units}
     if key in grams_per_unit:
-        return quantity * grams_per_unit[key]
+        return grams_per_unit[key]
     if key in CONTAINER_UNITS and PACKAGE_UNIT in grams_per_unit:
-        return quantity * grams_per_unit[PACKAGE_UNIT]
+        return grams_per_unit[PACKAGE_UNIT]
+    return None
+
+
+def uses_standard_unit(food: Food, unit: str | None) -> StandardUnit | None:
+    """Die Standard-Einheit, mit der gerechnet wird; None bei eigener Angabe oder Gramm."""
+    key = _key(unit)
+    if key in MASS_UNITS_IN_GRAMS or _own_unit_grams(food, key) is not None:
+        return None
+    if key not in _standard_units:
+        return None
+    return StandardUnit(*_standard_units[key])
+
+
+def to_grams(food: Food, quantity: float, unit: str | None) -> float | None:
+    """Rechnet eine Menge in Gramm um; None, wenn die Einheit unbekannt ist."""
+    key = _key(unit)
+    if key in MASS_UNITS_IN_GRAMS:
+        return quantity * MASS_UNITS_IN_GRAMS[key]
+    own = _own_unit_grams(food, key)
+    if own is not None:
+        return quantity * own
+    if key in _standard_units:
+        return quantity * _standard_units[key][1]
     return None
 
 

@@ -49,3 +49,29 @@ def test_plan_default_meal_must_be_a_meal(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError, match="plan_default_meal"):
         load_settings(path)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"suggest_yesterday_meals": ["Brunch"]}, "suggest_yesterday_meals"),
+        ({"meal_categories": [{"meal": "Brunch", "category": "Snack"}]}, "Brunch"),
+        ({"meal_categories": [{"meal": "Snacks", "category": "Kuchen"}]}, "Kuchen"),
+    ],
+)
+def test_meals_and_categories_must_exist(
+    tmp_path: Path, changes: dict[str, object], message: str
+) -> None:
+    path = tmp_path / "options.json"
+    path.write_text(json.dumps({**TEST_OPTIONS, **changes}), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match=message):
+        load_settings(path)
+
+
+def test_meal_categories_and_standard_units_are_read(options_file: Path) -> None:
+    settings = load_settings(options_file)
+
+    assert settings.categories_for_meal("Mittag") == ["Hauptgericht", "Salat"]
+    assert settings.categories_for_meal("Frühstück") == []
+    assert settings.standard_unit_grams == {"EL": 15, "TL": 5}
