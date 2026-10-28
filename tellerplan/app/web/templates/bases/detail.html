@@ -61,4 +61,32 @@
     <label class="check"><input type="checkbox" name="no_nutrients" value="true"{% if base.no_nutrients %} checked{% endif %}> ohne Nährwerte (z. B. Gewürz)</label>
     <div class="form-actions"><button class="btn ghost small" type="submit">Speichern</button></div>
   </form>
+
+  <section class="card" id="merge">
+    <h2>Zusammenführen</h2>
+    <p class="meta">Meint eine andere Grundzutat dasselbe, lässt du „{{ base.name }}“ darin aufgehen: Namen, Rezeptzeilen und Produkte wandern mit, es gilt das Standardprodukt der anderen.</p>
+    {% set confirm_text = "„" ~ base.name ~ "“ wirklich zusammenführen? Das lässt sich nicht rückgängig machen." %}
+    {% if similar %}
+      <ul class="list">
+        {% for other in similar %}
+          <li>
+            <a class="grow" href="{{ url('base_detail', base_id=other.id) }}">{{ other.name }}</a>
+            <form method="post" action="{{ url('base_merge', base_id=base.id) }}" onsubmit="return confirm({{ confirm_text|tojson }})">
+              <input type="hidden" name="target_name" value="{{ other.name }}">
+              <button class="btn ghost small" type="submit">In „{{ other.name }}“ aufgehen lassen</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form class="form" method="post" action="{{ url('base_merge', base_id=base.id) }}" onsubmit="return confirm({{ confirm_text|tojson }})">
+      <label class="field">Andere Grundzutat
+        <input class="input" name="target_name" list="merge-names" placeholder="z. B. {{ similar[0].name if similar else 'Zwiebeln' }}" required>
+      </label>
+      <datalist id="merge-names">
+        {% for name in base_names if name != base.name %}<option value="{{ name }}">{% endfor %}
+      </datalist>
+      <div class="form-actions"><button class="btn ghost small" type="submit">Zusammenführen</button></div>
+    </form>
+  </section>
 {% endblock %}

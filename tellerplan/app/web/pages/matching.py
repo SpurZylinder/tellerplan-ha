@@ -2,7 +2,8 @@
 
 Zuordnen: Zutatennamen einmal einer Grundzutat zuordnen (gilt für alle Rezepte und
 künftige Importe), Grundzutaten ohne Standardprodukt versorgen, fehlende Einheiten
-ergänzen. Grundzutaten: Standardprodukt, weitere Produkte, Namen, „ohne Nährwerte“.
+ergänzen. Grundzutaten: Standardprodukt, weitere Produkte, Namen, „ohne Nährwerte“,
+Zusammenführen doppelter Grundzutaten.
 """
 
 from typing import Annotated
@@ -15,17 +16,22 @@ from db import get_session
 from modules.foods.models import Food
 from modules.foods.service import get_food, set_unit
 from modules.recipes.matching import (
+    BaseNameTakenError,
     add_product,
+    all_bases,
     base_names,
     base_usages,
     create_base,
+    find_base,
     get_base,
     link_name,
+    merge_bases,
     open_groups,
     remove_product,
     rename_base,
     set_default_product,
     set_no_nutrients,
+    similar_bases,
     unit_gaps,
 )
 from modules.recipes.models import BaseIngredient
@@ -77,12 +83,15 @@ def matching_page(
         if usage.lines and usage.base.default_food is None and not usage.base.no_nutrients
     ]
     gaps = unit_gaps(session)
+    shown = groups if show_all else groups[:OPEN_PAGE_SIZE]
+    bases = all_bases(session)
     return render(
         request,
         "matching.html",
         tab="recipes",
         view=view,
-        groups=groups if show_all else groups[:OPEN_PAGE_SIZE],
+        groups=shown,
+        suggestions={group.key: similar_bases(bases, group.name) for group in shown},
         open_total=len(groups),
         open_lines=sum(group.lines for group in groups),
         without_product=without_product,
@@ -98,11 +107,18 @@ def matching_assign(
     session: SessionDep,
     name: Annotated[str, Form()],
     base_name: Annotated[str, Form()] = "",
+    suggestion: Annotated[str, Form()] = "",
     food_id: Annotated[int | None, Form()] = None,
     no_nutrients: Annotated[bool, Form()] = False,
 ) -> Response:
-    """Name → Grundzutat (wird bei Bedarf angelegt), optional mit Produkt oder „ohne Nährwerte“."""
-    base = create_base(session, clean_text(base_name) or name, no_nutrients=no_nutrients)
+    """Name → Grundzutat (wird bei Bedarf angelegt), optional mit Produkt oder „ohne Nährwerte“.
+
+    Ein Tipp auf einen Vorschlag (`suggestion`) geht vor dem Textfeld.
+    """
+    chosen = clean_text(suggestion) or clean_text(base_name)
+    if chosen is None:
+        return _back(request, "open", "Bitte eine Grundzutat wählen oder einen Namen eingeben.")
+    base = create_base(session, chosen, no_nutrients=no_nutrients)
     if no_nutrients:
         set_no_nutrients(session, base, True)
     if food_id is not None:
@@ -150,7 +166,34 @@ def base_detail(
 ) -> HTMLResponse:
     base = _base_or_404(session, base_id)
     usage = next(u for u in base_usages(session) if u.base.id == base.id)
-    return render(request, "bases/detail.html", tab="recipes", base=base, usage=usage, error=error)
+    return render(
+        request,
+        "bases/detail.html",
+        tab="recipes",
+        base=base,
+        usage=usage,
+        similar=similar_bases(all_bases(session), base.name, exclude=base),
+        base_names=base_names(session),
+        error=error,
+    )
+
+
+@router.post("/bases/{base_id}/merge", response_model=None)
+def base_merge(
+    request: Request,
+    session: SessionDep,
+    base_id: int,
+    target_name: Annotated[str, Form()] = "",
+) -> Response:
+    """Diese Grundzutat in eine andere aufgehen lassen; weiter geht es bei der anderen."""
+    base = _base_or_404(session, base_id)
+    target = find_base(session, target_name) if clean_text(target_name) else None
+    if target is None or target.id == base.id:
+        message = "Bitte eine andere, bestehende Grundzutat wählen."
+        return redirect_to(request, "base_detail", query={"error": message}, base_id=base.id)
+    merge_bases(session, base, target)
+    session.commit()
+    return redirect_to(request, "base_detail", base_id=target.id)
 
 
 @router.post("/bases/{base_id}/default", response_model=None)
@@ -198,7 +241,12 @@ def base_settings(
     base = _base_or_404(session, base_id)
     new_name = clean_text(name)
     if new_name and new_name != base.name:
-        rename_base(session, base, new_name)
+        try:
+            rename_base(session, base, new_name)
+        except BaseNameTakenError as error:
+            if back == "matching":
+                return _back(request, "products", str(error))
+            return redirect_to(request, "base_detail", query={"error": str(error)}, base_id=base.id)
     set_no_nutrients(session, base, no_nutrients)
     session.commit()
     if back == "matching":

@@ -34,8 +34,20 @@
             <h2>{{ group.name }}</h2>
             <span class="meta">{{ group.lines }} Zeile{{ "n" if group.lines != 1 }} in {{ group.recipes|length }} Rezept{{ "en" if group.recipes|length != 1 }} · z. B. {{ group.examples|join(" · ") }}</span>
           </div>
-          <label class="field">Grundzutat <span class="meta">bestehende wählen oder neue anlegen</span>
-            <input class="input" name="base_name" value="{{ group.name }}" list="base-names" required>
+          {% set proposed = suggestions[group.key] %}
+          {# Erster Knopf im Formular: Enter im Textfeld ordnet den eingegebenen Namen zu #}
+          <button class="sr-only" type="submit" tabindex="-1" aria-hidden="true"></button>
+          {% if proposed %}
+            <div class="nums">
+              <span class="meta">Passt vielleicht:</span>
+              {% for base in proposed %}
+                <button class="btn small" type="submit" name="suggestion" value="{{ base.name }}">→ {{ base.name }}</button>
+              {% endfor %}
+            </div>
+          {% endif %}
+          <label class="field">{{ "Andere oder neue Grundzutat" if proposed else "Grundzutat" }} <span class="meta">bestehende wählen oder neue anlegen</span>
+            <input class="input" name="base_name" list="base-names"
+                   {%- if proposed %} placeholder="Name eingeben – oder oben einen Vorschlag wählen"{% else %} value="{{ group.name }}"{% endif %}>
           </label>
           <label class="check"><input type="checkbox" name="no_nutrients" value="true"> ohne Nährwerte (z. B. Gewürz) – zählt als vollständig, kein Produkt nötig</label>
           <details>

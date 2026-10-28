@@ -9,7 +9,8 @@
 
 from dataclasses import dataclass
 
-from sqlalchemy import func, select
+from rapidfuzz import fuzz
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
@@ -47,6 +48,20 @@ class UnitGap:
     unit: str
     lines: int
     recipes: list[str]
+
+
+# Beschreibende Wörter vor dem Namen, die beim Vorschlagen wegfallen („frischer Koriander“).
+# Nur für Vorschläge: „getrocknete Tomaten“ sind nicht automatisch Tomaten.
+DESCRIPTIVE_WORDS = {
+    "etwas", "frisch", "frische", "frischer", "frisches", "getrocknet", "getrocknete",
+    "getrockneter", "gehackt", "gehackte", "geschält", "geschälte", "gemahlen", "gemahlener",
+    "gemahlene", "grob", "grobes", "grober", "fein", "feines", "feiner", "tk",
+}  # fmt: skip
+# Mindestlänge eines Grundworts, das am Ende eines zusammengesetzten Namens erkannt wird
+MIN_HEAD_WORD_LENGTH = 3
+# Ähnlichkeit (0–100) für Tippfehler und Schreibvarianten, z. B. „Brokoli“ ↔ „Brokkoli“
+SIMILAR_SPELLING = 85
+SUGGESTION_LIMIT = 3
 
 
 # --- Grundzutaten ---------------------------------------------------------
@@ -112,10 +127,101 @@ def set_no_nutrients(session: Session, base: BaseIngredient, value: bool) -> Non
     session.flush()
 
 
+class BaseNameTakenError(ValueError):
+    """Unter diesem Namen gibt es schon eine andere Grundzutat."""
+
+
 def rename_base(session: Session, base: BaseIngredient, name: str) -> None:
+    existing = find_base(session, name)
+    if existing is not None and existing.id != base.id:
+        raise BaseNameTakenError(
+            f"„{existing.name}“ gibt es schon – zusammenführen statt umbenennen."
+        )
     base.name = " ".join(name.split())
     base.key = alias_key(name)
     session.flush()
+
+
+def merge_bases(session: Session, source: BaseIngredient, target: BaseIngredient) -> int:
+    """Lässt `source` in `target` aufgehen: Zeilen, Namen und Produkte wandern mit.
+
+    Danach gilt das Standardprodukt von `target` (hat es keins, das von `source`).
+    Gibt die Zahl der umgehängten Rezeptzeilen zurück.
+    """
+    if source.id == target.id:
+        return 0
+    moved = session.execute(
+        update(RecipeIngredient)
+        .where(RecipeIngredient.base_ingredient_id == source.id)
+        .values(base_ingredient_id=target.id)
+    ).rowcount
+    session.execute(
+        update(IngredientAlias)
+        .where(IngredientAlias.base_ingredient_id == source.id)
+        .values(base_ingredient_id=target.id)
+    )
+    for food in source.products:
+        add_product(session, target, food)
+    if target.default_food is None and source.default_food is not None:
+        set_default_product(session, target, source.default_food)
+    session.delete(source)
+    session.flush()
+    session.expire_all()
+    return moved
+
+
+def _without_descriptions(key: str) -> str:
+    words = key.split()
+    while len(words) > 1 and words[0] in DESCRIPTIVE_WORDS:
+        words = words[1:]
+    return " ".join(words)
+
+
+def _head_word_match(key: str, other: str) -> bool:
+    """Ein Wort des einen Namens endet mit dem einwortigen anderen („Räuchertofu“ → Tofu).
+
+    Jedes Wort wird wie ein Schlüssel verglichen, also auch in der Mitte ohne Mehrzahl
+    („Risottoreis Arborio“ → Risottoreis).
+    """
+    if " " in other or len(other) < MIN_HEAD_WORD_LENGTH:
+        return False
+    return key != other and any(alias_key(word).endswith(other) for word in key.split())
+
+
+def _suggestion_rank(key: str, base_key: str) -> int | None:
+    """Wie gut eine Grundzutat zu einem Namen passt; kleiner ist besser, None = gar nicht."""
+    plain, base_plain = _without_descriptions(key), _without_descriptions(base_key)
+    if plain == base_plain:
+        return 0
+    if _head_word_match(plain, base_plain):
+        return 1
+    if _head_word_match(base_plain, plain):
+        return 2
+    if fuzz.ratio(plain, base_plain) >= SIMILAR_SPELLING:
+        return 3
+    return None
+
+
+def similar_bases(
+    bases: list[BaseIngredient], name: str, exclude: BaseIngredient | None = None
+) -> list[BaseIngredient]:
+    """Bis zu drei Grundzutaten, die zu einem Namen passen könnten – beste zuerst.
+
+    Erkannt werden beschreibende Wörter („frischer Koriander“ → Koriander),
+    zusammengesetzte Namen in beide Richtungen („Räuchertofu“ → Tofu,
+    „Quark“ → Magerquark) und Schreibvarianten.
+    """
+    key = alias_key(name)
+    ranked = [
+        (rank, -len(base.key), base.name, base)
+        for base in bases
+        if base is not exclude and (rank := _suggestion_rank(key, base.key)) is not None
+    ]
+    return [entry[-1] for entry in sorted(ranked, key=lambda entry: entry[:3])][:SUGGESTION_LIMIT]
+
+
+def all_bases(session: Session) -> list[BaseIngredient]:
+    return list(session.scalars(select(BaseIngredient).order_by(BaseIngredient.name)))
 
 
 # --- Namen und Zeilen -----------------------------------------------------

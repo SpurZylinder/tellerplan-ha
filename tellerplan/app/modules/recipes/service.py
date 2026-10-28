@@ -336,9 +336,31 @@ def recipe_summaries(session: Session) -> list[RecipeSummary]:
     return [summarize(recipe) for recipe in list_recipes(session)]
 
 
+# Endungen der Mehrzahl (und das -e der Einzahl), die der Schlüssel am letzten Wort weglässt:
+# „Tomaten“ = „Tomate“, „Zwiebeln“ = „Zwiebel“, „Lachsfilets“ = „Lachsfilet“
+PLURAL_ENDINGS = ("en", "n", "e", "s")
+# So viele Buchstaben bleiben mindestens stehen („Reis“, „Eier“ und „Mais“ bleiben ganz)
+MIN_STEM_LENGTH = 4
+
+
+def _stem(word: str) -> str:
+    for ending in PLURAL_ENDINGS:
+        if word.endswith(ending) and len(word) - len(ending) >= MIN_STEM_LENGTH:
+            return word[: -len(ending)]
+    return word
+
+
 def alias_key(name: str) -> str:
-    """Schlüssel eines Zutatennamens, z. B. „Rote  Paprika“ → „rote paprika“."""
-    return " ".join(name.casefold().split())
+    """Vergleichsschlüssel eines Zutatennamens, unabhängig von Schreibweise und Mehrzahl.
+
+    Groß/klein, ß/ss, Bindestrich/Leerzeichen und die Mehrzahl des letzten Wortes
+    zählen nicht: „Rote  Zwiebeln“ = „rote Zwiebel“, „Cheddar-Käse“ = „Cheddar Käse“.
+    Ein geänderter Schlüssel braucht eine Migration (siehe 0014).
+    """
+    words = name.casefold().replace("-", " ").split()
+    if words:
+        words[-1] = _stem(words[-1])
+    return " ".join(words)
 
 
 def find_recipe_by_source(session: Session, source: str, source_id: str) -> Recipe | None:

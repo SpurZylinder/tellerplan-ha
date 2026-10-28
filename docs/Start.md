@@ -34,4 +34,5 @@ Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: e
 - [x] Cookidoo-Sammlung: Abruf am Rechner, Zeilenparser, Import, Zuordnen mit Standardartikeln (Stufe 4)
 - [ ] Importe: Freitext, Kurzbefehl an die API (Stufe 4)
 - [x] Komfort beim Eintragen (2026-10-28): Standard-Einheiten EL/TL, kcal je Zutat, Kategorie als Auswahl, Vorfilter je Mahlzeit, Rezept von gestern als Vorschlag
+- [x] Zuordnen (2026-10-29): Vorschläge statt Neuanlage, toleranter Namensvergleich, Grundzutaten zusammenführen
 - [ ] Cookidoo-Kalender synchronisieren, REWE-ID an eigenen Lebensmitteln, Heute und Ziele je HA-Benutzer (siehe [[Architektur#Wünsche vom 2026-10-28]])
