@@ -43,6 +43,33 @@
     </div>
   </form>
 
+  <section class="card" id="cookidoo">
+    <h2>Cookidoo</h2>
+    {{ error_message(cookidoo_error) }}
+    {% if cookidoo_user %}
+      <p>Verbunden als <b>{{ cookidoo_user }}</b> <span class="meta">({{ cookidoo_locale }})</span></p>
+      <p class="meta">Der Plan kann sich mit „Meine Woche“ in Cookidoo abgleichen. Trennen löscht nur die Anmeldung in Tellerplan.</p>
+      <form method="post" action="{{ url('cookidoo_disconnect') }}">
+        <button class="btn danger small" type="submit">Trennen</button>
+      </form>
+    {% else %}
+      <p class="meta">Verbinden, um den Plan mit „Meine Woche“ in Cookidoo abzugleichen. E-Mail und Passwort gehen nur einmal an Cookidoo und werden nicht gespeichert; Tellerplan behält nur die Anmeldung (Tokens).</p>
+      <form class="form" method="post" action="{{ url('cookidoo_connect') }}">
+        <div class="field-row wide">
+          <label class="field">E-Mail
+            <input class="input" type="email" name="email" value="{{ cookidoo_email }}" autocomplete="username"
+                   autocapitalize="off" autocorrect="off" spellcheck="false" required>
+          </label>
+          <label class="field">Passwort
+            <input class="input" type="password" name="password" autocomplete="current-password" required>
+          </label>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit">Verbinden</button></div>
+      </form>
+    {% endif %}
+    <p class="meta">Cookidoo bietet keine offizielle Schnittstelle; Tellerplan nutzt die Bibliothek der Home-Assistant-Integration. Ändert Vorwerk etwas, kann der Abgleich zeitweise ausfallen.</p>
+  </section>
+
   <section class="card">
     <h2>Daten</h2>
     <ul class="list">

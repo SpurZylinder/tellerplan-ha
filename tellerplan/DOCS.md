@@ -34,6 +34,7 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 | `ranking_protein_weight` | Startwert des Reglers Eiweiß/Kalorien in der Rezeptliste (0–1) |
 | `pantry_keywords` | Vorrat: Stichwörter für Artikel, die nicht auf die Einkaufsliste kommen; trifft Wörter, die damit enden („salz“ → „Meersalz“) |
 | `bring_list_entity` | To-do-Liste der Bring-Integration für die Einkaufsliste, z. B. `todo.furth`; leer = nicht senden |
+| `cookidoo_locale` | Sprache und Land von Cookidoo für den Abgleich mit „Meine Woche“, z. B. `de-DE` (cookidoo.de), `de-AT`, `de-CH`; Vorgabe `de-DE` |
 | `homeassistant_url` | Adresse von Home Assistant aus Sicht des iPhones, z. B. `http://homeassistant.local:8123`; leer = gleicher Host wie Tellerplan, Port 8123 |
 | `api_token` | Token für Kurzbefehle und Skripte |
 | `database_path` | Pfad der SQLite-Datenbank (Standard `/data/app.db`, Teil der HA-Backups) |
@@ -41,3 +42,9 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“.
 
 Steht beim Start eine Migration an, sichert das Add-on die Datenbank vorher als `app.db.<Zeitstempel>.bak`; die letzten drei Sicherungen bleiben erhalten.
+
+## Cookidoo
+
+Einstellungen → Cookidoo → „Verbinden“ meldet Tellerplan bei Cookidoo an (OAuth). E-Mail und Passwort gehen nur einmal an Cookidoo und werden nicht gespeichert; Tellerplan behält nur die Anmeldung (Tokens) in `/data/cookidoo_token.json`, die sich selbst erneuert und Teil der HA-Backups ist. „Trennen“ löscht sie. Das Land richtet sich nach `cookidoo_locale`.
+
+Cookidoo bietet keine offizielle Schnittstelle; Tellerplan nutzt die Bibliothek `cookidoo-api`, auf der auch die Cookidoo-Integration von Home Assistant aufbaut. Ändert Vorwerk etwas, kann der Abgleich zeitweise ausfallen; der Plan funktioniert dann weiter wie bisher.

@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 # Entität einer To-do-Liste in Home Assistant, z. B. „todo.furth“; leer = keine
 TODO_ENTITY_PATTERN = r"^(todo\.\w+)?$"
+# Sprache und Land von Cookidoo, z. B. „de-DE“ (cookidoo.de) oder „de-AT“ (cookidoo.at)
+COOKIDOO_LOCALE_PATTERN = r"^[a-z]{2}-[A-Z]{2}$"
+# Datei mit den Cookidoo-Tokens, neben der Datenbank (Teil der HA-Backups)
+COOKIDOO_TOKEN_FILE = "cookidoo_token.json"
 # Basis-URL ohne Pfad, z. B. „http://homeassistant.local:8123“; leer = automatisch
 HOMEASSISTANT_URL_PATTERN = r"^(https?://[^/\s]+)?$"
 
@@ -72,6 +76,8 @@ class Settings(BaseModel):
     # Einkaufsliste: Stichwörter für Vorratsartikel und Ziel-Liste in Home Assistant
     pantry_keywords: list[str]
     bring_list_entity: str = Field(pattern=TODO_ENTITY_PATTERN)
+    # Cookidoo-Kalender „Meine Woche“; die Anmeldung selbst steht nicht in den Optionen
+    cookidoo_locale: str = Field(pattern=COOKIDOO_LOCALE_PATTERN)
     api_token: str
     # Adresse von Home Assistant aus Sicht des iPhones, z. B. http://homeassistant.local:8123;
     # leer = gleicher Host wie Tellerplan, Port 8123
@@ -98,6 +104,10 @@ class Settings(BaseModel):
     @property
     def database_url(self) -> str:
         return f"sqlite:///{self.database_path.as_posix()}"
+
+    @property
+    def cookidoo_token_path(self) -> Path:
+        return self.database_path.with_name(COOKIDOO_TOKEN_FILE)
 
     @property
     def standard_unit_grams(self) -> dict[str, float]:

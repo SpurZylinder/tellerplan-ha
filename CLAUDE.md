@@ -54,6 +54,7 @@ tellerplan-ha/
         ├── ha_auth.py         Anmeldung über Home Assistant (OAuth mit PKCE)
         ├── web_sessions.py    Sitzungen der Vollbild-App
         ├── supervisor.py      Aufrufe an die Supervisor-API (nur im Add-on)
+        ├── cookidoo.py        Aufrufe an Cookidoo („Meine Woche“), Anmeldung über Tokens
         ├── serve.py           Add-on-Start: Sicherung vor Migrationen, Migration, beide Ports
         ├── modules/           foods · nutrition · recipes · importers · planner · shopping · diary
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)

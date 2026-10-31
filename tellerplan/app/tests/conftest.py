@@ -33,6 +33,7 @@ TEST_OPTIONS = {
     "ranking_protein_weight": 0.7,
     "pantry_keywords": ["salz", "mehl", "zucker", "öl"],
     "bring_list_entity": "todo.einkauf",
+    "cookidoo_locale": "de-DE",
     "api_token": "test-token",
     "homeassistant_url": "",
     "database_path": "app.db",

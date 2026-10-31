@@ -1,6 +1,8 @@
-"""Seite „Einstellungen“: Tagesziele, Einkaufsliste, Einstieg zu den Lebensmitteln.
+"""Seite „Einstellungen“: Tagesziele, Einkaufsliste, Cookidoo, Einstieg zu den Lebensmitteln.
 
 Die Werte bleiben Add-on-Optionen (options.json); die Seite schreibt sie nur zurück.
+Die Cookidoo-Verbindung ist keine Option: Sie besteht aus Tokens in einer Datei neben
+der Datenbank, E-Mail und Passwort werden nur für die Anmeldung weitergereicht.
 """
 
 import re
@@ -10,6 +12,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, Response
 
+from cookidoo import CookidooAccount, CookidooError
 from settings import TODO_ENTITY_PATTERN, Settings, option_range, save_options
 from supervisor import SupervisorError, supervisor_token
 from web.forms import FormError, clean_text, redirect_to, required_number
@@ -41,12 +44,19 @@ GOAL_FIELDS = (
 )
 
 
+def cookidoo_account(settings: Settings) -> CookidooAccount:
+    return CookidooAccount(settings.cookidoo_token_path, settings.cookidoo_locale)
+
+
 def _render(
     request: Request,
     values: dict[str, Any],
     error: str | None = None,
     saved: bool = False,
+    cookidoo_error: str | None = None,
+    cookidoo_email: str = "",
 ) -> HTMLResponse:
+    settings = request.app.state.settings
     return render(
         request,
         "settings.html",
@@ -55,6 +65,10 @@ def _render(
         error=error,
         saved=saved,
         in_addon=supervisor_token() is not None,
+        cookidoo_user=cookidoo_account(settings).username(),
+        cookidoo_locale=settings.cookidoo_locale,
+        cookidoo_error=cookidoo_error,
+        cookidoo_email=cookidoo_email,
     )
 
 
@@ -124,3 +138,31 @@ def settings_save(
         message = f"Home Assistant hat die Werte nicht übernommen: {error}"
         return _render(request, texts, error=message)
     return redirect_to(request, "settings_page", query={"saved": "1"})
+
+
+@router.post("/cookidoo", response_model=None)
+def cookidoo_connect(
+    request: Request,
+    email: Annotated[str, Form()] = "",
+    password: Annotated[str, Form()] = "",
+) -> Response:
+    """Meldet bei Cookidoo an; gespeichert werden nur die Tokens, nie das Passwort."""
+    values = _current_values(request.app.state.settings)
+    if not email.strip() or not password:
+        return _render(
+            request,
+            values,
+            cookidoo_error="Bitte E-Mail und Passwort angeben.",
+            cookidoo_email=email,
+        )
+    try:
+        cookidoo_account(request.app.state.settings).connect(email.strip(), password)
+    except CookidooError as error:
+        return _render(request, values, cookidoo_error=str(error), cookidoo_email=email)
+    return redirect_to(request, "settings_page", anchor="#cookidoo")
+
+
+@router.post("/cookidoo/disconnect", response_model=None)
+def cookidoo_disconnect(request: Request) -> Response:
+    cookidoo_account(request.app.state.settings).disconnect()
+    return redirect_to(request, "settings_page", anchor="#cookidoo")

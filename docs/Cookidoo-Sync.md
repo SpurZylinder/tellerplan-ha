@@ -85,10 +85,12 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 
 ### Schritt 2: Optionen und Anbindung
 
-- [ ] Option `cookidoo_locale` in `config.yaml` (options + schema), `settings.py`, `options.example.json`, `DOCS.md`.
-- [ ] Anmeldung in Tellerplan: Einstellungen → „Cookidoo verbinden“ zeigt den Anmelde-Link und ein Feld für die Rückleitung; „Trennen“ löscht die Tokens. Ohne Verbindung kein Knopf im Plan.
-- [ ] `app/cookidoo.py` neben `supervisor.py`: einzige Stelle mit Netzwerkaufrufen an Cookidoo. Kapselt die asynchrone Bibliothek in einfache Funktionen (`read_calendar(first, last)`, `plan(day, ids)`, `unplan(day, id)`), Tokens in `/data/cookidoo_token.json` (bei jeder Erneuerung gespeichert), Zeitüberschreitungen und verständliche Fehler (`CookidooError`). Tokens nie ins Log.
-- [ ] Schnittstelle als `Protocol`, damit Tests eine Attrappe nutzen; kein Netzwerk in CI.
+- [x] Option `cookidoo_locale` (Vorgabe `de-DE`, Muster `xx-XX`) in `config.yaml`, `settings.py`, `options.example.json`, `DOCS.md`.
+- [x] `cookidoo-api==0.19.0` in `requirements.txt` des Add-ons.
+- [x] Anmeldung in Tellerplan: Einstellungen → Cookidoo mit E-Mail und Passwort (einmalig, nicht gespeichert), danach „Verbunden als …“ und „Trennen“. Den Browser-Weg ergänzen, sobald die Bibliothek ihn veröffentlicht. Ohne Verbindung kein Knopf im Plan (Schritt 6).
+- [x] `app/cookidoo.py` neben `supervisor.py`: einzige Stelle mit Netzwerkaufrufen an Cookidoo. Kapselt die asynchrone Bibliothek in einfache Funktionen (`read_calendar(first, last)`, `plan(day, ids)`, `unplan(day, id)`), Tokens und Anzeigename in `cookidoo_token.json` neben der Datenbank (Rechte 600, bei jeder Erneuerung gespeichert), 30 s Zeitüberschreitung, verständliche Fehler (`CookidooError`, `NotConnectedError`). Tokens nie ins Log. Eigene Cookidoo-Rezepte liefert der Kalender nur als ID ohne Namen; `read_calendar` lässt sie aus.
+- [x] Tests ersetzen die Bibliothek per `monkeypatch` durch eine Attrappe (wie bei `supervisor.py`); kein Netzwerk in CI.
+- [ ] Image-Bau für arm64 über die CI (mit dem nächsten Release).
 
 ### Schritt 3: Datenmodell
 
