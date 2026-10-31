@@ -25,7 +25,7 @@ FORMAT = "tellerplan-foods"
 FORMAT_VERSION = 1
 REQUIRED = ("kcal", "protein_g", "fat_g", "carbs_g")
 OPTIONAL = ("fiber_g", "sugar_g", "salt_g")
-SOURCES = {source.value: source for source in (FoodSource.REWE, FoodSource.OFF)}
+SOURCES = {source.value: source for source in (FoodSource.REWE, FoodSource.OFF, FoodSource.CUSTOM)}
 VOLUME_BASIS = "100 ml"
 # Einheit der Packungsgröße → Gramm (Flüssigkeiten: 1 ml ≈ 1 g, passend zu „je 100 ml“)
 PACKAGE_UNITS = {"g": 1.0, "kg": 1000.0, "ml": 1.0, "l": 1000.0}
@@ -79,6 +79,21 @@ def _ensure_unit(food: Food, name: str, grams: float) -> None:
         food.units.append(FoodUnit(name=name, grams=grams))
 
 
+def _units(entry: dict[str, Any]) -> list[tuple[str, float]]:
+    """Mitgebrachte Einheiten; unvollständige Angaben werden übergangen."""
+    units = entry.get("units")
+    if not isinstance(units, list):
+        return []
+    valid = []
+    for unit in units:
+        if not isinstance(unit, dict):
+            continue
+        name, grams = unit.get("name"), _number(unit, "grams")
+        if isinstance(name, str) and name.strip() and grams is not None and grams > 0:
+            valid.append((name.strip(), grams))
+    return valid
+
+
 def _apply(food: Food, entry: dict[str, Any]) -> None:
     food.name = entry["name"].strip()
     food.brand = entry.get("brand") or None
@@ -91,6 +106,8 @@ def _apply(food: Food, entry: dict[str, Any]) -> None:
         _ensure_unit(food, "l", 1000.0)
     if (grams := package_grams(food.package)) is not None:
         _ensure_unit(food, PACKAGE_UNIT, grams)
+    for name, unit_grams in _units(entry):
+        _ensure_unit(food, name, unit_grams)
 
 
 def _problem(entry: object) -> str | None:

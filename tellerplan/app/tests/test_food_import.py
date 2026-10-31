@@ -103,6 +103,42 @@ def test_incomplete_entries_are_skipped_with_reason(session: Session) -> None:
     ]
 
 
+ROLL = {
+    "source": "custom",
+    "source_id": "brothaus:handgedrehte",
+    "name": "BrotHaus Handgedrehte",
+    "brand": "BrotHaus",
+    "kcal": 250,
+    "protein_g": 8,
+    "fat_g": 1.5,
+    "carbs_g": 49,
+    "units": [{"name": "Stück", "grams": 80}, {"name": "Scheibe"}],
+    "note": "wird ignoriert",
+}
+
+
+def test_custom_food_brings_its_units(session: Session) -> None:
+    result = import_foods(session, _document(ROLL))
+
+    food = session.scalar(select(Food).where(Food.source_id == "brothaus:handgedrehte"))
+    assert result.created == 1
+    assert food is not None and food.source == FoodSource.CUSTOM
+    assert [(unit.name, unit.grams) for unit in food.units] == [("Stück", 80)]
+    assert to_grams(food, 2, "Stück") == 160
+
+
+def test_reimport_keeps_hand_maintained_custom_units(session: Session) -> None:
+    import_foods(session, _document(ROLL))
+    food = session.scalar(select(Food).where(Food.source_id == "brothaus:handgedrehte"))
+    assert food is not None
+    food.units[0].grams = 75
+
+    result = import_foods(session, _document(ROLL))
+
+    assert result.updated == 1
+    assert [(unit.name, unit.grams) for unit in food.units] == [("Stück", 75)]
+
+
 @pytest.mark.parametrize(
     ("package", "grams"),
     [

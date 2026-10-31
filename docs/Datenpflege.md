@@ -8,6 +8,7 @@ Wie Rezepte und Lebensmittel in die Datenbank kommen und wie man sie später erw
 | --- | --- | --- | --- |
 | Rezepte | Cookidoo-Sammlung (JSON aus dem Ranking-Widget) | `tools/cookidoo_fetch.py` | `cookidoo/…_entwuerfe.json` (Format `tellerplan-recipes`) |
 | Markenprodukte | REWE-Favoriten und -Produktseiten aus dem Browser, Open Food Facts | `tools/rewe_har_extract.py`, `tools/rewe_fetch.py` | `Rewe/rewe_lebensmittel.json` (Format `tellerplan-foods`) |
+| Eigene Lebensmittel, z. B. Backwaren vom Bäcker | Herstellerseite, fddb, fatsecret (von Hand zusammengetragen) | – | z. B. `brothaus_foods.json` (Format `tellerplan-foods`) |
 | Grundzutaten wie Apfel, Zwiebel, Mehl | BLS 4.0 | bereits in der Datenbank (Migration 0005) | – |
 
 Der Ordner `dev/` ist nicht im Git. Zwischenspeicher (`cookidoo/pages/`, `Rewe/pages/`, `Rewe/off/`) bleiben liegen, damit ein erneuter Lauf nichts doppelt abruft.
@@ -47,6 +48,33 @@ python tools/rewe_fetch.py dev/Rewe/rewe_json/rewe_favoriten.json dev/Rewe/rewe_
 - **Danach die HAR-Datei löschen.** Sie enthält Cookies, bei angemeldeter Sitzung auch Bestelldaten.
 
 Die Favoriten (`rewe_favoriten.json`) stammen aus einem Mitschnitt mit Anmeldung, weil REWE sie nur angemeldet ausliefert. Neue Favoriten erfordern also einmal einen angemeldeten Mitschnitt – danach die Datei sofort löschen.
+
+## Eigene Lebensmittel als Datei
+
+Mehrere eigene Lebensmittel auf einmal (z. B. das Sortiment eines Bäckers) kommen als Datei im Format `tellerplan-foods`, Quelle `custom`. Nährwerte gelten je 100 g; `units` ist optional und bringt z. B. das Stückgewicht mit, das dann beim Eintragen als „Stück (80 g)“ zur Auswahl steht.
+
+```json
+{
+  "format": "tellerplan-foods",
+  "version": 1,
+  "foods": [
+    {
+      "source": "custom",
+      "source_id": "brothaus:handgedrehte",
+      "name": "BrotHaus Handgedrehte (Dinkelbrötchen)",
+      "brand": "BrotHaus",
+      "kcal": 250, "protein_g": 8.0, "fat_g": 1.5, "carbs_g": 49.0,
+      "fiber_g": null, "sugar_g": null, "salt_g": null,
+      "units": [{ "name": "Stück", "grams": 80 }]
+    }
+  ]
+}
+```
+
+- Pflicht: `source`, `source_id` (eindeutig, z. B. `bäcker:produkt`), `name`, `kcal`, `protein_g`, `fat_g`, `carbs_g`
+- Optional: `brand`, `barcode`, `package`, `fiber_g`, `sugar_g`, `salt_g`, `units`
+- Weitere Felder (z. B. `source_url`, `note`) stören nicht, werden aber nicht gespeichert.
+- Ein erneuter Import erkennt die Lebensmittel an `source_id` und aktualisiert sie; von Hand angepasste Einheiten bleiben.
 
 ## In Home Assistant übernehmen
 
