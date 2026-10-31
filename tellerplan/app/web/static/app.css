@@ -362,6 +362,12 @@ a.chip { text-decoration: none; display: inline-block; }
 }
 .plan-day.is-today { border-color: var(--accent); }
 .plan-day.is-past h2 { color: var(--muted); }
+/* Tagebucheintrag: Antippen klappt das Ändern der Menge auf */
+.diary-entry > summary { display: grid; gap: 3px; cursor: pointer; list-style: none; }
+.diary-entry > summary::-webkit-details-marker { display: none; }
+.diary-entry > form { padding-top: 10px; }
+.list > li:has(> .diary-entry[open]) { align-items: start; }
+
 .plan-day-head { display: flex; align-items: center; gap: 6px; }
 .plan-day-head h2 { margin: 0; font-size: 1rem; }
 .plan-day-head .icon-btn { margin-left: auto; }

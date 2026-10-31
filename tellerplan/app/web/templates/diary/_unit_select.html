@@ -1,0 +1,8 @@
+{# Einheit als echte Auswahlliste; nur Einheiten, die sich umrechnen lassen. Erwartet `units` und `selected`. #}
+<select class="input" name="unit" aria-label="Einheit">
+  {% for unit in units %}
+    <option value="{{ unit.name }}"{% if unit.name == selected %} selected{% endif %}>
+      {{- unit.name }}{% if unit.name != "g" and unit.grams %} ({{ unit.grams|amount }} g){% endif -%}
+    </option>
+  {% endfor %}
+</select>

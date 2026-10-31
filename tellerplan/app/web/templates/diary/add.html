@@ -93,13 +93,14 @@
         <label class="field">Menge
           <input class="input" name="quantity" inputmode="decimal" placeholder="150" required>
         </label>
-        <label class="field">Einheit
-          <input class="input" name="unit" value="g" list="units">
-        </label>
+        {# Lädt die Einheiten des gewählten Lebensmittels nach (neue Trefferliste oder andere Auswahl) #}
+        <div class="field">Einheit
+          <div hx-get="{{ url('diary_units') }}" hx-include="#food-picker"
+               hx-trigger="change from:#food-picker, htmx:afterSettle from:#food-picker">
+            {% with selected = "g" %}{% include "diary/_unit_select.html" %}{% endwith %}
+          </div>
+        </div>
       </div>
-      <datalist id="units">
-        {% for unit in units %}<option value="{{ unit }}">{% endfor %}
-      </datalist>
       <div class="form-actions"><button class="btn" type="submit">Eintragen</button></div>
     </form>
   {% endif %}

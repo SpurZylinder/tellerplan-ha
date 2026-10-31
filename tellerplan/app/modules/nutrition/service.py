@@ -78,6 +78,21 @@ def uses_standard_unit(food: Food, unit: str | None) -> StandardUnit | None:
     return StandardUnit(*_standard_units[key])
 
 
+def unit_choices(food: Food | None) -> list[StandardUnit]:
+    """Einheiten, die sich für das Lebensmittel umrechnen lassen, z. B. für eine Auswahlliste.
+
+    Erst Gramm, dann die eigenen Einheiten (Stück, Packung …), dann die
+    Standard-Einheiten, sofern das Lebensmittel sie nicht selbst festlegt.
+    """
+    choices = [StandardUnit("g", MASS_UNITS_IN_GRAMS["g"])]
+    if food is None:
+        return choices
+    own = {food_unit.name.casefold() for food_unit in food.units}
+    choices += [StandardUnit(food_unit.name, food_unit.grams) for food_unit in food.units]
+    choices += [unit for unit in standard_units() if unit.name.casefold() not in own]
+    return choices
+
+
 def to_grams(food: Food, quantity: float, unit: str | None) -> float | None:
     """Rechnet eine Menge in Gramm um; None, wenn die Einheit unbekannt ist."""
     key = _key(unit)

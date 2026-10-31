@@ -102,6 +102,43 @@ def log_food(
     return entry
 
 
+def change_servings(session: Session, entry: DiaryEntry, servings: float) -> None:
+    """Ändert die gegessenen Portionen eines Rezepteintrags.
+
+    Der Snapshot wird im Verhältnis skaliert, nicht neu aus dem Rezept gerechnet:
+    spätere Rezeptänderungen bleiben so ohne Einfluss auf den Eintrag.
+    """
+    old = entry.servings or 1
+    _snapshot(entry, entry_nutrients(entry).scaled(servings / old))
+    entry.servings = servings
+    session.flush()
+
+
+def change_amount(
+    session: Session, entry: DiaryEntry, food: Food | None, quantity: float, unit: str | None
+) -> None:
+    """Ändert Menge und Einheit eines Lebensmitteleintrags, z. B. 1 Stück → 80 g.
+
+    Ohne Lebensmittel (inzwischen gelöscht) bleibt die Einheit; nur die Menge ändert sich.
+    """
+    if food is None:
+        unit = entry.unit
+        grams = (entry.grams or 0) * quantity / entry.quantity if entry.quantity else None
+    else:
+        grams = to_grams(food, quantity, unit)
+    if grams is None:
+        name = food.name if food else entry.label
+        raise UnknownUnitError(f"Für „{name}“ ist die Einheit „{unit}“ nicht hinterlegt.")
+    if entry.grams:
+        _snapshot(entry, entry_nutrients(entry).scaled(grams / entry.grams))
+    elif food is not None:
+        _snapshot(entry, nutrients_for(food, grams))
+    entry.quantity = quantity
+    entry.unit = (unit or "g").strip()
+    entry.grams = grams
+    session.flush()
+
+
 def get_entry(session: Session, entry_id: int) -> DiaryEntry | None:
     return session.get(DiaryEntry, entry_id)
 

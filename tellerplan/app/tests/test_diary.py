@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from factories import make_food, make_recipe
 from modules.diary.service import (
     UnknownUnitError,
+    change_amount,
+    change_servings,
     day_log,
     delete_entry,
     log_food,
@@ -105,3 +107,44 @@ def test_delete_entry(session: Session) -> None:
     delete_entry(session, entry)
 
     assert day_log(session, DAY, MEALS).total.kcal == 0
+
+
+def test_change_servings_scales_snapshot(session: Session) -> None:
+    skyr = make_food(session, "Skyr", kcal=100)
+    recipe = make_recipe(session, servings=1, ingredients=[(skyr, 100, "g")])
+    entry = log_recipe(session, DAY, "Mittag", recipe, servings=1)
+    skyr.kcal = 500  # spätere Änderung darf nicht einfließen
+
+    change_servings(session, entry, 1.5)
+
+    assert entry.servings == 1.5
+    assert entry.kcal == pytest.approx(150)
+
+
+def test_change_amount_switches_unit(session: Session) -> None:
+    roll = make_food(session, "Brötchen", kcal=250, units={"Stück": 60})
+    entry = log_food(session, DAY, "Frühstück", roll, 1, "Stück")
+
+    change_amount(session, entry, roll, 80, "g")
+
+    assert (entry.quantity, entry.unit, entry.grams) == (80, "g", 80)
+    assert entry.kcal == pytest.approx(200)
+
+
+def test_change_amount_rejects_unknown_unit(session: Session) -> None:
+    skyr = make_food(session, "Skyr")
+    entry = log_food(session, DAY, "Frühstück", skyr, 150, "g")
+
+    with pytest.raises(UnknownUnitError):
+        change_amount(session, entry, skyr, 1, "Stück")
+    assert entry.grams == 150
+
+
+def test_change_amount_without_food_keeps_unit(session: Session) -> None:
+    banana = make_food(session, "Banane", kcal=100, units={"Stück": 120})
+    entry = log_food(session, DAY, "Snacks", banana, 1, "Stück")
+
+    change_amount(session, entry, None, 2, "g")
+
+    assert (entry.unit, entry.grams) == ("Stück", 240)
+    assert entry.kcal == pytest.approx(240)

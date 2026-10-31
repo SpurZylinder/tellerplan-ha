@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import nutrient_pills %}
+{% from "_macros.html" import error_message, nutrient_pills %}
 
 {% block title %}Heute · Tellerplan{% endblock %}
 
@@ -85,17 +85,39 @@
         <ul class="list">
           {% for entry in meal.entries %}
             <li>
-              <div class="grow">
-                <span>{{ entry.label }}</span>
-                <span class="nums">
-                  <span class="meta">
-                    {%- if entry.servings is not none %}{{ entry.servings|amount }} Portion{{ "en" if entry.servings != 1 }}
-                    {%- else %}{{ entry.quantity|amount }} {{ entry.unit }}{% endif -%}
+              {# Antippen klappt das Ändern von Portionen bzw. Menge auf #}
+              <details class="grow diary-entry"{% if entry.id == edit_id %} open{% endif %}>
+                <summary>
+                  <span>{{ entry.label }}</span>
+                  <span class="nums">
+                    <span class="meta">
+                      {%- if entry.servings is not none %}{{ entry.servings|amount }} Portion{{ "en" if entry.servings != 1 }}
+                      {%- else %}{{ entry.quantity|amount }} {{ entry.unit }}{% endif -%}
+                    </span>
+                    <span class="pill k">{{ entry.kcal|num }} kcal</span>
+                    <span class="pill p">{{ entry.protein_g|num }} g Eiweiß</span>
                   </span>
-                  <span class="pill k">{{ entry.kcal|num }} kcal</span>
-                  <span class="pill p">{{ entry.protein_g|num }} g Eiweiß</span>
-                </span>
-              </div>
+                </summary>
+                <form class="form" method="post" action="{{ url('diary_change', entry_id=entry.id) }}">
+                  {% if entry.id == edit_id %}{{ error_message(error) }}{% endif %}
+                  <div class="field-row">
+                    {% if entry.servings is not none %}
+                      <label class="field">Gegessene Portionen
+                        <input class="input" type="number" name="servings" value="{{ '%g' % entry.servings }}"
+                               min="{{ step }}" step="{{ step }}" inputmode="decimal" required>
+                      </label>
+                    {% else %}
+                      <label class="field">Menge
+                        <input class="input" name="quantity" value="{{ entry.quantity|amount }}" inputmode="decimal" required>
+                      </label>
+                      <div class="field">Einheit
+                        {% with units = entry_units[entry.id], selected = entry.unit %}{% include "diary/_unit_select.html" %}{% endwith %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="form-actions"><button class="btn small" type="submit">Speichern</button></div>
+                </form>
+              </details>
               <form method="post" action="{{ url('diary_delete', entry_id=entry.id) }}">
                 <button class="icon-btn" type="submit" aria-label="Eintrag löschen">×</button>
               </form>

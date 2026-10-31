@@ -10,8 +10,11 @@ from sqlalchemy.orm import Session
 
 import clock
 from db import get_session
+from modules.diary.models import DiaryEntry
 from modules.diary.service import (
     UnknownUnitError,
+    change_amount,
+    change_servings,
     day_log,
     delete_entry,
     get_entry,
@@ -21,11 +24,11 @@ from modules.diary.service import (
     recipes_eaten,
 )
 from modules.foods.service import get_food
-from modules.nutrition.service import Nutrients
+from modules.nutrition.service import Nutrients, StandardUnit, unit_choices
 from modules.planner.service import get_entry as get_plan_entry
 from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries
 from settings import Settings
-from web.forms import COMMON_UNITS, FormError, clean_text, redirect_to, required_number
+from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
 router = APIRouter()
@@ -88,10 +91,29 @@ def _meal_or_error(meal: str, settings: Settings) -> str:
     return meal
 
 
-@router.get("/", response_class=HTMLResponse)
-def today_page(request: Request, session: SessionDep, day: date | None = None) -> HTMLResponse:
+def _entry_units(session: Session, entries: list[DiaryEntry]) -> dict[int, list[StandardUnit]]:
+    """Einheiten zur Auswahl je Lebensmitteleintrag, fürs Ändern der Menge."""
+    units = {}
+    for entry in entries:
+        if entry.servings is None:
+            food = get_food(session, entry.food_id) if entry.food_id is not None else None
+            choices = unit_choices(food) if food is not None else []
+            if entry.unit not in {choice.name for choice in choices}:
+                # Ohne Lebensmittel bleibt nur die eingetragene Einheit
+                grams = (entry.grams or 0) / entry.quantity if entry.quantity else 0
+                choices.insert(0, StandardUnit(entry.unit or "g", grams))
+            units[entry.id] = choices
+    return units
+
+
+def _render_today(
+    request: Request,
+    session: Session,
+    day: date,
+    edit_id: int | None = None,
+    error: str | None = None,
+) -> HTMLResponse:
     settings = request.app.state.settings
-    day = day or clock.today()
     log = day_log(session, day, settings.meal_names)
     return render(
         request,
@@ -102,10 +124,19 @@ def today_page(request: Request, session: SessionDep, day: date | None = None) -
         macros=_macro_bars(log.total, settings),
         planned=planned_for_day(session, day),
         planned_meal=settings.plan_default_meal,
+        entry_units=_entry_units(session, [e for meal in log.meals for e in meal.entries]),
+        edit_id=edit_id,
+        error=error,
+        step=SERVINGS_STEP,
         is_today=day == clock.today(),
         previous=day - timedelta(days=1),
         following=day + timedelta(days=1),
     )
+
+
+@router.get("/", response_class=HTMLResponse)
+def today_page(request: Request, session: SessionDep, day: date | None = None) -> HTMLResponse:
+    return _render_today(request, session, day or clock.today())
 
 
 @dataclass(frozen=True)
@@ -182,7 +213,7 @@ def _render_add(
         meal_names=settings.meal_names,
         choices=choices,
         servings=servings,
-        units=COMMON_UNITS,
+        units=unit_choices(None),
         step=SERVINGS_STEP,
         error=error,
     )
@@ -269,11 +300,53 @@ def diary_log_food(
     return _back_to_day(request, day, meal)
 
 
-@router.post("/diary/entries/{entry_id}/delete")
-def diary_delete(request: Request, session: SessionDep, entry_id: int) -> Response:
+@router.get("/diary/units", response_class=HTMLResponse)
+def diary_units(request: Request, session: SessionDep, food_id: int | None = None) -> HTMLResponse:
+    """Einheiten-Auswahl passend zum gewählten Lebensmittel (lädt per HTMX nach)."""
+    food = get_food(session, food_id) if food_id is not None else None
+    return render(request, "diary/_unit_select.html", units=unit_choices(food), selected="g")
+
+
+def _entry_or_404(session: Session, entry_id: int) -> DiaryEntry:
     entry = get_entry(session, entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    return entry
+
+
+@router.post("/diary/entries/{entry_id}", response_model=None)
+def diary_change(
+    request: Request,
+    session: SessionDep,
+    entry_id: int,
+    servings: Annotated[str, Form()] = "",
+    quantity: Annotated[str, Form()] = "",
+    unit: Annotated[str, Form()] = "",
+) -> Response:
+    """Portionen bzw. Menge eines Eintrags ändern."""
+    entry = _entry_or_404(session, entry_id)
+    try:
+        if entry.servings is not None:
+            amount = required_number(servings, "Portionen")
+            if amount <= 0:
+                raise FormError("Portionen müssen größer als 0 sein.")
+            change_servings(session, entry, amount)
+        else:
+            amount = required_number(quantity, "Menge")
+            if amount <= 0:
+                raise FormError("Die Menge muss größer als 0 sein.")
+            food = get_food(session, entry.food_id) if entry.food_id is not None else None
+            change_amount(session, entry, food, amount, clean_text(unit))
+    except (FormError, UnknownUnitError) as error:
+        session.rollback()
+        return _render_today(request, session, entry.day, edit_id=entry.id, error=str(error))
+    session.commit()
+    return _back_to_day(request, entry.day, entry.meal)
+
+
+@router.post("/diary/entries/{entry_id}/delete")
+def diary_delete(request: Request, session: SessionDep, entry_id: int) -> Response:
+    entry = _entry_or_404(session, entry_id)
     day, meal = entry.day, entry.meal
     delete_entry(session, entry)
     session.commit()

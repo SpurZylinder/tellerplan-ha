@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from fastapi.testclient import TestClient
 
 from factories import make_food, make_recipe
-from modules.diary.service import log_recipe
+from modules.diary.service import get_entry, log_food, log_recipe
 from modules.recipes.models import Recipe
 
 DAY = date(2026, 10, 28)
@@ -101,3 +101,53 @@ def test_recipe_from_plan_stays_visible_despite_filter(ingress_client: TestClien
 
     assert _checked_id(page) == str(ids["Linsen-Dal"])
     assert "Ofengemüse" in page  # Filter aufgehoben, damit das Rezept auswählbar bleibt
+
+
+def test_unit_select_offers_only_convertible_units(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        onion = make_food(session, "Zwiebel", units={"Stück": 80, "EL": 12})
+        session.commit()
+        onion_id = onion.id
+
+    page = ingress_client.get(f"/diary/units?food_id={onion_id}").text
+
+    assert "<select" in page
+    assert 'value="Stück"' in page
+    assert "EL (12 g)" in page
+    assert "TL (5 g)" in page
+    assert "EL (15 g)" not in page
+    assert 'value="Stück"' not in ingress_client.get("/diary/units").text
+
+
+def test_entry_on_today_can_be_changed(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        roll = make_food(session, "Brötchen", kcal=250, units={"Stück": 60})
+        entry = log_food(session, DAY, "Frühstück", roll, 1, "Stück")
+        session.commit()
+        entry_id = entry.id
+
+    page = ingress_client.get(f"/?day={DAY}").text
+    assert f'action="/diary/entries/{entry_id}"' in page
+
+    response = ingress_client.post(
+        f"/diary/entries/{entry_id}", data={"quantity": "80", "unit": "g"}, follow_redirects=False
+    )
+    assert response.status_code == 303
+
+    with ingress_client.app.state.session_factory() as session:
+        changed = get_entry(session, entry_id)
+        assert changed is not None
+        assert (changed.quantity, changed.unit, changed.kcal) == (80, "g", 200)
+
+
+def test_changing_an_entry_reports_invalid_amount(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        recipe = make_recipe(session, ingredients=[(make_food(session), 200, "g")])
+        entry = log_recipe(session, DAY, "Mittag", recipe, 1)
+        session.commit()
+        entry_id = entry.id
+
+    response = ingress_client.post(f"/diary/entries/{entry_id}", data={"servings": "0"})
+
+    assert response.status_code == 200
+    assert "größer als 0" in response.text

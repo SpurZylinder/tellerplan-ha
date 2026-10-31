@@ -8,6 +8,7 @@ from modules.nutrition.service import (
     nutrients_for,
     to_grams,
     total_nutrients,
+    unit_choices,
     uses_standard_unit,
 )
 
@@ -45,6 +46,21 @@ def test_own_unit_beats_standard_unit(session: Session) -> None:
     assert to_grams(oil, 2, "EL") == 20
     assert uses_standard_unit(oil, "EL") is None
     assert uses_standard_unit(oil, "TL") == StandardUnit("TL", 5)
+
+
+def test_unit_choices_offer_own_units_and_standard_units(session: Session) -> None:
+    onion = make_food(session, "Zwiebel", units={"EL": 12, "Stück": 80})
+
+    assert unit_choices(onion) == [
+        StandardUnit("g", 1),
+        StandardUnit("EL", 12),
+        StandardUnit("Stück", 80),
+        StandardUnit("TL", 5),
+    ]
+
+
+def test_unit_choices_without_food_offer_only_grams() -> None:
+    assert unit_choices(None) == [StandardUnit("g", 1)]
 
 
 def test_nutrients_for_scales_per_100_g(session: Session) -> None:
