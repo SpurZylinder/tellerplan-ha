@@ -7,18 +7,23 @@ der Datenbank, E-Mail und Passwort werden nur für die Anmeldung weitergereicht.
 
 import re
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, Response
 
-from cookidoo import CookidooAccount, CookidooError
+import clock
+from cookidoo import CalendarRecipe, CookidooAccount, CookidooError
 from settings import TODO_ENTITY_PATTERN, Settings, option_range, save_options
 from supervisor import SupervisorError, supervisor_token
 from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
 router = APIRouter(prefix="/settings")
+
+# „Verbindung prüfen“ liest so viele Tage ab heute aus „Meine Woche“
+COOKIDOO_CHECK_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,7 @@ def _render(
     saved: bool = False,
     cookidoo_error: str | None = None,
     cookidoo_email: str = "",
+    cookidoo_check: list[CalendarRecipe] | None = None,
 ) -> HTMLResponse:
     settings = request.app.state.settings
     return render(
@@ -69,6 +75,8 @@ def _render(
         cookidoo_locale=settings.cookidoo_locale,
         cookidoo_error=cookidoo_error,
         cookidoo_email=cookidoo_email,
+        cookidoo_check=cookidoo_check,
+        cookidoo_check_days=COOKIDOO_CHECK_DAYS,
     )
 
 
@@ -160,6 +168,20 @@ def cookidoo_connect(
     except CookidooError as error:
         return _render(request, values, cookidoo_error=str(error), cookidoo_email=email)
     return redirect_to(request, "settings_page", anchor="#cookidoo")
+
+
+@router.post("/cookidoo/check", response_class=HTMLResponse)
+def cookidoo_check(request: Request) -> HTMLResponse:
+    """Liest die nächsten Tage aus „Meine Woche“, ohne etwas zu ändern."""
+    settings = request.app.state.settings
+    values = _current_values(settings)
+    first = clock.today()
+    last = first + timedelta(days=COOKIDOO_CHECK_DAYS - 1)
+    try:
+        recipes = cookidoo_account(settings).read_calendar(first, last)
+    except CookidooError as error:
+        return _render(request, values, cookidoo_error=str(error))
+    return _render(request, values, cookidoo_check=recipes)
 
 
 @router.post("/cookidoo/disconnect", response_model=None)

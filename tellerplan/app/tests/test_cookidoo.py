@@ -10,6 +10,7 @@ import pytest
 from cookidoo_api import CookidooAuthData, CookidooAuthException, CookidooRequestException
 from fastapi.testclient import TestClient
 
+import clock
 import cookidoo as cookidoo_module
 from cookidoo import CookidooAccount, CookidooError, NotConnectedError, week_starts
 from settings import Settings
@@ -214,3 +215,46 @@ def test_settings_page_shows_rejected_login(
     assert "abgelehnt" in response.text
     assert 'value="ich@example.org"' in response.text
     assert "falsch" not in response.text
+
+
+def test_check_lists_the_next_days(
+    ingress_client: TestClient, fake: type[FakeCookidoo], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(clock, "today", lambda: MONDAY)
+    ingress_client.post(
+        "/settings/cookidoo", data={"email": "ich@example.org", "password": PASSWORD}
+    )
+    fake.calendar = {
+        MONDAY + timedelta(days=1): [("r2", False)],
+        MONDAY + timedelta(days=14): [("r9", False)],  # nach den 14 Tagen
+    }
+
+    page = ingress_client.post("/settings/cookidoo/check").text
+
+    assert "Di 03.11." in page
+    assert "Rezept r2" in page
+    assert "Rezept r9" not in page
+    assert fake.calendar[MONDAY + timedelta(days=1)] == [("r2", False)]  # nichts geändert
+
+
+def test_check_with_empty_calendar_confirms_connection(
+    ingress_client: TestClient, fake: type[FakeCookidoo]
+) -> None:
+    ingress_client.post(
+        "/settings/cookidoo", data={"email": "ich@example.org", "password": PASSWORD}
+    )
+
+    page = ingress_client.post("/settings/cookidoo/check").text
+
+    assert "Verbindung in Ordnung" in page
+
+
+def test_check_shows_errors(ingress_client: TestClient, fake: type[FakeCookidoo]) -> None:
+    ingress_client.post(
+        "/settings/cookidoo", data={"email": "ich@example.org", "password": PASSWORD}
+    )
+    fake.fail_requests = True
+
+    page = ingress_client.post("/settings/cookidoo/check").text
+
+    assert "nicht erreichbar" in page

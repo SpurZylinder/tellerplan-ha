@@ -90,7 +90,11 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [x] Anmeldung in Tellerplan: Einstellungen → Cookidoo mit E-Mail und Passwort (einmalig, nicht gespeichert), danach „Verbunden als …“ und „Trennen“. Den Browser-Weg ergänzen, sobald die Bibliothek ihn veröffentlicht. Ohne Verbindung kein Knopf im Plan (Schritt 6).
 - [x] `app/cookidoo.py` neben `supervisor.py`: einzige Stelle mit Netzwerkaufrufen an Cookidoo. Kapselt die asynchrone Bibliothek in einfache Funktionen (`read_calendar(first, last)`, `plan(day, ids)`, `unplan(day, id)`), Tokens und Anzeigename in `cookidoo_token.json` neben der Datenbank (Rechte 600, bei jeder Erneuerung gespeichert), 30 s Zeitüberschreitung, verständliche Fehler (`CookidooError`, `NotConnectedError`). Tokens nie ins Log. Eigene Cookidoo-Rezepte liefert der Kalender nur als ID ohne Namen; `read_calendar` lässt sie aus.
 - [x] Tests ersetzen die Bibliothek per `monkeypatch` durch eine Attrappe (wie bei `supervisor.py`); kein Netzwerk in CI.
-- [ ] Image-Bau für arm64 über die CI (mit dem nächsten Release).
+- [x] Image-Bau für arm64 über die CI und Verbinden auf dem Pi (0.4.6, 2026-10-31).
+- [x] „Verbindung prüfen“ in Einstellungen → Cookidoo: liest die nächsten 14 Tage aus „Meine Woche“ und listet sie, ohne etwas zu ändern (0.4.7). Damit auf dem Pi prüfen:
+  - [ ] Liste stimmt mit der Cookidoo-App überein
+  - [ ] nach ein bis zwei Tagen ohne neue Anmeldung noch lesbar (Token-Erneuerung im Add-on)
+  - [ ] nach Neustart des Add-ons weiter verbunden
 
 ### Schritt 3: Datenmodell
 
@@ -125,6 +129,18 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [ ] `DOCS.md`: Optionen und Hinweis auf die inoffizielle Schnittstelle.
 - [ ] [[Start]]: Punkt abhaken.
 - [ ] `version` auf 0.5.0, `git push --atomic origin main v0.5.0`, Action abwarten, dann in Home Assistant aktualisieren.
+
+## Sicherheitsprüfung der Bibliothek
+
+`cookidoo-api` ist reiner Python-Quelltext (Version 0.19.0, rund 6.200 Zeilen, davon gut 3.000 in `cookidoo.py`), installiert unter `tellerplan/app/.venv/Lib/site-packages/cookidoo_api/`. Vor Release 0.5.0 und bei jedem Versionswechsel durchgehen, Ergebnis hier festhalten:
+
+- [ ] **Wohin Daten gehen:** nur Vorwerk-Adressen (`*.vorwerk-digital.com`, `cookidoo.<land>`)? Baut `remote_monitoring.py` (Firebase) schon beim Import Verbindungen auf?
+- [ ] **Zugangsdaten:** Passwort und Tokens nie in Logs, Fehlermeldungen oder Dateien der Bibliothek (Tellerplan schreibt die Tokens selbst)?
+- [ ] **Anmeldung:** `state` und PKCE geprüft, Zertifikatsprüfung aktiv (kein `ssl=False`), Bedeutung von `CookieJar(unsafe=True)`, nur Weiterleitungen zu Vorwerk-Adressen (`_assert_ciam_origin`)?
+- [ ] **Antworten von Cookidoo:** nur gelesen, nie ausgeführt, nachgeladen oder als Dateipfad benutzt? Folgen der Endpunkt-Erkennung (`well_known.py`) nur Vorwerk-Adressen?
+- [ ] **Import:** kein Code mit Nebenwirkungen beim `import`, keine Hintergrund-Aufgaben, nichts wird nachinstalliert.
+- [ ] **Abhängigkeiten:** `pip-audit` gegen die tatsächlich installierten Versionen (aiohttp, cryptography, protobuf, firebase-messaging …).
+- [ ] **Festschreiben:** alle Pakete des Images mit Version und Prüfsumme (`pip install --require-hashes`), damit `~=`-Angaben der Bibliothek nicht still neuere Versionen holen. Entscheiden, ob sich der Aufwand lohnt.
 
 ## Später
 

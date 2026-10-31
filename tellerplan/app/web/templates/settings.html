@@ -49,9 +49,30 @@
     {% if cookidoo_user %}
       <p>Verbunden als <b>{{ cookidoo_user }}</b> <span class="meta">({{ cookidoo_locale }})</span></p>
       <p class="meta">Der Plan kann sich mit „Meine Woche“ in Cookidoo abgleichen. Trennen löscht nur die Anmeldung in Tellerplan.</p>
-      <form method="post" action="{{ url('cookidoo_disconnect') }}">
-        <button class="btn danger small" type="submit">Trennen</button>
-      </form>
+      {% if cookidoo_check is not none %}
+        <h3>Nächste {{ cookidoo_check_days }} Tage in „Meine Woche“</h3>
+        {% if cookidoo_check %}
+          <ul class="list" role="status">
+            {% for recipe in cookidoo_check %}
+              <li>
+                <span class="meta">{{ recipe.day|day }}</span>
+                <a class="grow" href="{{ recipe.url }}" target="_blank" rel="noopener">{{ recipe.name }}</a>
+                <span class="meta">{{ recipe.recipe_id }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="meta" role="status">Verbindung in Ordnung – in diesen Tagen ist nichts eingeplant.</p>
+        {% endif %}
+      {% endif %}
+      <div class="form-actions">
+        <form method="post" action="{{ url('cookidoo_check') }}#cookidoo">
+          <button class="btn ghost small" type="submit">Verbindung prüfen</button>
+        </form>
+        <form method="post" action="{{ url('cookidoo_disconnect') }}">
+          <button class="btn danger small" type="submit">Trennen</button>
+        </form>
+      </div>
     {% else %}
       <p class="meta">Verbinden, um den Plan mit „Meine Woche“ in Cookidoo abzugleichen. E-Mail und Passwort gehen nur einmal an Cookidoo und werden nicht gespeichert; Tellerplan behält nur die Anmeldung (Tokens).</p>
       <form class="form" method="post" action="{{ url('cookidoo_connect') }}">
