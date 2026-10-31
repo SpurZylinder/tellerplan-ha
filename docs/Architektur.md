@@ -121,6 +121,8 @@ Produkte      Laktosefreie H-Milch 1,5 % (Berchtesgadener Land) ← Standard, we
 
 **Suche nach deutscher Wortbildung:** Zuerst zählt das Hauptwort (erstes Wort): gleich vor „endet mit“ vor „beginnt mit“, denn „Speisesalz“ ist ein Salz, „Salzkartoffeln“ sind Kartoffeln. Erst danach zählt, wie oft der Begriff sonst im Namen steht. Vorher lieferte „Salz“ zuerst „Salzkartoffeln (Kartoffeln mit Salz gekocht)“.
 
+**Oft Gegessenes zuerst (2026-10-31):** Beim Eintragen zählt nach dem Hauptwort, an wie vielen Tagen ein Lebensmittel in den letzten `frequency_window_days` (Vorgabe 90) im Tagebuch stand; ein Tag in derselben Mahlzeit zählt doppelt. Gezählt wird bei jeder Suche direkt aus `diary_entry`, es gibt keinen eigenen Zähler (keine Kopie, die nach Löschen oder Ändern veraltet). `foods` kennt das Tagebuch nicht: `diary` liefert die Gewichte, die Seite „Eintragen“ reicht sie an `search_foods` weiter. Weil die Häufigkeit erst nach dem Hauptwort kommt, überholt ein oft gegessenes „Weizenbrot“ bei „ei“ kein „Hühnerei“. Auch in den übrigen Wörtern zählt ein Wortende jetzt vor einem Wortanfang („Hühnerei“ vor „Eigelb“), ein Treffer im Hauptwort geht dabei vor. Rezepte beim Eintragen sind genauso sortiert (nach den Vorschlägen von gestern, sonst alphabetisch). Wählt man ein Lebensmittel, stehen Menge und Einheit vom letzten Mal im Formular; eine selbst getippte Menge bleibt stehen.
+
 **Planen**
 
 1. Im Rezept „Einplanen“ tippen oder im Plan beim Tag auf „+“.
@@ -151,7 +153,7 @@ Der Bundeslebensmittelschlüssel liefert rund 7.140 Lebensmittel mit Werten pro 
 
 Eine neue BLS-Version heißt: CSV neu erzeugen und eine weitere Datenmigration nach dem Muster von `0005` anlegen. BLS kennt keine Portionsgrößen; Einheiten pflegt der Nutzer pro Lebensmittel.
 
-**Suche:** Bei 7.000 Einträgen reicht SQL mit einem normalisierten Suchschlüssel (Kleinschreibung, Wörter zusammengeschrieben, also „haferflocken“ = „Hafer Flocken“) plus Ranking in Python: ganzes Wort vor Wortanfang vor Wortende, Treffer im ersten Wort (BLS-Namen beginnen mit dem Lebensmittel), dann „roh“, eigene Einträge und kurze Namen. Ohne Treffer folgt eine unscharfe Suche mit `rapidfuzz` („brokkoli“ → „Broccoli roh“). FTS5 ist damit vorerst nicht nötig; mehrdeutige Kurzwörter wie „ei“ löst später das Alias-Lernen.
+**Suche:** Bei 7.000 Einträgen reicht SQL mit einem normalisierten Suchschlüssel (Kleinschreibung, Wörter zusammengeschrieben, also „haferflocken“ = „Hafer Flocken“) plus Ranking in Python: ganzes Wort vor Wortende vor Wortanfang, Treffer im ersten Wort (BLS-Namen beginnen mit dem Lebensmittel), dann „roh“, eigene Einträge und kurze Namen. Ohne Treffer folgt eine unscharfe Suche mit `rapidfuzz` („brokkoli“ → „Broccoli roh“). FTS5 ist damit vorerst nicht nötig; mehrdeutige Kurzwörter wie „ei“ löst später das Alias-Lernen.
 
 ## Produkte aus REWE und Open Food Facts
 

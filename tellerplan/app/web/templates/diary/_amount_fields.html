@@ -1,0 +1,9 @@
+{# Menge und Einheit beim Eintragen eines Lebensmittels. Erwartet `units`, `selected`, `quantity`, `prefilled`. #}
+<label class="field">Menge
+  <input class="input" name="quantity" value="{{ quantity }}" inputmode="decimal" placeholder="150" required>
+</label>
+<div class="field">Einheit
+  {% include "diary/_unit_select.html" %}
+</div>
+{# Vorgeschlagene Menge vom letzten Mal; bleibt sie unverändert, darf ein anderes Lebensmittel sie ersetzen #}
+<input type="hidden" name="prefilled" value="{{ prefilled }}">

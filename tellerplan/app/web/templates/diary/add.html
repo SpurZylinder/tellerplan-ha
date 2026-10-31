@@ -85,21 +85,15 @@
       {{ error_message(error) }}
       <input type="hidden" name="day" value="{{ day }}">
       {{ meal_select() }}
+      {# Suche mit Tag und Mahlzeit: oft Gegessenes steht oben; andere Mahlzeit sucht neu #}
       <input class="input" type="search" name="q" placeholder="Lebensmittel suchen" autocomplete="off" autofocus
-             hx-get="{{ url('foods_picker') }}" hx-trigger="input changed delay:250ms, search"
-             hx-target="#food-picker">
+             hx-get="{{ url('diary_foods') }}" hx-include="closest form" hx-target="#food-picker"
+             hx-trigger="input changed delay:250ms, search, change from:select[name=meal]">
       <div id="food-picker"></div>
-      <div class="field-row">
-        <label class="field">Menge
-          <input class="input" name="quantity" inputmode="decimal" placeholder="150" required>
-        </label>
-        {# Lädt die Einheiten des gewählten Lebensmittels nach (neue Trefferliste oder andere Auswahl) #}
-        <div class="field">Einheit
-          <div hx-get="{{ url('diary_units') }}" hx-include="#food-picker"
-               hx-trigger="change from:#food-picker, htmx:afterSettle from:#food-picker">
-            {% with selected = "g" %}{% include "diary/_unit_select.html" %}{% endwith %}
-          </div>
-        </div>
+      {# Menge und Einheiten des gewählten Lebensmittels nachladen (neue Trefferliste oder andere Auswahl) #}
+      <div class="field-row" hx-get="{{ url('diary_amount') }}" hx-include="closest form"
+           hx-trigger="change from:#food-picker, htmx:afterSettle from:#food-picker">
+        {% include "diary/_amount_fields.html" %}
       </div>
       <div class="form-actions"><button class="btn" type="submit">Eintragen</button></div>
     </form>

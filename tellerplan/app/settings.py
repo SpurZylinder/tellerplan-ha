@@ -62,6 +62,9 @@ class Settings(BaseModel):
     plan_default_meal: str
     # Mahlzeiten, für die beim Eintragen das Rezept vom Vortag (gleiche Mahlzeit) oben steht
     suggest_yesterday_meals: list[str]
+    # Beim Eintragen stehen Lebensmittel und Rezepte weiter oben, die in so vielen
+    # zurückliegenden Tagen oft gegessen wurden
+    frequency_window_days: int = Field(ge=7, le=365)
     recipe_categories: list[str] = Field(min_length=1)
     meal_categories: list[MealCategory]
     standard_units: list[StandardUnit]

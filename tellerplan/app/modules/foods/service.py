@@ -2,6 +2,7 @@
 
 import re
 import uuid
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 from rapidfuzz import fuzz, process
@@ -21,8 +22,9 @@ LEADING_LABELS = {"bio"}
 # Fürs Ranking gelten Bindestrich-Wörter als ein Wort („Quark-Plunder“ ist kein „Quark“)
 RANK_WORD_PATTERN = re.compile(r"[\w-]+")
 
-# Trefferstufen eines Suchworts in einem Namen
-EXACT_WORD, WORD_START, WORD_END, INSIDE = 3, 2, 1, 0
+# Trefferstufen eines Suchworts in einem Wort. Im Deutschen steht das Grundwort hinten:
+# „Hühnerei“ ist ein Ei, „Eigelb“ nicht. Ein Wortende zählt darum mehr als ein Wortanfang.
+EXACT_WORD, WORD_END, WORD_START, INSIDE, MISSING = 4, 3, 2, 1, 0
 
 
 @dataclass(frozen=True)
@@ -77,29 +79,26 @@ def list_foods(session: Session, limit: int = SEARCH_LIMIT) -> list[Food]:
 
 
 def _match_level(term: str, words: list[str]) -> int:
+    """Bester Treffer eines Suchworts in den Wörtern eines Namens."""
     if term in words:
         return EXACT_WORD
-    if any(word.startswith(term) for word in words):
-        return WORD_START
     if any(word.endswith(term) for word in words):
         return WORD_END
-    return INSIDE
-
-
-def _main_word_level(term: str, main_word: str) -> int:
-    """Treffer im Hauptwort (erstes Wort) nach deutscher Wortbildung.
-
-    Das Grundwort steht hinten: „Speisesalz“ ist ein Salz, „Salzkartoffeln“ sind
-    Kartoffeln. Endet das Hauptwort mit dem Suchbegriff, zählt das daher mehr, als
-    wenn es damit beginnt.
-    """
-    if main_word == term:
-        return EXACT_WORD
-    if main_word.endswith(term):
+    if any(word.startswith(term) for word in words):
         return WORD_START
-    if main_word.startswith(term):
-        return WORD_END
-    return INSIDE
+    if any(term in word for word in words):
+        return INSIDE
+    return MISSING
+
+
+def _term_level(term: str, main_word: str, words: list[str]) -> int:
+    """Ein Treffer im Hauptwort geht vor, sonst zählt der beste in den übrigen Wörtern.
+
+    So zählt bei „ei“ das „Hühnerei“ in „Hühnerei roh“ genauso wie das „brei“ in
+    „Grießbrei mit Butter und Ei“; das einzelne „Ei“ hinten hebt den Brei nicht hervor.
+    """
+    main_level = _match_level(term, [main_word])
+    return main_level if main_level > INSIDE else _match_level(term, words)
 
 
 def _main_word(food: Food, words: list[str]) -> str:
@@ -115,24 +114,31 @@ def _main_word(food: Food, words: list[str]) -> str:
     return rest[0] if rest else ""
 
 
-def _rank(food: Food, terms: list[str]) -> tuple[int, int, bool, bool, int]:
-    """Sortierschlüssel: Hauptwort, Trefferqualität, roh, eigene zuerst, kurze Namen.
+def _rank(
+    food: Food, terms: list[str], frequency: Mapping[int, int]
+) -> tuple[int, int, int, bool, bool, int]:
+    """Sortierschlüssel: Hauptwort, wie oft gegessen, Trefferqualität, roh, eigene, kurze Namen.
 
     Das Hauptwort kommt zuerst, damit „Salz“ nicht „Salzkartoffeln (… mit Salz gekocht)“
-    vor „Speisesalz“ liefert, nur weil „Salz“ weiter hinten als eigenes Wort steht.
+    vor „Speisesalz“ liefert, nur weil „Salz“ weiter hinten als eigenes Wort steht. Erst
+    danach zählt, wie oft das Lebensmittel gegessen wurde: Ein häufiges „Weizenbrot“
+    überholt so bei „ei“ kein „Hühnerei“.
     """
     words = RANK_WORD_PATTERN.findall(food.name.casefold())
     main_word = _main_word(food, words)
     return (
-        -_main_word_level(terms[0], main_word),
-        -sum(_match_level(term, words) for term in terms),
+        -_match_level(terms[0], [main_word]),
+        -frequency.get(food.id, 0),
+        -sum(_term_level(term, main_word, words) for term in terms),
         RAW_WORD not in words,
         food.source != FoodSource.CUSTOM,
         len(food.name),
     )
 
 
-def _fuzzy_candidates(session: Session, needle: str, limit: int) -> list[Food]:
+def _fuzzy_candidates(
+    session: Session, needle: str, limit: int, frequency: Mapping[int, int]
+) -> list[Food]:
     """Ähnliche Schreibweisen, z. B. „brokkoli“ → „Broccoli roh“."""
     names = dict(session.execute(select(Food.id, Food.name)).all())
     matches = process.extract(
@@ -145,15 +151,23 @@ def _fuzzy_candidates(session: Session, needle: str, limit: int) -> list[Food]:
     scores = {food_id: score for _, score, food_id in matches}
     foods = session.scalars(select(Food).where(Food.id.in_(scores))).all()
 
-    def closeness(food: Food) -> tuple[float, bool, int]:
+    def closeness(food: Food) -> tuple[float, int, bool, int]:
         raw = RAW_WORD in RANK_WORD_PATTERN.findall(food.name.casefold())
-        return (-scores[food.id], not raw, len(food.name))
+        return (-scores[food.id], -frequency.get(food.id, 0), not raw, len(food.name))
 
     return sorted(foods, key=closeness)[:limit]
 
 
-def search_foods(session: Session, query: str, limit: int = SEARCH_LIMIT) -> list[Food]:
-    """Alle Suchwörter müssen im Namen vorkommen (Leerzeichen egal); beste Treffer zuerst."""
+def search_foods(
+    session: Session,
+    query: str,
+    limit: int = SEARCH_LIMIT,
+    frequency: Mapping[int, int] | None = None,
+) -> list[Food]:
+    """Alle Suchwörter müssen im Namen vorkommen (Leerzeichen egal); beste Treffer zuerst.
+
+    `frequency` (Lebensmittel-ID → Gewicht, z. B. aus dem Tagebuch) hebt oft Gegessenes an.
+    """
     terms = search_words(query)
     if not terms:
         return list_foods(session, limit)
@@ -163,8 +177,8 @@ def search_foods(session: Session, query: str, limit: int = SEARCH_LIMIT) -> lis
         statement = statement.where(func.search_key(Food.name).contains(term, autoescape=True))
     candidates = session.scalars(statement.limit(SEARCH_CANDIDATES)).all()
     if not candidates:
-        return _fuzzy_candidates(session, "".join(terms), limit)
-    return sorted(candidates, key=lambda food: _rank(food, terms))[:limit]
+        return _fuzzy_candidates(session, "".join(terms), limit, frequency or {})
+    return sorted(candidates, key=lambda food: _rank(food, terms, frequency or {}))[:limit]
 
 
 def set_unit(session: Session, food: Food, name: str, grams: float) -> FoodUnit:

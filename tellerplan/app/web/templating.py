@@ -36,7 +36,7 @@ def _format_number(value: float | None, digits: int = 0) -> str:
     return text.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
-def _format_amount(value: float | None) -> str:
+def format_amount(value: float | None) -> str:
     """Menge ohne überflüssige Nullen, z. B. 1.5 → „1,5“, 2.0 → „2“."""
     if value is None:
         return ""
@@ -59,7 +59,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.globals["url"] = _url
 templates.env.filters["num"] = _format_number
 templates.env.filters["day"] = _format_day
-templates.env.filters["amount"] = _format_amount
+templates.env.filters["amount"] = format_amount
 templates.env.filters["add_days"] = _add_days
 
 

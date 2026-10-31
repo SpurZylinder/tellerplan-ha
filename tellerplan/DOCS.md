@@ -27,6 +27,7 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 | `meal_names` | Namen der Mahlzeiten im Tagebuch |
 | `plan_default_meal` | Vorausgewählte Mahlzeit, wenn ein geplantes Rezept eingetragen wird (muss in `meal_names` stehen) |
 | `suggest_yesterday_meals` | Mahlzeiten, bei denen beim Eintragen das Rezept vom Vortag (gleiche Mahlzeit) oben steht und vorausgewählt ist, z. B. `Mittag`, `Snacks` |
+| `frequency_window_days` | Beim Eintragen stehen Lebensmittel und Rezepte weiter oben, die du in so vielen zurückliegenden Tagen oft gegessen hast (gleiche Mahlzeit zählt doppelt); Vorgabe 90 |
 | `recipe_categories` | Auswahl für die Kategorie eines Rezepts, z. B. Hauptgericht, Beilage, Snack |
 | `meal_categories` | Vorfilter beim Eintragen: je Zeile eine Mahlzeit (`meal`) und eine Kategorie (`category`); mehrere Zeilen je Mahlzeit erlaubt. Mahlzeiten ohne Zeile zeigen alle Rezepte |
 | `standard_units` | Gramm je Einheit für alle Lebensmittel ohne eigene Angabe (`unit`, `grams`), Vorgabe 1 EL = 15 g, 1 TL = 5 g; eine Einheit am Lebensmittel geht vor |

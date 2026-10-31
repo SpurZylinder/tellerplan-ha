@@ -22,6 +22,7 @@ TEST_OPTIONS = {
     "meal_names": ["Frühstück", "Mittag", "Abendessen", "Snacks"],
     "plan_default_meal": "Abendessen",
     "suggest_yesterday_meals": ["Mittag", "Snacks"],
+    "frequency_window_days": 90,
     "recipe_categories": ["Frühstück", "Hauptgericht", "Beilage", "Snack", "Salat"],
     "meal_categories": [
         {"meal": "Mittag", "category": "Hauptgericht"},

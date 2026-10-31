@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy.orm import Session
@@ -10,9 +10,12 @@ from modules.diary.service import (
     change_servings,
     day_log,
     delete_entry,
+    food_frequency,
+    last_amount,
     log_food,
     log_recipe,
     planned_for_day,
+    recipe_frequency,
 )
 from modules.planner.service import add_entry
 
@@ -148,3 +151,32 @@ def test_change_amount_without_food_keeps_unit(session: Session) -> None:
 
     assert (entry.unit, entry.grams) == ("Stück", 240)
     assert entry.kcal == pytest.approx(240)
+
+
+def test_food_frequency_counts_days_and_weights_same_meal(session: Session) -> None:
+    egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
+    since = DAY - timedelta(days=90)
+    log_food(session, DAY, "Frühstück", egg, 1, "Stück")
+    log_food(session, DAY, "Frühstück", egg, 1, "Stück")  # gleicher Tag zählt einmal
+    log_food(session, DAY - timedelta(days=1), "Mittag", egg, 1, "Stück")
+    log_food(session, DAY - timedelta(days=100), "Frühstück", egg, 1, "Stück")  # zu alt
+
+    assert food_frequency(session, since, DAY, "Frühstück") == {egg.id: 2 + 1}
+    assert food_frequency(session, since, DAY, "Mittag") == {egg.id: 1 + 2}
+
+
+def test_recipe_frequency(session: Session) -> None:
+    recipe = make_recipe(session, ingredients=[(make_food(session), 100, "g")])
+    log_recipe(session, DAY, "Mittag", recipe, 1)
+
+    assert recipe_frequency(session, DAY, DAY, "Mittag") == {recipe.id: 2}
+    assert recipe_frequency(session, DAY, DAY, "Abendessen") == {recipe.id: 1}
+
+
+def test_last_amount_takes_latest_day(session: Session) -> None:
+    egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
+    log_food(session, DAY, "Frühstück", egg, 2, "Stück")
+    log_food(session, DAY - timedelta(days=3), "Frühstück", egg, 100, "g")
+
+    assert last_amount(session, egg.id) == (2, "Stück")
+    assert last_amount(session, make_food(session, "Neu").id) is None

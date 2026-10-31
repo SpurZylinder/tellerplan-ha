@@ -17,19 +17,22 @@ from modules.diary.service import (
     change_servings,
     day_log,
     delete_entry,
+    food_frequency,
     get_entry,
+    last_amount,
     log_food,
     log_recipe,
     planned_for_day,
+    recipe_frequency,
     recipes_eaten,
 )
-from modules.foods.service import get_food
+from modules.foods.service import get_food, search_foods
 from modules.nutrition.service import Nutrients, StandardUnit, unit_choices
 from modules.planner.service import get_entry as get_plan_entry
 from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries
 from settings import Settings
 from web.forms import FormError, clean_text, redirect_to, required_number
-from web.templating import render
+from web.templating import format_amount, render
 
 router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -151,6 +154,11 @@ class RecipeChoices:
     filterable: bool
 
 
+def _frequency_since(settings: Settings, day: date) -> date:
+    """Beginn des Zeitraums, in dem gezählt wird, wie oft etwas gegessen wurde."""
+    return day - timedelta(days=settings.frequency_window_days)
+
+
 def _recipe_choices(
     session: Session,
     settings: Settings,
@@ -166,7 +174,12 @@ def _recipe_choices(
         eaten = recipes_eaten(session, day - timedelta(days=1), meal)
         suggestions = [(by_id[e.recipe_id], e.servings or 1) for e in eaten if e.recipe_id in by_id]
     suggested = {summary.recipe.id for summary, _ in suggestions}
-    others = [summary for summary in summaries if summary.recipe.id not in suggested]
+    # Oft gegessene Rezepte zuerst, sonst alphabetisch (sorted ist stabil)
+    frequency = recipe_frequency(session, _frequency_since(settings, day), day, meal)
+    others = sorted(
+        (summary for summary in summaries if summary.recipe.id not in suggested),
+        key=lambda summary: -frequency.get(summary.recipe.id, 0),
+    )
 
     categories = settings.categories_for_meal(meal)
     matching = {summary.recipe.id for summary in summaries if summary.recipe.category in categories}
@@ -214,6 +227,9 @@ def _render_add(
         choices=choices,
         servings=servings,
         units=unit_choices(None),
+        quantity="",
+        selected="g",
+        prefilled="",
         step=SERVINGS_STEP,
         error=error,
     )
@@ -300,11 +316,60 @@ def diary_log_food(
     return _back_to_day(request, day, meal)
 
 
-@router.get("/diary/units", response_class=HTMLResponse)
-def diary_units(request: Request, session: SessionDep, food_id: int | None = None) -> HTMLResponse:
-    """Einheiten-Auswahl passend zum gewählten Lebensmittel (lädt per HTMX nach)."""
+@router.get("/diary/foods", response_class=HTMLResponse)
+def diary_foods(
+    request: Request,
+    session: SessionDep,
+    day: date | None = None,
+    meal: str | None = None,
+    q: str = "",
+) -> HTMLResponse:
+    """Lebensmittelsuche beim Eintragen: oft Gegessenes (gleiche Mahlzeit) steht weiter oben."""
+    day = day or clock.today()
+    frequency = food_frequency(
+        session, _frequency_since(request.app.state.settings, day), day, meal
+    )
+    foods = search_foods(session, q, frequency=frequency) if q.strip() else []
+    return render(request, "foods/_picker.html", foods=foods, q=q, preselect=True, optional=False)
+
+
+def _prefill(quantity: float, unit: str) -> str:
+    """Kennung einer vorbelegten Menge; bleibt sie unverändert, gilt sie als nicht getippt."""
+    return f"{format_amount(quantity)}|{unit}"
+
+
+@router.get("/diary/amount", response_class=HTMLResponse)
+def diary_amount(
+    request: Request,
+    session: SessionDep,
+    food_id: int | None = None,
+    quantity: str = "",
+    unit: str = "g",
+    prefilled: str = "",
+) -> HTMLResponse:
+    """Menge und Einheit passend zum gewählten Lebensmittel (lädt per HTMX nach).
+
+    Eine selbst getippte Menge bleibt stehen; sonst wird die Menge vom letzten Mal
+    vorgeschlagen, z. B. „2 Stück“ beim Hühnerei.
+    """
     food = get_food(session, food_id) if food_id is not None else None
-    return render(request, "diary/_unit_select.html", units=unit_choices(food), selected="g")
+    units = unit_choices(food)
+    names = {choice.name for choice in units}
+    typed = quantity.strip() != "" and f"{quantity.strip()}|{unit}" != prefilled
+    marker = ""
+    if not typed:
+        quantity, unit = "", "g"
+        last = last_amount(session, food.id) if food is not None else None
+        if last is not None and last[1] in names:
+            quantity, unit, marker = format_amount(last[0]), last[1], _prefill(*last)
+    return render(
+        request,
+        "diary/_amount_fields.html",
+        units=units,
+        quantity=quantity,
+        selected=unit if unit in names else "g",
+        prefilled=marker,
+    )
 
 
 def _entry_or_404(session: Session, entry_id: int) -> DiaryEntry:

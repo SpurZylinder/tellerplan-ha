@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from modules.diary.models import DiaryEntry
 from modules.foods.models import Food
@@ -14,6 +14,9 @@ from modules.planner.models import PlanEntry
 from modules.planner.service import PlannedDish, plan_days
 from modules.recipes.models import Recipe
 from modules.recipes.service import summarize
+
+# Ein Tag mit dem Lebensmittel in derselben Mahlzeit zählt so viel wie zwei in einer anderen
+SAME_MEAL_WEIGHT = 2
 
 
 class UnknownUnitError(ValueError):
@@ -194,3 +197,53 @@ def planned_for_day(session: Session, day: date) -> list[PlannedForDay]:
     return [
         PlannedForDay(dish=dish, logged=dish.entry.id in logged_ids) for dish in plan_day.dishes
     ]
+
+
+def _frequency(
+    session: Session,
+    column: InstrumentedAttribute[int | None],
+    since: date,
+    until: date,
+    meal: str | None,
+) -> dict[int, int]:
+    """Gewicht je ID: Tage mit Eintrag im Zeitraum, Tage in derselben Mahlzeit doppelt.
+
+    Gezählt werden Tage, nicht Einträge: drei Eier an einem Tag zählen einmal.
+    """
+    statement = (
+        select(column, DiaryEntry.day, DiaryEntry.meal)
+        .where(column.is_not(None), DiaryEntry.day >= since, DiaryEntry.day <= until)
+        .distinct()
+    )
+    weights: dict[int, dict[date, int]] = {}
+    for item_id, day, entry_meal in session.execute(statement):
+        weight = SAME_MEAL_WEIGHT if entry_meal == meal else 1
+        days = weights.setdefault(item_id, {})
+        days[day] = max(days.get(day, 0), weight)
+    return {item_id: sum(days.values()) for item_id, days in weights.items()}
+
+
+def food_frequency(session: Session, since: date, until: date, meal: str | None) -> dict[int, int]:
+    """Wie oft Lebensmittel im Zeitraum gegessen wurden (Lebensmittel-ID → Gewicht)."""
+    return _frequency(session, DiaryEntry.food_id, since, until, meal)
+
+
+def recipe_frequency(
+    session: Session, since: date, until: date, meal: str | None
+) -> dict[int, int]:
+    """Wie oft Rezepte im Zeitraum gegessen wurden (Rezept-ID → Gewicht)."""
+    return _frequency(session, DiaryEntry.recipe_id, since, until, meal)
+
+
+def last_amount(session: Session, food_id: int) -> tuple[float, str] | None:
+    """Menge und Einheit, mit der das Lebensmittel zuletzt eingetragen wurde."""
+    statement = (
+        select(DiaryEntry.quantity, DiaryEntry.unit)
+        .where(DiaryEntry.food_id == food_id, DiaryEntry.quantity.is_not(None))
+        .order_by(DiaryEntry.day.desc(), DiaryEntry.id.desc())
+        .limit(1)
+    )
+    row = session.execute(statement).first()
+    if row is None or row.quantity is None:
+        return None
+    return row.quantity, row.unit or "g"

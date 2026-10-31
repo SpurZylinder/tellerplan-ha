@@ -109,14 +109,14 @@ def test_unit_select_offers_only_convertible_units(ingress_client: TestClient) -
         session.commit()
         onion_id = onion.id
 
-    page = ingress_client.get(f"/diary/units?food_id={onion_id}").text
+    page = ingress_client.get(f"/diary/amount?food_id={onion_id}").text
 
     assert "<select" in page
     assert 'value="Stück"' in page
     assert "EL (12 g)" in page
     assert "TL (5 g)" in page
     assert "EL (15 g)" not in page
-    assert 'value="Stück"' not in ingress_client.get("/diary/units").text
+    assert 'value="Stück"' not in ingress_client.get("/diary/amount").text
 
 
 def test_entry_on_today_can_be_changed(ingress_client: TestClient) -> None:
@@ -151,3 +151,71 @@ def test_changing_an_entry_reports_invalid_amount(ingress_client: TestClient) ->
 
     assert response.status_code == 200
     assert "größer als 0" in response.text
+
+
+def _quantity(page: str) -> str:
+    match = re.search(r'name="quantity" value="([^"]*)"', page)
+    assert match is not None
+    return match.group(1)
+
+
+def _selected_unit(page: str) -> str:
+    match = re.search(r'<option value="([^"]+)" selected>', page)
+    assert match is not None
+    return match.group(1)
+
+
+def test_last_amount_is_suggested(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
+        log_food(session, YESTERDAY, "Frühstück", egg, 2, "Stück")
+        session.commit()
+        egg_id = egg.id
+
+    page = ingress_client.get(f"/diary/amount?food_id={egg_id}").text
+
+    assert (_quantity(page), _selected_unit(page)) == ("2", "Stück")
+    assert 'name="prefilled" value="2|Stück"' in page
+
+
+def test_typed_amount_is_kept_when_food_changes(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
+        log_food(session, YESTERDAY, "Frühstück", egg, 2, "Stück")
+        session.commit()
+        egg_id = egg.id
+
+    typed = ingress_client.get(f"/diary/amount?food_id={egg_id}&quantity=150&unit=g").text
+    untouched = ingress_client.get(
+        f"/diary/amount?food_id={egg_id}&quantity=3&unit=EL&prefilled=3|EL"
+    ).text
+
+    assert (_quantity(typed), _selected_unit(typed)) == ("150", "g")
+    assert (_quantity(untouched), _selected_unit(untouched)) == ("2", "Stück")
+
+
+def test_food_search_lifts_frequently_eaten(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        make_food(session, "Hühnerei Eigelb roh")
+        egg = make_food(session, "Hühnerei roh")
+        for days_ago in (1, 2):
+            log_food(session, DAY - timedelta(days=days_ago), "Frühstück", egg, 1, "g")
+        session.commit()
+
+    page = ingress_client.get(f"/diary/foods?day={DAY}&meal=Frühstück&q=ei").text
+
+    assert page.index("Hühnerei roh") < page.index("Hühnerei Eigelb roh")
+
+
+def test_recipes_eaten_often_come_first(ingress_client: TestClient) -> None:
+    ids = _recipes(ingress_client)
+    with ingress_client.app.state.session_factory() as session:
+        recipe = session.get(Recipe, ids["Proteinriegel"])
+        assert recipe is not None
+        for days_ago in (4, 5):  # Linsen-Dal gab es gestern einmal
+            log_recipe(session, DAY - timedelta(days=days_ago), "Snacks", recipe, 1)
+        session.commit()
+
+    page = _add_page(ingress_client, "Frühstück")
+
+    assert page.index("Proteinriegel") < page.index("Linsen-Dal")

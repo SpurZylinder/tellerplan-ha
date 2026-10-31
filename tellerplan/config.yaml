@@ -1,5 +1,5 @@
 name: Tellerplan
-version: "0.4.4"
+version: "0.4.5"
 slug: tellerplan
 description: Kalorien zählen, Rezepte verwalten und die Woche planen
 url: https://github.com/SpurZylinder/tellerplan-ha
@@ -36,6 +36,7 @@ options:
   suggest_yesterday_meals:
     - Mittag
     - Snacks
+  frequency_window_days: 90
   recipe_categories:
     - Frühstück
     - Hauptgericht
@@ -96,6 +97,7 @@ schema:
   plan_default_meal: str
   suggest_yesterday_meals:
     - str
+  frequency_window_days: int(7,365)
   recipe_categories:
     - str
   meal_categories:

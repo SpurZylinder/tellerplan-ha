@@ -130,3 +130,21 @@ def test_branded_products_rank_by_word_after_brand(session: Session) -> None:
     names = [food.name for food in search_foods(session, "milch")]
 
     assert names[0] == "Berchtesgadener Land Bio Milch 1,5% 1l"
+
+
+def test_word_ending_beats_word_start(session: Session) -> None:
+    """„Hühnerei“ ist ein Ei, „Eigelb“ nicht; ein einzelnes „Ei“ hinten hebt Brei nicht hervor."""
+    for name in ("Hühnerei Eigelb roh", "Grießbrei mit Butter und Ei", "Hühnerei roh"):
+        make_food(session, name)
+
+    assert search_foods(session, "ei")[0].name == "Hühnerei roh"
+
+
+def test_frequency_lifts_matches_but_not_weak_ones(session: Session) -> None:
+    make_food(session, "Wachtelei roh")
+    other = make_food(session, "Hühnerei roh")
+    bread = make_food(session, "Weizenbrot")
+
+    names = [f.name for f in search_foods(session, "ei", frequency={other.id: 5, bread.id: 50})]
+
+    assert names == ["Hühnerei roh", "Wachtelei roh", "Weizenbrot"]
