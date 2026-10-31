@@ -7,6 +7,7 @@ Einstieg in die Projektdoku. Dieser Ordner ist der sichtbare Teil des Obsidian-V
 - [[Architektur]] – Ziele, Module, Datenmodell, Abläufe, Ausbaustufen
 - [[Entwicklung]] – lokal einrichten, starten, prüfen, migrieren, veröffentlichen
 - [[Datenpflege]] – Rezepte (Cookidoo) und Produkte (REWE, Open Food Facts) aufbereiten und importieren
+- [[Cookidoo-Sync]] – Plan für 0.5.0: Abgleich mit dem Cookidoo-Kalender
 - [[Obsidian]] – wie dieser Vault eingerichtet ist
 - [[Sichtbarkeit]] – warum Repo und Image öffentlich sind und wie es privat ginge
 
@@ -35,4 +36,4 @@ Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: e
 - [ ] Importe: Freitext, Kurzbefehl an die API (Stufe 4)
 - [x] Komfort beim Eintragen (2026-10-28): Standard-Einheiten EL/TL, kcal je Zutat, Kategorie als Auswahl, Vorfilter je Mahlzeit, Rezept von gestern als Vorschlag
 - [x] Zuordnen (2026-10-29): Vorschläge statt Neuanlage, toleranter Namensvergleich, Grundzutaten zusammenführen
-- [ ] Cookidoo-Kalender synchronisieren, REWE-ID an eigenen Lebensmitteln, Heute und Ziele je HA-Benutzer (siehe [[Architektur#Wünsche vom 2026-10-28]])
+- [ ] Cookidoo-Kalender synchronisieren (Plan: [[Cookidoo-Sync]]), REWE-ID an eigenen Lebensmitteln, Heute und Ziele je HA-Benutzer (siehe [[Architektur#Wünsche vom 2026-10-28]])

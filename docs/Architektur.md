@@ -371,7 +371,7 @@ Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 
 Aufgenommen, noch nicht umgesetzt. Vor der Umsetzung je Punkt die offenen Fragen klären.
 
-- [ ] **Cookidoo-Kalender synchronisieren:** Ist ein Cookidoo-Zugang hinterlegt, erscheint im Plan ein Knopf „Sync“. Er
+- [ ] **Cookidoo-Kalender synchronisieren** (ausgearbeitet in [[Cookidoo-Sync]], Ziel 0.5.0)**:** Ist ein Cookidoo-Zugang hinterlegt, erscheint im Plan ein Knopf „Sync“. Er
   1. lädt den Cookidoo-Kalender mit den Rezepten (Zeitraum wie der Plan),
   2. vergleicht über die Cookidoo-ID (`recipe.source = cookidoo`, `source_id` wie `r753850`) mit dem Tellerplan-Plan. Liegt ein Rezept in Cookidoo an einem anderen Wochentag, wird der Tellerplan angepasst (Cookidoo gewinnt),
   3. schreibt Rezepte mit Cookidoo-ID, die in Tellerplan an einem Tag geplant sind, an dem der Cookidoo-Kalender leer ist, in den Cookidoo-Kalender.
