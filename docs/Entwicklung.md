@@ -93,7 +93,7 @@ Lizenz CC BY 4.0: Das Max Rubner-Institut muss als Quelle genannt werden; die Ap
 
 **Workflows (Stand 2026-11-02):**
 
-- Das Image baut auf einem nativen arm64-Runner (`ubuntu-24.04-arm`, für öffentliche Repos kostenlos) statt emuliert mit QEMU. Mit der Cookidoo-Bibliothek dauerte der emulierte Bau gut 4 Minuten (vorher 2).
+- Das Image baut auf einem nativen arm64-Runner (`ubuntu-24.04-arm`, für öffentliche Repos kostenlos) statt emuliert mit QEMU. Mit der Cookidoo-Bibliothek dauerte der emulierte Bau gut 4 Minuten (vorher 2), nativ 52 Sekunden (0.4.8).
 - Kein Build-Cache: Ein Tag-Lauf kann den Cache anderer Tags nicht lesen, er griff also nie und kostete nur das Hochladen. Jedes Image entsteht frisch.
 - Alle Actions sind auf Commit-SHAs festgeschrieben, die Version steht als Kommentar dahinter. Ein Tag wie `v4` lässt sich nachträglich auf anderen Code umhängen, eine SHA nicht. Aktualisieren: `git ls-remote https://github.com/<owner>/<action> refs/tags/<version>` und SHA samt Kommentar ersetzen.
 - Rechte so knapp wie möglich: CI nur `contents: read`, Release zusätzlich `packages: write`; `checkout` ohne gespeicherte Zugangsdaten (`persist-credentials: false`).

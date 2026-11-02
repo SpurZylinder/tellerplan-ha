@@ -53,8 +53,13 @@ Damit der Abgleich unterscheiden kann, *wer* etwas geändert hat, merkt sich jed
 | Tag X | – (Notiz `cookidoo_removal`) | – | in Tellerplan gelöscht → in Cookidoo entfernen |
 | Rezept unbekannt | – | – | Platzhalter-Rezept (Titel, ID, Link) anlegen und an X einplanen |
 | – | Rezept ohne Cookidoo-ID | – | bleibt nur im Tellerplan |
+| Tag X | Tag in der Vergangenheit | X | in Tellerplan zurückgelegt (nicht gekocht) → in Cookidoo entfernen, Basis leeren |
+| Tag X | Tag nach dem Planende | X | Tellerplan hat verschoben → in Cookidoo verschieben (nach dem Zeitraum darf geschrieben werden) |
+| Tag X | Tag Y | leer | zwei verschiedene Mahlzeiten → in beide Richtungen ergänzen (nicht als Verschiebung raten, damit nichts verloren geht) |
+| – | Tag X | in der Vergangenheit | gilt als neu → in Cookidoo einplanen |
+| Notiz nach dem Planende | | | bleibt liegen (dort ist der Kalender nicht gelesen); Notizen in der Vergangenheit werden gelöscht |
 
-Steht dasselbe Rezept mehrmals im Zeitraum, werden die Einträge nach dem nächstgelegenen Tag paarweise zugeordnet. Portionen ändert der Abgleich nie.
+Steht dasselbe Rezept mehrmals im Zeitraum, werden zuerst gleiche Tage gepaart, dann Einträge, deren Basis in Cookidoo noch belegt ist; übrige abgeglichene Einträge folgen dem Cookidoo-Tag, der ihrer Basis am nächsten liegt. Portionen ändert der Abgleich nie. Der Abgleich ist stabil: Nach dem Übernehmen findet ein zweiter Lauf nichts mehr (getestet für jede Regel).
 
 ## Entscheidungen (2026-10-31)
 
@@ -111,10 +116,11 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 
 ### Schritt 4: Abgleich als reine Logik
 
-- [ ] `modules/planner/cookidoo_sync.py`: nimmt Planeinträge, Kalendereinträge und Notizen und liefert eine Liste von Änderungen (`SyncChange`: Tellerplan neu/verschieben/löschen, Cookidoo einplanen/entfernen, unbekanntes Rezept). Kein Netzwerk, keine Datenbank-Schreibzugriffe.
-- [ ] Tabellengetriebene Tests für jede Zeile der Abgleichsregeln, dazu doppelte Rezepte und Tage ohne Einträge.
-- [ ] Modulgrenzen: `planner` darf `recipes` lesen; Regel 7 bleibt unverändert.
-- [ ] Zuordnung bei doppelten Rezepten bewusst einfach halten: je Rezept die Tage beider Seiten sortiert, zuerst gleiche Tage paaren, den Rest der Reihe nach.
+- [x] `modules/planner/cookidoo_sync.py`: `plan_sync(first, last, planned, calendar, notes, known_ids)` liefert einen `SyncPlan` mit Änderungen (`AddToTellerplan`, `MoveInTellerplan`, `DeleteFromTellerplan`, `AddToCookidoo`, `MoveInCookidoo`, `RemoveFromCookidoo`; intern `MarkSynced`, `DropNote`). Kein Netzwerk, keine Datenbank; eigene Eingabetypen statt `cookidoo.CalendarRecipe`, damit das Modul nichts von der Anbindung weiß.
+- [x] Tabellengetriebene Tests für jede Zeile der Abgleichsregeln, dazu doppelte Rezepte, Vergangenheit, nach dem Planende, Notizen (`tests/test_cookidoo_sync.py`).
+- [x] Stabilität: Jeder Fall wird nachgespielt und erneut abgeglichen; der zweite Lauf findet nichts.
+- [x] Modulgrenzen: Das Modul importiert nichts aus anderen Fachmodulen; Regel 7 bleibt unverändert.
+- Hinweis für Schritt 5: Steht ein unbekanntes Rezept mehrmals im Kalender, kommen mehrere `AddToTellerplan` mit `placeholder=True` – der Platzhalter darf nur einmal angelegt werden.
 
 ### Schritt 5: Übernehmen
 
