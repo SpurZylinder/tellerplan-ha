@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import nutrient_pills, match_badge %}
+{% from "_macros.html" import nutrient_pills, match_badge, placeholder_badge %}
 
 {% block title %}Rezepte · Tellerplan{% endblock %}
 
@@ -46,6 +46,7 @@
             <a class="title" href="{{ url('recipe_detail', recipe_id=recipe.id) }}">{{ recipe.title }}</a>
             <span class="nums">
               {{ nutrient_pills(summary.per_serving, " / Portion") }}
+              {{ placeholder_badge(recipe) }}
               {{ match_badge(summary.match) }}
               {% if recipe.category %}<span class="pill d">{{ recipe.category }}</span>{% endif %}
             </span>

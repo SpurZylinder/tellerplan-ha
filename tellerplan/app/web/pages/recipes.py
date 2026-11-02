@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from db import get_session
 from modules.foods.service import get_food
+from modules.planner.service import delete_entries_of_recipe
 from modules.recipes.matching import base_names, choose_product, create_base, set_line_base
 from modules.recipes.models import Recipe, RecipeIngredient
 from modules.recipes.service import (
@@ -209,7 +210,10 @@ async def recipe_update(request: Request, session: SessionDep, recipe_id: int) -
 
 @router.post("/{recipe_id}/delete")
 def recipe_delete(request: Request, session: SessionDep, recipe_id: int) -> Response:
-    delete_recipe(session, _recipe_or_404(session, recipe_id))
+    recipe = _recipe_or_404(session, recipe_id)
+    # Planeinträge über den Plan löschen, damit Cookidoo-Notizen entstehen
+    delete_entries_of_recipe(session, recipe)
+    delete_recipe(session, recipe)
     session.commit()
     return redirect_to(request, "recipes_page")
 

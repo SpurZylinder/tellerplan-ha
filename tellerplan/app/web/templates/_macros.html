@@ -8,8 +8,17 @@
 {% endmacro %}
 
 {% macro match_badge(match) %}
-  {% if not match.complete %}
+  {% if match.empty %}
+    <span class="pill d" title="Noch keine Zutaten – Nährwerte unbekannt">keine Zutaten</span>
+  {% elif not match.complete %}
     <span class="pill d" title="Zutaten mit Lebensmittel und Gramm">{{ match.matched }}/{{ match.total }} Zutaten</span>
+  {% endif %}
+{% endmacro %}
+
+{# Rezept aus dem Cookidoo-Kalender, das Tellerplan noch nicht kannte #}
+{% macro placeholder_badge(recipe) %}
+  {% if recipe.is_placeholder %}
+    <span class="pill d" title="Aus „Meine Woche“ übernommen; Zutaten kommen mit dem nächsten Import der Sammlung">Platzhalter</span>
   {% endif %}
 {% endmacro %}
 

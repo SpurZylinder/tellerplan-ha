@@ -22,7 +22,13 @@ from modules.nutrition.service import (
     total_nutrients,
     uses_standard_unit,
 )
-from modules.recipes.models import BaseIngredient, Recipe, RecipeIngredient, RecipeReference
+from modules.recipes.models import (
+    COOKIDOO_SOURCE,
+    BaseIngredient,
+    Recipe,
+    RecipeIngredient,
+    RecipeReference,
+)
 
 
 @dataclass(frozen=True)
@@ -49,10 +55,16 @@ class MatchStatus:
 
     matched: int
     total: int
+    # Rezept ganz ohne Zutatenzeilen (z. B. Platzhalter): Nährwerte unbekannt
+    empty: bool = False
 
     @property
     def complete(self) -> bool:
-        return self.matched == self.total
+        """Alle Pflichtzutaten zugeordnet; ein Rezept ohne jede Zutat ist nie vollständig.
+
+        Nur „nach Bedarf“ (Salz, Pfeffer) ist dagegen vollständig: 0 von 0 Pflichtzutaten.
+        """
+        return not self.empty and self.matched == self.total
 
 
 class IngredientIssue(enum.StrEnum):
@@ -106,6 +118,19 @@ def update_recipe(session: Session, recipe: Recipe, data: RecipeInput) -> Recipe
 def delete_recipe(session: Session, recipe: Recipe) -> None:
     session.delete(recipe)
     session.flush()
+
+
+def create_placeholder(session: Session, cookidoo_id: str, title: str, url: str) -> Recipe:
+    """Rezept aus dem Cookidoo-Kalender, das Tellerplan noch nicht kennt: nur Titel, ID, Link.
+
+    Ohne Zutaten und mit 1 Portion bis zur Pflege; ein späterer Import der Sammlung
+    ergänzt die Zutaten (Regel 2: Titel, Link und ID, keine Nährwerte).
+    """
+    recipe = create_recipe(session, RecipeInput(title=title, servings=1, source_url=url))
+    recipe.source = COOKIDOO_SOURCE
+    recipe.source_id = cookidoo_id
+    session.flush()
+    return recipe
 
 
 def get_recipe(session: Session, recipe_id: int) -> Recipe | None:
@@ -229,7 +254,11 @@ def summarize(recipe: Recipe) -> RecipeSummary:
     return RecipeSummary(
         recipe=recipe,
         per_serving=per_serving,
-        match=MatchStatus(matched=len(resolved) + without_nutrients, total=len(required)),
+        match=MatchStatus(
+            matched=len(resolved) + without_nutrients,
+            total=len(required),
+            empty=not recipe.ingredients,
+        ),
         issues=issues,
     )
 

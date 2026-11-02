@@ -18,6 +18,7 @@ from db import Base
 from modules.foods.models import Food
 
 MANUAL_SOURCE = "manual"
+COOKIDOO_SOURCE = "cookidoo"
 
 # Produkte einer Grundzutat; ein Produkt kann zu mehreren gehören (Milch und Vollmilch)
 base_ingredient_food = Table(
@@ -82,6 +83,11 @@ class Recipe(Base):
 
     # Ein Rezept je Quelle und Quell-ID, damit ein zweiter Import nichts doppelt anlegt
     __table_args__ = (Index("uq_recipe_source_id", "source", "source_id", unique=True),)
+
+    @property
+    def is_placeholder(self) -> bool:
+        """Aus dem Cookidoo-Kalender übernommen, aber noch ohne Zutaten."""
+        return self.source == COOKIDOO_SOURCE and not self.ingredients
 
 
 class RecipeIngredient(Base):

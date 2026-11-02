@@ -6,7 +6,8 @@ nie Nährwerte. Werte der Quelle kommen nur als Vergleich (`reference`) mit.
 Ein Rezept mit derselben Quelle und Quell-ID wird nicht doppelt angelegt. Bei einem
 erneuten Import werden Titel, Portionen, Link, Notiz und Vergleichswerte aktualisiert;
 Zutaten, Kochschritte und eine schon gesetzte Kategorie bleiben, damit von Hand
-Gepflegtes nicht verloren geht.
+Gepflegtes nicht verloren geht. Nur ein Rezept ganz ohne Zutaten (Platzhalter aus dem
+Cookidoo-Kalender) bekommt beim Import seine Zutatenzeilen.
 """
 
 from dataclasses import dataclass
@@ -141,6 +142,10 @@ def import_document(session: Session, document: object) -> ImportResult:
             created += 1
         else:
             update_recipe(session, recipe, _with_instructions(recipe, _recipe_input(draft)))
+            # Platzhalter aus dem Cookidoo-Kalender bekommen jetzt ihre Zutaten;
+            # vorhandene Zutaten und Zuordnungen bleiben unangetastet
+            if not recipe.ingredients:
+                _add_lines(session, recipe, draft.get("ingredients"))
             updated += 1
         set_reference(session, recipe, _reference(draft))
         touched.append(recipe)

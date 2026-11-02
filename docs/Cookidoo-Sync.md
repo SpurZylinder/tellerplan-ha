@@ -37,7 +37,7 @@ Verschieben gibt es nicht; es ist Entfernen + Einplanen. Portionen kennt der Coo
 
 ## Abgleichsregeln
 
-Abgeglichen wird **ab heute** bis zum Ende des Plans; vergangene Tage bleiben unberührt. Schlüssel ist die Cookidoo-ID: `recipe.source = "cookidoo"` und `recipe.source_id` (z. B. `r753850`) gleich `id` im Kalender.
+Abgeglichen wird **ab heute** bis zum Ende des Plans (heute + 14 Tage, wie die Planseite: `FUTURE_DAYS`); vergangene Tage bleiben unberührt. Wird ein abgeglichener Eintrag in Tellerplan in die Vergangenheit verschoben, bleibt er dort und wird nicht mehr abgeglichen. Schlüssel ist die Cookidoo-ID: `recipe.source = "cookidoo"` und `recipe.source_id` (z. B. `r753850`) gleich `id` im Kalender.
 
 Damit der Abgleich unterscheiden kann, *wer* etwas geändert hat, merkt sich jeder Planeintrag, an welchem Tag er zuletzt in Cookidoo stand (`plan_entry.cookidoo_day`, die gemeinsame Basis). Löscht man in Tellerplan einen abgeglichenen Eintrag, bleibt eine kleine Notiz „in Cookidoo entfernen“ (`cookidoo_removal`), die der nächste Abgleich abarbeitet und löscht. Mehr wird nicht gespeichert.
 
@@ -63,13 +63,13 @@ Steht dasselbe Rezept mehrmals im Zeitraum, werden die Einträge nach dem nächs
    - *Browser:* Ein Link öffnet die Vorwerk-Anmeldung, die Rückleitung `com.vorwerk.cookidoo://code-grant?code=…` (kann der Browser nicht öffnen) wird kopiert und eingefügt. Braucht eine neuere Version der Bibliothek.
 2. **Immer einplanen**, auch wenn der Cookidoo-Tag schon Rezepte hat.
 3. **In Cookidoo entfernt → in Tellerplan löschen**; die Vorschau zeigt es vorher an.
-4. **Unbekannte Cookidoo-Rezepte als Platzhalter:** Tellerplan legt ein Rezept nur mit Titel, Cookidoo-ID und Link an (`source = cookidoo`, ohne Zutaten, Standardportionen 1 bis zur Pflege) und plant es ein. Im Plan zeigt der Eintrag den Link „In Cookidoo öffnen“, damit klar ist, welches Rezept gemeint ist. Das entspricht Regel 2 (Titel, Link, ID, keine Nährwerte). Ein späterer Import der Sammlung ergänzt die Zutaten, weil er dasselbe Rezept an Quelle und ID erkennt.
+4. **Unbekannte Cookidoo-Rezepte als Platzhalter:** Tellerplan legt ein Rezept nur mit Titel, Cookidoo-ID und Link an (`source = cookidoo`, ohne Zutaten, Standardportionen 1 bis zur Pflege) und plant es ein. Im Plan zeigt der Eintrag den Link „In Cookidoo öffnen“, damit klar ist, welches Rezept gemeint ist. Das entspricht Regel 2 (Titel, Link, ID, keine Nährwerte). Ein späterer Import der Sammlung ergänzt die Zutaten, weil er dasselbe Rezept an Quelle und ID erkennt (dafür muss der Import erweitert werden, siehe Schritt 3).
 5. **Nur auf Knopfdruck**, kein zyklischer Abgleich.
 6. **Land und Sprache als feste Option** `cookidoo_locale` (Vorgabe `de-DE`, Land wird daraus abgeleitet).
 
 ## Umsetzung in Schritten
 
-Jeder Schritt ist für sich lauffähig, mit Tests, und darf als 0.4.x erscheinen; 0.5.0 ist der Stand nach Schritt 7.
+Jeder Schritt ist für sich lauffähig, mit Tests, und darf als 0.4.x erscheinen. 0.5.0 wird erst gesetzt, wenn der Test auf dem Pi vollständig abgeschlossen ist (Vorgabe 2026-11-02).
 
 ### Schritt 1: Erkundung am Rechner
 
@@ -92,26 +92,35 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [x] Tests ersetzen die Bibliothek per `monkeypatch` durch eine Attrappe (wie bei `supervisor.py`); kein Netzwerk in CI.
 - [x] Image-Bau für arm64 über die CI und Verbinden auf dem Pi (0.4.6, 2026-10-31).
 - [x] „Verbindung prüfen“ in Einstellungen → Cookidoo: liest die nächsten 14 Tage aus „Meine Woche“ und listet sie, ohne etwas zu ändern (0.4.7). Damit auf dem Pi prüfen:
-  - [ ] Liste stimmt mit der Cookidoo-App überein
-  - [ ] nach ein bis zwei Tagen ohne neue Anmeldung noch lesbar (Token-Erneuerung im Add-on)
-  - [ ] nach Neustart des Add-ons weiter verbunden
+  - [x] Liste stimmt mit der Cookidoo-App überein
+  - [x] nach ein bis zwei Tagen ohne neue Anmeldung noch lesbar (Token-Erneuerung im Add-on, geprüft 2026-11-02)
+  - [x] nach Neustart des Add-ons weiter verbunden
 
-### Schritt 3: Datenmodell
+### Schritt 3: Datenmodell und Platzhalter
 
-- [ ] Migration 0015: `plan_entry.cookidoo_day` (Datum, leer = nie abgeglichen) und Tabelle `cookidoo_removal` (`day`, `cookidoo_id`).
-- [ ] `recipes`: Platzhalter-Rezept anlegen (Titel, Cookidoo-ID, Link), erkennbar daran, dass es keine Zutaten hat; der Sammlungsimport ergänzt es später.
-- [ ] `planner.delete_entry`: bei gesetztem `cookidoo_day` eine Notiz `cookidoo_removal` anlegen; `move_entry` lässt `cookidoo_day` stehen (daran erkennt der Abgleich die Verschiebung).
-- [ ] Tests für beides.
+- [x] Migration 0015: `plan_entry.cookidoo_day` (Datum, leer = nie abgeglichen) und Tabelle `cookidoo_removal` (`day`, `cookidoo_id`).
+- [x] `planner.delete_entry`: bei gesetztem `cookidoo_day` eine Notiz `cookidoo_removal` anlegen; `move_entry` lässt `cookidoo_day` stehen (daran erkennt der Abgleich die Verschiebung).
+- [x] Rezept löschen: Planeinträge vorher über `planner.delete_entry` entfernen statt per `ON DELETE CASCADE`, damit auch dann die Notizen entstehen (sonst käme das Rezept beim nächsten Abgleich als Platzhalter zurück).
+- [x] `recipes`: Platzhalter-Rezept anlegen (Titel, Cookidoo-ID, Link, 1 Portion), erkennbar daran, dass es keine Zutaten hat.
+- [x] **Rezept ohne Zutaten gilt als unvollständig** (bisher „0 von 0“ = vollständig). Sonst stünde ein Platzhalter mit 0 kcal im Plan, und ein Tagebucheintrag zählte 0 kcal ohne den Hinweis „eher zu niedrig“.
+- [x] **Import ergänzt Zutaten eines vorhandenen Rezepts ohne Zutaten.** Bisher fügt `import_document` Zutatenzeilen nur bei neuen Rezepten ein; ein Platzhalter bliebe sonst leer.
+- [x] Rezeptliste und Rezeptseite: Platzhalter mit Kennzeichen „Platzhalter“ und Link „In Cookidoo öffnen“ (vorhandener Knopf zur Quelle); im Ranking hinten ohne Score (galt schon für Rezepte ohne zugeordnete Zutaten).
+- [x] Tests für alles (`tests/test_cookidoo_model.py`).
+- [x] Rezept nur mit „nach Bedarf“-Zeilen (Salz, Pfeffer) bleibt vollständig; unvollständig ist nur ein Rezept ganz ohne Zeilen (`MatchStatus.empty`).
+- [ ] Test auf dem Pi: Migration 0015 läuft (0.4.8), Rezepte und Plan unverändert.
 
 ### Schritt 4: Abgleich als reine Logik
 
 - [ ] `modules/planner/cookidoo_sync.py`: nimmt Planeinträge, Kalendereinträge und Notizen und liefert eine Liste von Änderungen (`SyncChange`: Tellerplan neu/verschieben/löschen, Cookidoo einplanen/entfernen, unbekanntes Rezept). Kein Netzwerk, keine Datenbank-Schreibzugriffe.
 - [ ] Tabellengetriebene Tests für jede Zeile der Abgleichsregeln, dazu doppelte Rezepte und Tage ohne Einträge.
 - [ ] Modulgrenzen: `planner` darf `recipes` lesen; Regel 7 bleibt unverändert.
+- [ ] Zuordnung bei doppelten Rezepten bewusst einfach halten: je Rezept die Tage beider Seiten sortiert, zuerst gleiche Tage paaren, den Rest der Reihe nach.
 
 ### Schritt 5: Übernehmen
 
 - [ ] Änderungen ausführen: zuerst Cookidoo (kann scheitern), dann Tellerplan in einer Transaktion, danach `cookidoo_day` setzen und erledigte Notizen löschen.
+- [ ] „Übernehmen“ liest den Kalender erneut und rechnet neu, statt die Vorschau blind auszuführen; weicht das Ergebnis ab (in der Zwischenzeit in Cookidoo geändert), zeigt die Seite die neue Vorschau statt zu schreiben.
+- [ ] Ort: `modules/planner/cookidoo_sync.py` (Ausführen) nutzt `cookidoo.py` wie `shopping` den `supervisor.py`.
 - [ ] Teilweise Fehler: was in Cookidoo geklappt hat, wird übernommen; der Rest erscheint als Meldung und beim nächsten Abgleich erneut.
 - [ ] Tests mit der Attrappe, auch für Abbruch mitten im Abgleich.
 
@@ -129,6 +138,24 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [ ] `DOCS.md`: Optionen und Hinweis auf die inoffizielle Schnittstelle.
 - [ ] [[Start]]: Punkt abhaken.
 - [ ] `version` auf 0.5.0, `git push --atomic origin main v0.5.0`, Action abwarten, dann in Home Assistant aktualisieren.
+
+## Neubewertung (2026-11-02)
+
+Stand: Schritte 1 und 2 fertig, Anmeldung und Lesen laufen stabil auf dem Pi, auch nach Neustart und über mehrere Tage. Beim Durchsehen des Codes für Schritt 3 fielen zwei Lücken auf, die jetzt in Schritt 3 stehen:
+
+1. Ein Rezept ohne Zutaten gilt bisher als vollständig – Platzhalter würden als „0 kcal, vollständig“ gerechnet.
+2. Der Sammlungsimport ergänzt bei vorhandenen Rezepten keine Zutaten – Platzhalter blieben dauerhaft leer.
+
+Dazu ergänzt: Löschen eines Rezepts muss Notizen hinterlassen; „Übernehmen“ rechnet mit frischen Daten neu; Zeitraum = Planseite (heute + 14 Tage).
+
+**Zuschnitt der Releases:**
+
+| Version | Inhalt | Auf dem Pi sichtbar |
+| --- | --- | --- |
+| 0.4.8 | Schritt 3 (Migration 0015, Platzhalter, Vollständigkeit, Import) | Platzhalter-Kennzeichen; Migration läuft, Datensicherung vorher |
+| – | Schritt 4 (reine Logik), nur Commit | nichts |
+| 0.4.x | Schritte 5–6, Sicherheitsprüfung | Knopf „Mit Cookidoo abgleichen“ mit Vorschau – Test auf dem Pi |
+| 0.5.0 | Schritt 7, **erst wenn der Test auf dem Pi vollständig abgeschlossen ist** | – |
 
 ## Sicherheitsprüfung der Bibliothek
 

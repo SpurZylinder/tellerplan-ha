@@ -12,8 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from modules.nutrition.service import Nutrients
-from modules.planner.models import PlanEntry
-from modules.recipes.models import Recipe
+from modules.planner.models import CookidooRemoval, PlanEntry
+from modules.recipes.models import COOKIDOO_SOURCE, Recipe
 from modules.recipes.service import load_recipe_details, summarize
 
 
@@ -48,7 +48,10 @@ def get_entry(session: Session, entry_id: int) -> PlanEntry | None:
 
 
 def move_entry(session: Session, entry: PlanEntry, day: date) -> PlanEntry:
-    """Verschiebt ein Rezept auf einen anderen Tag, z. B. wenn es nicht gekocht wurde."""
+    """Verschiebt ein Rezept auf einen anderen Tag, z. B. wenn es nicht gekocht wurde.
+
+    `cookidoo_day` bleibt stehen: Daran erkennt der Abgleich, dass Tellerplan verschoben hat.
+    """
     entry.day = day
     session.flush()
     return entry
@@ -62,8 +65,27 @@ def mark_shopping_sent(session: Session, entries: Iterable[PlanEntry], at: datet
 
 
 def delete_entry(session: Session, entry: PlanEntry) -> None:
+    """Löscht einen Planeintrag; abgeglichene hinterlassen eine Notiz für Cookidoo."""
+    recipe = entry.recipe
+    if entry.cookidoo_day is not None and recipe.source == COOKIDOO_SOURCE and recipe.source_id:
+        session.add(CookidooRemoval(day=entry.cookidoo_day, cookidoo_id=recipe.source_id))
     session.delete(entry)
     session.flush()
+
+
+def delete_entries_of_recipe(session: Session, recipe: Recipe) -> None:
+    """Alle Planeinträge eines Rezepts löschen, bevor das Rezept selbst gelöscht wird.
+
+    Läuft über `delete_entry` statt über `ON DELETE CASCADE`, damit abgeglichene
+    Einträge ihre Notiz hinterlassen und nicht beim nächsten Abgleich zurückkommen.
+    """
+    for entry in session.scalars(select(PlanEntry).where(PlanEntry.recipe_id == recipe.id)):
+        delete_entry(session, entry)
+
+
+def removals(session: Session) -> list[CookidooRemoval]:
+    """Offene Notizen „in Cookidoo entfernen“, älteste zuerst."""
+    return list(session.scalars(select(CookidooRemoval).order_by(CookidooRemoval.id)))
 
 
 def entries_between(session: Session, first: date, last: date) -> list[PlanEntry]:

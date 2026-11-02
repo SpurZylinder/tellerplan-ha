@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import nutrient_pills, match_badge, error_message, source_button %}
+{% from "_macros.html" import nutrient_pills, match_badge, placeholder_badge, error_message, source_button %}
 
 {% set recipe = summary.recipe %}
 
@@ -23,9 +23,12 @@
     <span class="nums">
       <span class="pill d">{{ summary.per_serving.fat_g|num }} g Fett</span>
       <span class="pill d">{{ summary.per_serving.carbs_g|num }} g KH</span>
+      {{ placeholder_badge(recipe) }}
       {{ match_badge(summary.match) }}
     </span>
-    {% if not summary.match.complete %}
+    {% if recipe.is_placeholder %}
+      <p class="note">Platzhalter aus „Meine Woche“ in Cookidoo: Tellerplan kennt dieses Rezept noch nicht und rechnet es ohne Nährwerte. Die Zutaten kommen mit dem nächsten Import der Cookidoo-Sammlung (Einstellungen → Importieren), oder von Hand unten.</p>
+    {% elif not summary.match.complete %}
       <p class="note">Unvollständig: Nicht alle Zutaten haben ein Lebensmittel mit Grammangabe. <a href="{{ url('matching_page') }}">Zuordnen</a></p>
     {% endif %}
     {% if recipe.reference and recipe.reference.kcal is not none %}
