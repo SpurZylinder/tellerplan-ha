@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import placeholder_badge %}
 
 {% block title %}Plan · Tellerplan{% endblock %}
 
@@ -20,9 +21,22 @@
       <form method="post" action="{{ url('shopping_send') }}">
         <button class="chip" type="submit" title="Zutaten der nächsten zwei Wochen an Bring senden">🛒 Einkaufsliste</button>
       </form>
+      {% if cookidoo_connected %}
+        <a class="chip" href="{{ url('cookidoo_preview') }}" title="Plan mit „Meine Woche“ in Cookidoo abgleichen">⇄ Cookidoo</a>
+      {% endif %}
       <a class="btn small" href="{{ url('plan_add') }}">+ Einplanen</a>
     </div>
   </header>
+
+  {% if synced is not none or sync_error %}
+    <section class="card" role="status">
+      {% if sync_error %}
+        <p class="error">{{ sync_error }}{% if failed %} – {{ failed }} Änderung{{ "en" if failed != 1 }} in Cookidoo nicht übernommen; der nächste Abgleich versucht es erneut.{% endif %}</p>
+      {% endif %}
+      {% if synced %}<p class="success">Mit Cookidoo abgeglichen: {{ synced }} Änderung{{ "en" if synced != 1 }}.</p>
+      {% elif not sync_error %}<p class="success">Mit Cookidoo abgeglichen.</p>{% endif %}
+    </section>
+  {% endif %}
 
   <div class="plan plan-{{ layout }}" data-plan>
     {% for plan_day in days %}
@@ -43,7 +57,11 @@
               <details class="plan-recipe">
                 <summary>{{ entry.recipe.title }}<span class="plan-servings">{{ entry.servings|amount }} Portion{{ "en" if entry.servings != 1 }}</span></summary>
                 <div class="plan-actions">
+                  {{ placeholder_badge(entry.recipe) }}
                   <a href="{{ url('recipe_detail', recipe_id=entry.recipe.id) }}">Rezept öffnen</a>
+                  {% if entry.recipe.source == "cookidoo" and entry.recipe.source_url %}
+                    <a href="{{ entry.recipe.source_url|external_url }}" target="_blank" rel="noopener">In Cookidoo öffnen ↗</a>
+                  {% endif %}
                   {% if plan_day.day < today %}
                     <form method="post" action="{{ url('plan_move', entry_id=entry.id) }}">
                       <input type="hidden" name="day" value="{{ today }}">

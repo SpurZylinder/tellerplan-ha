@@ -104,6 +104,8 @@ class RemoveFromCookidoo:
     cookidoo_id: str
     # Eintrag, dessen Basis danach leer wird (in die Vergangenheit verschoben); sonst None
     entry_id: int | None = None
+    # Notiz, die erst nach erfolgreichem Entfernen gelöscht wird; sonst None
+    note_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -249,11 +251,13 @@ def _sync_recipe(
         else:
             remaining.append(item)
 
-    # 3. Notizen: in Tellerplan gelöscht → in Cookidoo entfernen, falls noch da
+    # 3. Notizen: in Tellerplan gelöscht → in Cookidoo entfernen, falls noch da; die
+    #    Notiz verschwindet erst, wenn das Entfernen geklappt hat
     for note in notes:
         if _take(open_calendar, note.day) is not None:
-            changes.append(RemoveFromCookidoo(note.day, cookidoo_id))
-        changes.append(DropNote(note.note_id))
+            changes.append(RemoveFromCookidoo(note.day, cookidoo_id, note_id=note.note_id))
+        else:
+            changes.append(DropNote(note.note_id))
 
     # 4. Abgeglichene Einträge ohne Gegenstück an Basis oder Tag: Cookidoo hat verschoben
     #    (Cookidoo gewinnt) oder entfernt (in Tellerplan löschen)

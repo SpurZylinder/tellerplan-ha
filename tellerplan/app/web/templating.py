@@ -7,6 +7,7 @@ Host. Absolute URLs (`url_for`) würden hinter dem Home-Assistant-Proxy brechen.
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
@@ -43,10 +44,20 @@ def format_amount(value: float | None) -> str:
     return f"{round(value, 2):g}".replace(".", ",")
 
 
+def external_url(value: str | None) -> str:
+    """Nur http(s)-Links durchlassen; `javascript:` & Co. werden zu „#“.
+
+    Jinja maskiert Sonderzeichen, schützt aber nicht vor gefährlichen Schemata in `href`.
+    Externe Links (Rezeptquellen, Cookidoo) laufen darum immer durch diesen Filter.
+    """
+    scheme = urlsplit(value or "").scheme.lower()
+    return value if value and scheme in ("http", "https") else "#"
+
+
 WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 
 
-def _format_day(value: date) -> str:
+def format_day(value: date) -> str:
     """Kurzes Datum mit Wochentag, z. B. „Mo 26.10.“."""
     return f"{WEEKDAYS[value.weekday()]} {value:%d.%m.}"
 
@@ -58,8 +69,9 @@ def _add_days(value: date, days: int) -> date:
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.globals["url"] = _url
 templates.env.filters["num"] = _format_number
-templates.env.filters["day"] = _format_day
+templates.env.filters["day"] = format_day
 templates.env.filters["amount"] = format_amount
+templates.env.filters["external_url"] = external_url
 templates.env.filters["add_days"] = _add_days
 
 

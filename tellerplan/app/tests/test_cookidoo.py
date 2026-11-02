@@ -23,10 +23,13 @@ class FakeCookidoo:
     """Verhält sich wie `cookidoo_api.Cookidoo`, so weit Tellerplan es nutzt."""
 
     calendar: dict[date, list[tuple[str, bool]]]
+    # Abweichender Name und Link je ID, z. B. für manipulierte Antworten
+    details: dict[str, tuple[str, str]]
     fail_requests = False
 
     def __init__(self, session: object, cfg: Any, on_auth_data_update: Any = None) -> None:
         self.cfg = cfg
+        self.localization = cfg.localization
         self.on_auth_data_update = on_auth_data_update
         self.auth_data: CookidooAuthData | None = None
 
@@ -54,7 +57,10 @@ class FakeCookidoo:
                 id=planned.isoformat(),
                 recipes=[
                     SimpleNamespace(
-                        id=rid, name=f"Rezept {rid}", url=f"https://c/{rid}", is_custom=c
+                        id=rid,
+                        name=self.details.get(rid, (f"Rezept {rid}", ""))[0],
+                        url=self.details.get(rid, ("", f"https://c/{rid}"))[1],
+                        is_custom=c,
                     )
                     for rid, c in recipes
                 ],
@@ -79,6 +85,7 @@ async def _localization(country: str, language: str) -> list[SimpleNamespace]:
 @pytest.fixture
 def fake(monkeypatch: pytest.MonkeyPatch) -> type[FakeCookidoo]:
     FakeCookidoo.calendar = {}
+    FakeCookidoo.details = {}
     FakeCookidoo.fail_requests = False
     monkeypatch.setattr(cookidoo_module, "Cookidoo", FakeCookidoo)
     monkeypatch.setattr(cookidoo_module, "get_localization_options", _localization)
@@ -258,3 +265,58 @@ def test_check_shows_errors(ingress_client: TestClient, fake: type[FakeCookidoo]
     page = ingress_client.post("/settings/cookidoo/check").text
 
     assert "nicht erreichbar" in page
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(document.cookie)",
+        "http://c/r5",  # ohne https
+        "https://boese.example/r5",  # fremde Seite
+        "",
+    ],
+)
+def test_untrusted_links_are_rebuilt_from_the_id(
+    account: CookidooAccount, fake: type[FakeCookidoo], url: str
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+    fake.calendar = {MONDAY: [("r5", False)]}
+    fake.details = {"r5": ("Linsen-Dal", url)}
+
+    (recipe,) = account.read_calendar(MONDAY, MONDAY)
+
+    assert recipe.url == "https://c/recipes/recipe/de-DE/r5"
+
+
+def test_cookidoo_link_of_the_country_is_kept(
+    account: CookidooAccount, fake: type[FakeCookidoo]
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+    fake.calendar = {MONDAY: [("r5", False)]}
+    fake.details = {"r5": ("Linsen-Dal", "https://c/recipes/recipe/de-DE/r5?x=1")}
+
+    (recipe,) = account.read_calendar(MONDAY, MONDAY)
+
+    assert recipe.url == "https://c/recipes/recipe/de-DE/r5?x=1"
+
+
+@pytest.mark.parametrize("recipe_id", ["../etc", "r12a", "<script>", "R1", ""])
+def test_unexpected_ids_are_skipped(
+    account: CookidooAccount, fake: type[FakeCookidoo], recipe_id: str
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+    fake.calendar = {MONDAY: [(recipe_id, False), ("r6", False)]}
+
+    assert [r.recipe_id for r in account.read_calendar(MONDAY, MONDAY)] == ["r6"]
+
+
+def test_names_are_trimmed_and_shortened(
+    account: CookidooAccount, fake: type[FakeCookidoo]
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+    fake.calendar = {MONDAY: [("r5", False), ("r6", False)]}
+    fake.details = {"r5": ("  " + "x" * 400, ""), "r6": ("   ", "")}
+
+    names = [r.name for r in account.read_calendar(MONDAY, MONDAY)]
+
+    assert names == ["x" * 300, "r6"]

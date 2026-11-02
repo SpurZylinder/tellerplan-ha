@@ -1,7 +1,10 @@
 """Kleine Helfer, um Testdaten anzulegen."""
 
+from datetime import date, timedelta
+
 from sqlalchemy.orm import Session
 
+from cookidoo import CalendarRecipe, CookidooError
 from modules.foods.models import Food, FoodSource
 from modules.foods.service import FoodInput, create_food, set_unit
 from modules.recipes.models import Recipe
@@ -36,3 +39,39 @@ def make_recipe(
         food_id = food.id if food else None
         add_ingredient(session, recipe, IngredientInput(food_id, quantity, unit))
     return recipe
+
+
+# Bezugstag der Kalender-Attrappe (ein Montag)
+FAKE_TODAY = date(2026, 11, 2)
+
+
+class FakeCalendar:
+    """„Meine Woche“ ohne Netzwerk: Einträge als (Tage ab `FAKE_TODAY`, Cookidoo-ID); `fail`
+    lässt Aufrufe an bestimmten Tagen scheitern."""
+
+    def __init__(self, *entries: tuple[int, str]) -> None:
+        self.entries = [(FAKE_TODAY + timedelta(days=offset), rid) for offset, rid in entries]
+        self.fail: set[tuple[str, date]] = set()
+        self.calls: list[tuple[str, date, str]] = []
+
+    def read_calendar(self, first: date, last: date) -> list[CalendarRecipe]:
+        return [
+            CalendarRecipe(day, rid, f"Rezept {rid}", f"https://cookidoo.de/{rid}")
+            for day, rid in sorted(self.entries)
+            if first <= day <= last
+        ]
+
+    def plan(self, day: date, recipe_ids: list[str]) -> None:
+        self._maybe_fail("plan", day)
+        for rid in recipe_ids:
+            self.calls.append(("plan", day, rid))
+            self.entries.append((day, rid))
+
+    def unplan(self, day: date, recipe_id: str) -> None:
+        self._maybe_fail("unplan", day)
+        self.calls.append(("unplan", day, recipe_id))
+        self.entries.remove((day, recipe_id))
+
+    def _maybe_fail(self, action: str, day: date) -> None:
+        if (action, day) in self.fail:
+            raise CookidooError("Cookidoo ist gerade nicht erreichbar.")

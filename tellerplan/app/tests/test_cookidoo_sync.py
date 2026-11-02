@@ -85,7 +85,7 @@ CASES: list[
         [],
         [cal(2)],
         [note(7, 2)],
-        [RemoveFromCookidoo(d(2), RID), DropNote(7)],
+        [RemoveFromCookidoo(d(2), RID, note_id=7)],
     ),
     ("gelöscht, in Cookidoo auch schon weg", [], [], [note(7, 2)], [DropNote(7)]),
     ("Rezept ohne Cookidoo-ID", [planned(1, 2, rid=None)], [], [], []),
@@ -235,10 +235,11 @@ def _apply(
                 remove_day(from_day, rid)
                 days.append(CalendarEntry(to_day, rid, "", ""))
                 set_item(entry_id, cookidoo_day=to_day)
-            case RemoveFromCookidoo(day=day, cookidoo_id=rid, entry_id=entry_id):
+            case RemoveFromCookidoo(day=day, cookidoo_id=rid, entry_id=entry_id, note_id=note_id):
                 remove_day(day, rid)
                 if entry_id is not None:
                     set_item(entry_id, cookidoo_day=None)
+                open_notes = [n for n in open_notes if n.note_id != note_id]
             case MarkSynced(entry_id=entry_id, day=day):
                 set_item(entry_id, cookidoo_day=day)
             case DropNote(note_id=note_id):

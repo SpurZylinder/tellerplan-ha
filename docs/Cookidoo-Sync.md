@@ -124,19 +124,38 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 
 ### Schritt 5: Übernehmen
 
-- [ ] Änderungen ausführen: zuerst Cookidoo (kann scheitern), dann Tellerplan in einer Transaktion, danach `cookidoo_day` setzen und erledigte Notizen löschen.
-- [ ] „Übernehmen“ liest den Kalender erneut und rechnet neu, statt die Vorschau blind auszuführen; weicht das Ergebnis ab (in der Zwischenzeit in Cookidoo geändert), zeigt die Seite die neue Vorschau statt zu schreiben.
-- [ ] Ort: `modules/planner/cookidoo_sync.py` (Ausführen) nutzt `cookidoo.py` wie `shopping` den `supervisor.py`.
-- [ ] Teilweise Fehler: was in Cookidoo geklappt hat, wird übernommen; der Rest erscheint als Meldung und beim nächsten Abgleich erneut.
-- [ ] Tests mit der Attrappe, auch für Abbruch mitten im Abgleich.
+- [x] `modules/planner/cookidoo_apply.py`: `preview` (liest, schreibt nichts) und `apply` (liest neu, schreibt nur, wenn die Vorschau noch stimmt – Kennung `fingerprint`). Cookidoo über die Schnittstelle `CookidooCalendar` (erfüllt von `CookidooAccount`).
+- [x] Erst alle Schreibzugriffe auf Cookidoo, dann Tellerplan; festgeschrieben wird in einer Transaktion vom Aufrufer.
+- [x] Nach dem ersten Fehler von Cookidoo wird dort nichts mehr geschrieben; Änderungen in Tellerplan werden trotzdem übernommen. Der Rest kommt beim nächsten Abgleich.
+- [x] Verschieben in Cookidoo: erst am neuen Tag einplanen, dann am alten entfernen; scheitert das Entfernen, bleibt eine Notiz. Notizen verschwinden erst nach erfolgreichem Entfernen (`RemoveFromCookidoo.note_id`).
+- [x] Unbekanntes Rezept mehrmals im Kalender → ein Platzhalter. In Cookidoo entfernt → in Tellerplan löschen ohne neue Notiz.
+- [x] Tests mit einer Kalender-Attrappe (`tests/test_cookidoo_apply.py`), auch für Fehler mitten im Abgleich.
 
 ### Schritt 6: Oberfläche
 
-- [ ] Im Plan oben „Mit Cookidoo abgleichen“ (nur mit Zugangsdaten).
-- [ ] Vorschau-Seite: Änderungen gruppiert nach „In Tellerplan“, „In Cookidoo“ und „Neue Platzhalter“; Knöpfe „Übernehmen“ und „Abbrechen“. Nichts zu tun → „Alles abgeglichen“.
-- [ ] Planeintrag mit Cookidoo-Rezept zeigt „In Cookidoo öffnen“, Platzhalter zusätzlich ein Kennzeichen.
-- [ ] Ergebnis als Meldung im Plan; Fehler der Anmeldung mit Hinweis auf die Optionen.
-- [ ] Am iPhone prüfen.
+- [x] Im Plan oben „⇄ Cookidoo“, nur wenn verbunden.
+- [x] Vorschau `/plan/cookidoo`: Änderungen gruppiert nach „In Tellerplan“, „Neue Platzhalter“, „In Cookidoo“; „Übernehmen“ und „Abbrechen“. Nichts zu tun → „Alles abgeglichen“. Hat sich Cookidoo seit der Vorschau geändert, kommt die neue Vorschau mit Hinweis.
+- [x] Planeintrag mit Cookidoo-Rezept zeigt „In Cookidoo öffnen ↗“, Platzhalter zusätzlich das Kennzeichen.
+- [x] Ergebnis als Meldung im Plan; Fehler mit Verweis auf Einstellungen → Cookidoo.
+- [x] Tests (`tests/test_cookidoo_pages.py`).
+- [ ] Test auf dem Pi (0.4.9), siehe unten.
+
+### Test auf dem Pi (0.4.9)
+
+Am besten mit einem Rezept an einem Tag in der nächsten Woche, das sonst nirgends geplant ist.
+
+1. [ ] Plan → „⇄ Cookidoo“: Die Vorschau zeigt, was in „Meine Woche“ steht und Tellerplan noch nicht hat (bekannte Rezepte unter „In Tellerplan“, unbekannte unter „Neue Platzhalter“), und umgekehrt unter „In Cookidoo“. Stimmt das mit der Cookidoo-App?
+2. [ ] „Übernehmen“: Meldung im Plan, Einträge stehen an den richtigen Tagen; in der Cookidoo-App stehen die Tellerplan-Rezepte.
+3. [ ] Sofort erneut „⇄ Cookidoo“ → „Alles abgeglichen“.
+4. [ ] In der Cookidoo-App ein Rezept auf einen anderen Tag verschieben → Abgleich verschiebt es in Tellerplan.
+5. [ ] In Tellerplan ein abgeglichenes Rezept verschieben → Abgleich verschiebt es in Cookidoo (am alten Tag weg, am neuen da).
+6. [ ] In Tellerplan ein abgeglichenes Rezept entfernen → Abgleich entfernt es in Cookidoo.
+7. [ ] In der Cookidoo-App ein Rezept entfernen → Abgleich entfernt es in Tellerplan.
+8. [ ] Platzhalter: Kennzeichen im Plan und in der Rezeptliste, „In Cookidoo öffnen“ führt zum richtigen Rezept; Tagebuch zeigt bei einem gegessenen Platzhalter den Hinweis „eher zu niedrig“.
+9. [ ] Vorschau öffnen, in der Cookidoo-App etwas ändern, dann „Übernehmen“ → Hinweis und neue Vorschau, nichts geschrieben.
+10. [ ] Am iPhone: Knopf, Vorschau und Meldungen gut bedienbar.
+
+Erst wenn alle Punkte erledigt sind: Schritt 7 und Version 0.5.0.
 
 ### Schritt 7: Doku und Release 0.5.0
 
@@ -167,10 +186,14 @@ Dazu ergänzt: Löschen eines Rezepts muss Notizen hinterlassen; „Übernehmen�
 
 `cookidoo-api` ist reiner Python-Quelltext (Version 0.19.0, rund 6.200 Zeilen, davon gut 3.000 in `cookidoo.py`), installiert unter `tellerplan/app/.venv/Lib/site-packages/cookidoo_api/`. Vor Release 0.5.0 und bei jedem Versionswechsel durchgehen, Ergebnis hier festhalten:
 
+Die Bibliothek und ihre Abhängigkeiten laufen im Prozess des Add-ons und hätten damit Zugriff auf `/data` (Datenbank, Cookidoo-Tokens) und den `SUPERVISOR_TOKEN` (Aktionen in Home Assistant). Darum diese Prüfung, zu erledigen vor 0.5.0, parallel zum Test auf dem Pi.
+
 - [ ] **Wohin Daten gehen:** nur Vorwerk-Adressen (`*.vorwerk-digital.com`, `cookidoo.<land>`)? Baut `remote_monitoring.py` (Firebase) schon beim Import Verbindungen auf?
 - [ ] **Zugangsdaten:** Passwort und Tokens nie in Logs, Fehlermeldungen oder Dateien der Bibliothek (Tellerplan schreibt die Tokens selbst)?
 - [ ] **Anmeldung:** `state` und PKCE geprüft, Zertifikatsprüfung aktiv (kein `ssl=False`), Bedeutung von `CookieJar(unsafe=True)`, nur Weiterleitungen zu Vorwerk-Adressen (`_assert_ciam_origin`)?
 - [ ] **Antworten von Cookidoo:** nur gelesen, nie ausgeführt, nachgeladen oder als Dateipfad benutzt? Folgen der Endpunkt-Erkennung (`well_known.py`) nur Vorwerk-Adressen?
+  - [x] In Tellerplan (2026-11-02, 0.4.9): Antworten gelten als nicht vertrauenswürdig. `cookidoo.py` übernimmt nur IDs der Form `r123`, Links nur per https auf die Cookidoo-Seite des Landes (sonst aus der ID gebaut) und kürzt Namen. Alle externen Links in den Vorlagen laufen zusätzlich durch den Filter `external_url` (nur http/https). Anlass: Ein `javascript:`-Link aus einer Antwort wäre sonst als `href` im Plan gelandet; über Ingress läuft Tellerplan unter der Adresse von Home Assistant.
+  - [ ] In der Bibliothek selbst: offen.
 - [ ] **Import:** kein Code mit Nebenwirkungen beim `import`, keine Hintergrund-Aufgaben, nichts wird nachinstalliert.
 - [ ] **Abhängigkeiten:** `pip-audit` gegen die tatsächlich installierten Versionen (aiohttp, cryptography, protobuf, firebase-messaging …).
 - [ ] **Festschreiben:** alle Pakete des Images mit Version und Prüfsumme (`pip install --require-hashes`), damit `~=`-Angaben der Bibliothek nicht still neuere Versionen holen. Entscheiden, ob sich der Aufwand lohnt.

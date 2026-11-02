@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from modules.foods.models import FoodSource
 from modules.foods.service import FoodInput, create_food
 from modules.recipes.models import Recipe
+from web.templating import external_url
 
 
 def _last_id(url: str) -> str:
@@ -482,3 +483,22 @@ def test_older_category_stays_selectable(ingress_client: TestClient) -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "https://cookidoo.de/recipes/recipe/de-DE/r1",
+            "https://cookidoo.de/recipes/recipe/de-DE/r1",
+        ),
+        ("http://example.org", "http://example.org"),
+        ("javascript:alert(1)", "#"),
+        (" JavaScript:alert(1)", "#"),
+        ("data:text/html,x", "#"),
+        ("//fremd.example", "#"),
+        (None, "#"),
+    ],
+)
+def test_external_links_allow_only_http(url: str | None, expected: str) -> None:
+    assert external_url(url) == expected

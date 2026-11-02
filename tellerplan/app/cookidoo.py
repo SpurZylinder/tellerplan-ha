@@ -9,6 +9,11 @@ gespeichert. Gespeichert werden nur die Tokens und der Anzeigename, in einer Dat
 der Datenbank. Die Bibliothek erneuert das Access-Token selbst; jede Erneuerung wird sofort
 geschrieben. Tokens erscheinen nie im Log.
 
+Antworten von Cookidoo gelten als nicht vertrauenswürdig: Rezept-IDs müssen die Form
+`r123` haben, Links werden nur übernommen, wenn sie per https auf die Cookidoo-Seite des
+Landes zeigen (sonst aus der ID gebaut), Namen werden gekürzt. Sie landen als Platzhalter
+in der Datenbank und als Link in der Oberfläche.
+
 Die Bibliothek arbeitet asynchron; die Funktionen hier sind synchron (FastAPI führt
 synchrone Routen in einem eigenen Thread aus, dort läuft `asyncio.run`).
 """
@@ -16,11 +21,13 @@ synchrone Routen in einem eigenen Thread aus, dort läuft `asyncio.run`).
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, CookieJar
 from cookidoo_api import (
@@ -36,6 +43,10 @@ TIMEOUT_SECONDS = 30
 DAYS_PER_WEEK = 7
 # Nur der Besitzer darf die Tokens lesen
 TOKEN_FILE_MODE = 0o600
+# Katalog-Rezepte in Cookidoo, z. B. „r821223“
+RECIPE_ID_PATTERN = re.compile(r"^r\d{1,12}$")
+# Wie `recipe.title`; längere Namen werden gekürzt
+MAX_NAME_LENGTH = 300
 
 logger = logging.getLogger(__name__)
 
@@ -96,16 +107,19 @@ class CookidooAccount:
         """
 
         async def read(cookidoo: Cookidoo) -> list[CalendarRecipe]:
+            host = urlsplit(cookidoo.localization.url).netloc
             recipes = []
             for monday in week_starts(first, last):
                 for day in await cookidoo.get_recipes_in_calendar_week(monday):
                     day_date = date.fromisoformat(day.id)
-                    if first <= day_date <= last:
-                        recipes += [
-                            CalendarRecipe(day_date, recipe.id, recipe.name, recipe.url)
-                            for recipe in day.recipes
-                            if not recipe.is_custom
-                        ]
+                    if not first <= day_date <= last:
+                        continue
+                    recipes += [
+                        checked
+                        for recipe in day.recipes
+                        if not recipe.is_custom
+                        and (checked := self._checked(day_date, recipe, host)) is not None
+                    ]
             return recipes
 
         return self._run(read)
@@ -125,6 +139,24 @@ class CookidooAccount:
             await cookidoo.remove_recipe_from_calendar(day, recipe_id)
 
         self._run(remove)
+
+    def _checked(self, day: date, recipe: Any, host: str) -> CalendarRecipe | None:
+        """Geprüfter Kalendereintrag; None bei einer ID, die kein Cookidoo-Rezept sein kann."""
+        recipe_id = str(recipe.id)
+        if not RECIPE_ID_PATTERN.match(recipe_id):
+            logger.warning("Cookidoo-Eintrag mit unerwarteter ID übergangen")
+            return None
+        name = str(recipe.name or recipe_id).strip()[:MAX_NAME_LENGTH] or recipe_id
+        return CalendarRecipe(
+            day, recipe_id, name, self._link(str(recipe.url or ""), host, recipe_id)
+        )
+
+    def _link(self, url: str, host: str, recipe_id: str) -> str:
+        """Link aus Cookidoo, wenn er per https auf die Seite des Landes zeigt; sonst aus der ID."""
+        parts = urlsplit(url)
+        if parts.scheme == "https" and parts.netloc == host:
+            return url
+        return f"https://{host}/recipes/recipe/{self.locale}/{recipe_id}"
 
     def _stored(self) -> dict[str, Any] | None:
         try:
