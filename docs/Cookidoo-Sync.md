@@ -138,7 +138,8 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [x] Planeintrag mit Cookidoo-Rezept zeigt „In Cookidoo öffnen ↗“, Platzhalter zusätzlich das Kennzeichen.
 - [x] Ergebnis als Meldung im Plan; Fehler mit Verweis auf Einstellungen → Cookidoo.
 - [x] Tests (`tests/test_cookidoo_pages.py`).
-- [ ] Test auf dem Pi (0.4.9), siehe unten.
+- [x] Test auf dem Pi (0.4.9): bekannte Rezepte übernommen, unbekannte als Platzhalter angelegt (2026-11-02).
+- [x] Befund danach: Platzhalter waren mit 1 Portion eingeplant und blieben das auch nach dem Import (Plan und Einkaufsliste zu klein). Behoben: Füllt der Import einen Platzhalter, übernehmen dessen Planeinträge die neuen Standardportionen, sofern sie noch auf den alten stehen. Der Import meldet die gefüllten Platzhalter (`ImportResult.filled`), die Import-Seite setzt die Portionen über den Plan (Regel 7). Ablauf in [[Datenpflege#Platzhalter aus „Meine Woche“ füllen]].
 
 ### Test auf dem Pi (0.4.9)
 

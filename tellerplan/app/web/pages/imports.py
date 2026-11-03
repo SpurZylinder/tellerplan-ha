@@ -20,6 +20,8 @@ from modules.foods.importer import (
     is_food_document,
 )
 from modules.importers.service import ImportFormatError, ImportResult, import_document
+from modules.planner.service import adopt_standard_servings
+from modules.recipes.service import get_recipe
 from web.templating import render
 
 logger = logging.getLogger(__name__)
@@ -31,13 +33,34 @@ SessionDep = Annotated[Session, Depends(get_session)]
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
+def _adopt_servings(session: Session, result: ImportResult) -> int:
+    """Gefüllte Platzhalter: Planeinträge auf die neuen Standardportionen setzen.
+
+    Hier statt im Import, weil `importers` den Plan nicht kennen darf (Regel 7).
+    """
+    adopted = 0
+    for item in result.filled:
+        recipe = get_recipe(session, item.recipe_id)
+        if recipe is not None and recipe.servings != item.old_servings:
+            adopted += adopt_standard_servings(session, recipe, item.old_servings)
+    return adopted
+
+
 def _render(
     request: Request,
     result: ImportResult | None = None,
     food_result: FoodImportResult | None = None,
     error: str | None = None,
+    adopted: int = 0,
 ) -> HTMLResponse:
-    return render(request, "imports.html", result=result, food_result=food_result, error=error)
+    return render(
+        request,
+        "imports.html",
+        result=result,
+        food_result=food_result,
+        error=error,
+        adopted=adopted,
+    )
 
 
 @router.get("", response_class=HTMLResponse)
@@ -77,6 +100,7 @@ def import_upload(
         result = import_document(session, document)
     except ImportFormatError as error:
         return _render(request, error=str(error))
+    adopted = _adopt_servings(session, result)
     session.commit()
     logger.info(
         "Rezept-Import aus %s: %d neu, %d aktualisiert, %d von %d Zeilen zugeordnet",
@@ -86,4 +110,4 @@ def import_upload(
         result.matched_lines,
         result.lines,
     )
-    return _render(request, result=result)
+    return _render(request, result=result, adopted=adopted)

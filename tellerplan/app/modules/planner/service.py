@@ -57,6 +57,24 @@ def move_entry(session: Session, entry: PlanEntry, day: date) -> PlanEntry:
     return entry
 
 
+def adopt_standard_servings(session: Session, recipe: Recipe, old_servings: float) -> int:
+    """Einträge, die noch auf den alten Standardportionen stehen, auf die neuen setzen.
+
+    Für Platzhalter, die der Import gefüllt hat: Sie waren mit 1 Portion eingeplant,
+    gemeint waren die Standardportionen. Von Hand geänderte Portionen bleiben.
+    Liefert die Zahl der geänderten Einträge.
+    """
+    entries = session.scalars(
+        select(PlanEntry).where(
+            PlanEntry.recipe_id == recipe.id, PlanEntry.servings == old_servings
+        )
+    ).all()
+    for entry in entries:
+        entry.servings = recipe.servings
+    session.flush()
+    return len(entries)
+
+
 def mark_shopping_sent(session: Session, entries: Iterable[PlanEntry], at: datetime) -> None:
     """Merkt sich, dass die Zutaten dieser Einträge auf der Einkaufsliste stehen."""
     for entry in entries:

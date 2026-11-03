@@ -1,5 +1,6 @@
 """Datenmodell für den Cookidoo-Abgleich: Platzhalter, Vollständigkeit, Notizen beim Löschen."""
 
+import json
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
@@ -8,8 +9,10 @@ from sqlalchemy.orm import Session
 from factories import make_food, make_recipe
 from modules.diary.service import log_recipe
 from modules.importers.service import import_document
+from modules.planner.models import PlanEntry
 from modules.planner.service import (
     add_entry,
+    adopt_standard_servings,
     delete_entries_of_recipe,
     delete_entry,
     move_entry,
@@ -151,3 +154,64 @@ def test_placeholder_is_marked_in_recipe_list_and_detail(ingress_client: TestCli
     detail = ingress_client.get(f"/recipes/{recipe_id}").text
     assert "Platzhalter aus „Meine Woche“" in detail
     assert "keine Zutaten" in detail
+
+
+def test_filled_placeholder_is_reported_with_old_servings(session: Session) -> None:
+    recipe = _placeholder(session)
+    draft = {
+        "source_id": COOKIDOO_ID,
+        "title": "Linsen-Dal",
+        "servings": 4,
+        "ingredients": ["1 Zwiebel"],
+    }
+    document = {
+        "format": "tellerplan-recipes",
+        "version": 1,
+        "source": COOKIDOO_SOURCE,
+        "recipes": [draft],
+    }
+
+    result = import_document(session, document)
+
+    assert [(item.recipe_id, item.old_servings) for item in result.filled] == [(recipe.id, 1)]
+    assert import_document(session, document).filled == []  # zweiter Import: nichts mehr zu füllen
+
+
+def test_planned_placeholder_takes_the_new_standard_servings(session: Session) -> None:
+    recipe = _placeholder(session)
+    default = add_entry(session, DAY, recipe)
+    changed = add_entry(session, DAY + timedelta(days=1), recipe, servings=2)
+    recipe.servings = 4
+
+    assert adopt_standard_servings(session, recipe, 1) == 1
+
+    assert (default.servings, changed.servings) == (4, 2)
+
+
+def test_upload_fills_placeholder_and_its_plan_entries(ingress_client: TestClient) -> None:
+    with ingress_client.app.state.session_factory() as session:
+        entry = add_entry(session, DAY, _placeholder(session))
+        session.commit()
+        entry_id = entry.id
+    draft = {
+        "source_id": COOKIDOO_ID,
+        "title": "Linsen-Dal",
+        "servings": 4,
+        "ingredients": ["1 Zwiebel"],
+    }
+    document = {
+        "format": "tellerplan-recipes",
+        "version": 1,
+        "source": COOKIDOO_SOURCE,
+        "recipes": [draft],
+    }
+
+    page = ingress_client.post(
+        "/settings/import",
+        files={"file": ("entwuerfe.json", json.dumps(document).encode(), "application/json")},
+    ).text
+
+    assert "1 Platzhalter aus „Meine Woche“ mit Zutaten gefüllt; 1 Planeintrag" in page
+    with ingress_client.app.state.session_factory() as session:
+        planned = session.get(PlanEntry, entry_id)
+        assert planned is not None and planned.servings == 4

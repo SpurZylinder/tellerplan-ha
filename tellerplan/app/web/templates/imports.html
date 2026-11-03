@@ -14,6 +14,9 @@
     <section class="card">
       <h2>Rezepte importiert</h2>
       <p class="success" role="status">{{ result.created }} neu, {{ result.updated }} schon vorhanden und aktualisiert.</p>
+      {% if result.filled %}
+        <p class="meta">{{ result.filled|length }} Platzhalter aus „Meine Woche“ mit Zutaten gefüllt{% if adopted %}; {{ adopted }} Planeintr{{ "ag" if adopted == 1 else "äge" }} auf die neuen Standardportionen gesetzt{% endif %}.</p>
+      {% endif %}
       <p class="meta">{{ result.matched_lines }} von {{ result.lines }} Zutatenzeilen sind schon zugeordnet. Die übrigen ordnest du einmal je Zutat zu; danach gilt die Zuordnung in allen Rezepten.</p>
       <div class="form-actions">
         <a class="btn" href="{{ url('matching_page') }}">Zutaten zuordnen</a>

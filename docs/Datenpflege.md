@@ -22,6 +22,23 @@ Der Ordner `dev/` ist nicht im Git. Zwischenspeicher (`cookidoo/pages/`, `Rewe/p
    ```
 3. In Tellerplan hochladen (siehe unten). Nährwerte aus Cookidoo werden nur als Vergleich gespeichert, nie gerechnet.
 
+## Platzhalter aus „Meine Woche“ füllen
+
+Der Abgleich mit Cookidoo legt Rezepte, die Tellerplan nicht kennt, als Platzhalter an (Titel, ID, Link, 1 Portion, keine Zutaten). Gefüllt werden sie mit dem normalen Import:
+
+1. Platzhalter in der Rezeptliste am Kennzeichen „Platzhalter“ finden; die ID steht im Link „In Cookidoo öffnen“ (`…/r821223`).
+2. Kleine Sammlung `dev/cookidoo/platzhalter.json` anlegen – mehr Felder braucht `cookidoo_fetch.py` nicht, Portionen holt es von der Rezeptseite. Der Titel ersetzt den des Platzhalters:
+   ```json
+   [
+     {"ID": "r821223", "Titel": "Linsen-Dal", "URL": "https://cookidoo.de/recipes/recipe/de-DE/r821223"}
+   ]
+   ```
+3. `python tools/cookidoo_fetch.py dev/cookidoo/platzhalter.json dev/cookidoo/platzhalter_entwuerfe.json`
+4. Einstellungen → Importieren → `platzhalter_entwuerfe.json`. Erwartet: „0 neu, N aktualisiert“ und „N Platzhalter … mit Zutaten gefüllt“. Planeinträge, die noch auf 1 Portion standen, bekommen dabei die neuen Standardportionen; von Hand geänderte Portionen bleiben.
+5. Rezepte → Zuordnen für die neuen Zutatennamen.
+
+Schon ins Tagebuch eingetragene Platzhalter bleiben bei 0 kcal (Regel 4: vergangene Einträge ändern sich nicht). Soll der Wert stimmen: Eintrag löschen und neu eintragen.
+
 ## Markenprodukte aus REWE
 
 REWE lehnt automatisierte Abrufe ab (403); diese Sperre wird nicht umgangen. Die Seiten kommen daher aus dem eigenen Browser.

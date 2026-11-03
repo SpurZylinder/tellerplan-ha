@@ -10,7 +10,7 @@ Gepflegtes nicht verloren geht. Nur ein Rezept ganz ohne Zutaten (Platzhalter au
 Cookidoo-Kalender) bekommt beim Import seine Zutatenzeilen.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -47,11 +47,21 @@ class ImportFormatError(ValueError):
 
 
 @dataclass(frozen=True)
+class FilledPlaceholder:
+    """Ein Platzhalter, den der Import mit Zutaten gefüllt hat."""
+
+    recipe_id: int
+    # Standardportionen vorher; mit ihnen wurde der Platzhalter eingeplant
+    old_servings: float
+
+
+@dataclass(frozen=True)
 class ImportResult:
     created: int
     updated: int
     lines: int
     matched_lines: int
+    filled: list[FilledPlaceholder] = field(default_factory=list)
 
 
 def _require(condition: bool, message: str) -> None:
@@ -111,9 +121,9 @@ def _recipe_input(draft: dict[str, Any]) -> RecipeInput:
 def _reference(draft: dict[str, Any]) -> dict[str, float | None]:
     reference = draft.get("reference") or {}
     values: dict[str, float | None] = {}
-    for field, key in REFERENCE_FIELDS.items():
+    for name, key in REFERENCE_FIELDS.items():
         value = reference.get(key) if isinstance(reference, dict) else None
-        values[field] = float(value) if isinstance(value, int | float) else None
+        values[name] = float(value) if isinstance(value, int | float) else None
     return values
 
 
@@ -132,6 +142,7 @@ def import_document(session: Session, document: object) -> ImportResult:
     source, drafts = _recipes(document)
     created = updated = 0
     touched: list[Recipe] = []
+    filled: list[FilledPlaceholder] = []
     for draft in drafts:
         recipe = find_recipe_by_source(session, source, draft["source_id"])
         if recipe is None:
@@ -141,11 +152,13 @@ def import_document(session: Session, document: object) -> ImportResult:
             _add_lines(session, recipe, draft.get("ingredients"))
             created += 1
         else:
+            empty, old_servings = not recipe.ingredients, recipe.servings
             update_recipe(session, recipe, _with_instructions(recipe, _recipe_input(draft)))
             # Platzhalter aus dem Cookidoo-Kalender bekommen jetzt ihre Zutaten;
             # vorhandene Zutaten und Zuordnungen bleiben unangetastet
-            if not recipe.ingredients:
+            if empty:
                 _add_lines(session, recipe, draft.get("ingredients"))
+                filled.append(FilledPlaceholder(recipe.id, old_servings))
             updated += 1
         set_reference(session, recipe, _reference(draft))
         touched.append(recipe)
@@ -157,6 +170,7 @@ def import_document(session: Session, document: object) -> ImportResult:
         matched_lines=sum(
             1 for line in lines if resolved_food(line) is not None or has_no_nutrients(line)
         ),
+        filled=filled,
     )
 
 
