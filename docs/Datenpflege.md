@@ -24,7 +24,9 @@ Der Ordner `dev/` ist nicht im Git. Zwischenspeicher (`cookidoo/pages/`, `Rewe/p
 
 ## Platzhalter aus „Meine Woche“ füllen
 
-Der Abgleich mit Cookidoo legt Rezepte, die Tellerplan nicht kennt, als Platzhalter an (Titel, ID, Link, 1 Portion, keine Zutaten). Gefüllt werden sie mit dem normalen Import:
+Der Abgleich mit Cookidoo lädt Rezepte, die Tellerplan nicht kennt, gleich von ihrer Rezeptseite. Klappt das nicht, bleiben sie Platzhalter (Titel, ID, Link, 1 Portion, keine Zutaten). Am einfachsten: **Einstellungen → Importieren → „Platzhalter füllen“** (braucht die Cookidoo-Verbindung, zeigt je Rezept den Grund, falls es nicht klappt).
+
+Ohne Verbindung geht es weiterhin über den Rechner:
 
 1. Platzhalter in der Rezeptliste am Kennzeichen „Platzhalter“ finden; die ID steht im Link „In Cookidoo öffnen“ (`…/r821223`).
 2. Kleine Sammlung `dev/cookidoo/platzhalter.json` anlegen – mehr Felder braucht `cookidoo_fetch.py` nicht, Portionen holt es von der Rezeptseite. Der Titel ersetzt den des Platzhalters:

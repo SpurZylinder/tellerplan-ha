@@ -4,7 +4,9 @@ Gezeigt werden drei Tage zurück und zwei Wochen voraus; beim Öffnen steht
 heute vorn. Rezepte erscheinen nur mit Titel und lassen sich verschieben.
 
 Mit Cookidoo verbunden, gleicht „Cookidoo abgleichen“ den Plan von heute bis zum
-Planende mit „Meine Woche“ ab: erst eine Vorschau, dann „Übernehmen“.
+Planende mit „Meine Woche“ ab: erst eine Vorschau, dann „Übernehmen“. Rezepte, die
+Tellerplan noch nicht kennt, werden danach gleich von ihrer Rezeptseite geladen; klappt
+das nicht, bleiben sie Platzhalter.
 """
 
 from dataclasses import dataclass
@@ -32,6 +34,7 @@ from modules.planner.cookidoo_sync import (
 from modules.planner.models import PlanEntry
 from modules.planner.service import add_entry, delete_entry, get_entry, move_entry, plan_days
 from modules.recipes.service import get_recipe, recipe_summaries, summarize
+from web.cookidoo_fill import fill_placeholders
 from web.forms import FormError, parse_number, redirect_to
 from web.pages.options import cookidoo_account
 from web.templating import format_day, render
@@ -72,6 +75,8 @@ def plan_page(
     synced: int | None = None,
     failed: int = 0,
     sync_error: str | None = None,
+    loaded: int = 0,
+    not_loaded: int = 0,
 ) -> HTMLResponse:
     current = _layout(layout or plan_layout)
     today = clock.today()
@@ -85,6 +90,8 @@ def plan_page(
         synced=synced,
         failed=failed,
         sync_error=sync_error,
+        loaded=loaded,
+        not_loaded=not_loaded,
         layout=current,
         other_layout=LAYOUTS[1] if current == LAYOUTS[0] else LAYOUTS[0],
     )
@@ -194,7 +201,7 @@ class ChangeLine:
     text: str
 
 
-GROUPS = ("In Tellerplan", "Neue Platzhalter", "In Cookidoo")
+GROUPS = ("In Tellerplan", "Neue Rezepte", "In Cookidoo")
 
 
 def _sync_range() -> tuple[date, date]:
@@ -283,4 +290,17 @@ def cookidoo_apply(
         query["failed"] = str(len(result.failed))
     if result.error:
         query["sync_error"] = result.error
+    if result.placeholders:
+        query |= _load_new_recipes(request, session, result.placeholders)
     return redirect_to(request, "plan_page", query=query)
+
+
+def _load_new_recipes(request: Request, session: Session, recipe_ids: list[int]) -> dict[str, str]:
+    """Neue Platzhalter gleich von der Rezeptseite füllen; erst nach dem Abgleich festgeschrieben.
+
+    Der Abgleich ist schon gespeichert; scheitert hier etwas, bleiben Platzhalter.
+    """
+    recipes = [recipe for rid in recipe_ids if (recipe := get_recipe(session, rid)) is not None]
+    filled = fill_placeholders(session, cookidoo_account(request.app.state.settings), recipes)
+    session.commit()
+    return {"loaded": str(filled.filled), "not_loaded": str(len(filled.skipped))}

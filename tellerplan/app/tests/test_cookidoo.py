@@ -12,7 +12,13 @@ from fastapi.testclient import TestClient
 
 import clock
 import cookidoo as cookidoo_module
-from cookidoo import CookidooAccount, CookidooError, NotConnectedError, week_starts
+from cookidoo import (
+    CookidooAccount,
+    CookidooError,
+    NotConnectedError,
+    RecipePageMissingError,
+    week_starts,
+)
 from settings import Settings
 
 PASSWORD = "richtig"
@@ -320,3 +326,106 @@ def test_names_are_trimmed_and_shortened(
     names = [r.name for r in account.read_calendar(MONDAY, MONDAY)]
 
     assert names == ["x" * 300, "r6"]
+
+
+# --- Rezeptseiten ------------------------------------------------------------------------
+
+
+class FakeResponse:
+    """Antwort von `aiohttp`, so weit `recipe_page` sie nutzt."""
+
+    def __init__(self, status: int, body: bytes) -> None:
+        self.status = status
+        self.content = SimpleNamespace(read=self._read)
+        self._body = body
+
+    async def _read(self, limit: int) -> bytes:
+        return self._body[:limit]
+
+    async def __aenter__(self) -> FakeResponse:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+class FakeSession:
+    """`aiohttp.ClientSession` ohne Netzwerk; merkt sich die Anfragen."""
+
+    status = 200
+    body = b"<html>Linsen-Dal</html>"
+    requests: list[tuple[str, dict[str, Any]]] = []
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    async def __aenter__(self) -> FakeSession:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+    def get(self, url: str, **kwargs: Any) -> FakeResponse:
+        FakeSession.requests.append((url, kwargs))
+        return FakeResponse(self.status, self.body)
+
+
+@pytest.fixture
+def web(monkeypatch: pytest.MonkeyPatch, fake: type[FakeCookidoo]) -> type[FakeSession]:
+    FakeSession.status, FakeSession.requests = 200, []
+    FakeSession.body = b"<html>Linsen-Dal</html>"
+    monkeypatch.setattr(cookidoo_module, "ClientSession", FakeSession)
+    return FakeSession
+
+
+def test_recipe_page_is_built_from_the_id_without_redirects(
+    account: CookidooAccount, web: type[FakeSession]
+) -> None:
+    assert account.recipe_page("r821223") == "<html>Linsen-Dal</html>"
+
+    [(url, options)] = web.requests
+    assert url == "https://c/recipes/recipe/de-DE/r821223"
+    assert options["allow_redirects"] is False
+
+
+@pytest.mark.parametrize("recipe_id", ["821223", "r1/../x", "https://evil", "r" + "1" * 20])
+def test_recipe_page_rejects_other_ids(
+    account: CookidooAccount, web: type[FakeSession], recipe_id: str
+) -> None:
+    with pytest.raises(CookidooError, match="keine Cookidoo-Rezept-ID"):
+        account.recipe_page(recipe_id)
+    assert web.requests == []
+
+
+@pytest.mark.parametrize("status", [301, 404, 500])
+def test_recipe_page_other_status_means_missing(
+    account: CookidooAccount, web: type[FakeSession], status: int
+) -> None:
+    web.status = status
+
+    with pytest.raises(RecipePageMissingError, match=str(status)):
+        account.recipe_page("r1")
+
+
+def test_recipe_page_size_is_limited(
+    account: CookidooAccount, web: type[FakeSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cookidoo_module, "MAX_PAGE_BYTES", 10)
+    web.body = b"x" * 11
+
+    with pytest.raises(RecipePageMissingError, match="unerwartet groß"):
+        account.recipe_page("r1")
+
+
+def test_recipe_page_network_error_is_a_cookidoo_error(
+    account: CookidooAccount, monkeypatch: pytest.MonkeyPatch, fake: type[FakeCookidoo]
+) -> None:
+    class Broken(FakeSession):
+        def get(self, url: str, **kwargs: Any) -> FakeResponse:
+            raise TimeoutError
+
+    monkeypatch.setattr(cookidoo_module, "ClientSession", Broken)
+
+    with pytest.raises(CookidooError, match="nicht erreichbar") as caught:
+        account.recipe_page("r1")
+    assert not isinstance(caught.value, RecipePageMissingError)

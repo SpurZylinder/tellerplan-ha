@@ -133,6 +133,17 @@ def create_placeholder(session: Session, cookidoo_id: str, title: str, url: str)
     return recipe
 
 
+def list_placeholders(session: Session) -> list[Recipe]:
+    """Rezepte aus dem Cookidoo-Kalender, die noch keine Zutaten haben (ältestes zuerst)."""
+    statement = (
+        select(Recipe)
+        .where(Recipe.source == COOKIDOO_SOURCE, ~Recipe.ingredients.any())
+        .options(*_with_ingredients())
+        .order_by(Recipe.id)
+    )
+    return list(session.scalars(statement))
+
+
 def get_recipe(session: Session, recipe_id: int) -> Recipe | None:
     return session.get(Recipe, recipe_id, options=_with_ingredients())
 

@@ -58,7 +58,7 @@ def test_preview_lists_changes_and_writes_nothing(
 ) -> None:
     page = ingress_client.get("/plan/cookidoo").text
 
-    assert "Neue Platzhalter" in page
+    assert "Neue Rezepte" in page
     assert "Rezept r1: neu am Di 03.11." in page
     assert 'name="fingerprint"' in page
     assert _entries(ingress_client) == []

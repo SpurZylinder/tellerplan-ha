@@ -27,8 +27,8 @@
     {% for group, lines in groups if lines %}
       <section class="card">
         <h2>{{ group }}</h2>
-        {% if group == "Neue Platzhalter" %}
-          <p class="meta">Rezepte aus Cookidoo, die Tellerplan noch nicht kennt: nur Titel und Link, ohne Nährwerte, bis die Sammlung neu importiert wird.</p>
+        {% if group == "Neue Rezepte" %}
+          <p class="meta">Rezepte aus Cookidoo, die Tellerplan noch nicht kennt. Nach dem Übernehmen lädt Tellerplan Zutatenzeilen und Portionen von der Rezeptseite; klappt das nicht, bleiben sie vorerst Platzhalter (nur Titel und Link).</p>
         {% endif %}
         <ul class="list">
           {% for text in lines %}<li>{{ text }}</li>{% endfor %}

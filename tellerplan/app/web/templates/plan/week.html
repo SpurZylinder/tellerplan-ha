@@ -35,6 +35,8 @@
       {% endif %}
       {% if synced %}<p class="success">Mit Cookidoo abgeglichen: {{ synced }} Änderung{{ "en" if synced != 1 }}.</p>
       {% elif not sync_error %}<p class="success">Mit Cookidoo abgeglichen.</p>{% endif %}
+      {% if loaded %}<p class="meta">{{ loaded }} neue{{ "s" if loaded == 1 }} Rezept{{ "e" if loaded != 1 }} aus Cookidoo geladen. <a href="{{ url('matching_page') }}">Zutaten zuordnen</a></p>{% endif %}
+      {% if not_loaded %}<p class="meta">{{ not_loaded }} Rezept{{ "e" if not_loaded != 1 }} {{ "bleibt" if not_loaded == 1 else "bleiben" }} vorerst Platzhalter. <a href="{{ url('import_page') }}">Platzhalter füllen</a> zeigt den Grund.</p>{% endif %}
     </section>
   {% endif %}
 

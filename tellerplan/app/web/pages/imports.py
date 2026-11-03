@@ -2,6 +2,9 @@
 
 Die Datei sagt selbst, was sie ist („format“): Rezepte aus tools/cookidoo_fetch.py,
 Lebensmittel mit Nährwerten aus tools/rewe_fetch.py.
+
+Mit Cookidoo verbunden, füllt „Platzhalter füllen“ die Platzhalter aus „Meine Woche“
+direkt von der Rezeptseite, ohne Umweg über den Rechner.
 """
 
 import json
@@ -20,8 +23,9 @@ from modules.foods.importer import (
     is_food_document,
 )
 from modules.importers.service import ImportFormatError, ImportResult, import_document
-from modules.planner.service import adopt_standard_servings
-from modules.recipes.service import get_recipe
+from modules.recipes.service import list_placeholders
+from web.cookidoo_fill import FillResult, adopt_servings, fill_placeholders
+from web.pages.options import cookidoo_account
 from web.templating import render
 
 logger = logging.getLogger(__name__)
@@ -33,26 +37,16 @@ SessionDep = Annotated[Session, Depends(get_session)]
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
-def _adopt_servings(session: Session, result: ImportResult) -> int:
-    """Gefüllte Platzhalter: Planeinträge auf die neuen Standardportionen setzen.
-
-    Hier statt im Import, weil `importers` den Plan nicht kennen darf (Regel 7).
-    """
-    adopted = 0
-    for item in result.filled:
-        recipe = get_recipe(session, item.recipe_id)
-        if recipe is not None and recipe.servings != item.old_servings:
-            adopted += adopt_standard_servings(session, recipe, item.old_servings)
-    return adopted
-
-
 def _render(
     request: Request,
+    session: Session,
     result: ImportResult | None = None,
     food_result: FoodImportResult | None = None,
     error: str | None = None,
     adopted: int = 0,
+    fill_result: FillResult | None = None,
 ) -> HTMLResponse:
+    connected = cookidoo_account(request.app.state.settings).username() is not None
     return render(
         request,
         "imports.html",
@@ -60,12 +54,14 @@ def _render(
         food_result=food_result,
         error=error,
         adopted=adopted,
+        fill_result=fill_result,
+        placeholders=list_placeholders(session) if connected else [],
     )
 
 
 @router.get("", response_class=HTMLResponse)
-def import_page(request: Request) -> HTMLResponse:
-    return _render(request)
+def import_page(request: Request, session: SessionDep) -> HTMLResponse:
+    return _render(request, session)
 
 
 @router.post("", response_class=HTMLResponse)
@@ -75,17 +71,17 @@ def import_upload(
     # Synchron, damit FastAPI den Import in einem Thread ausführt und die Ports frei bleiben
     content = file.file.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
-        return _render(request, error="Die Datei ist zu groß (höchstens 10 MB).")
+        return _render(request, session, error="Die Datei ist zu groß (höchstens 10 MB).")
     try:
         document = json.loads(content.decode("utf-8"))
     except UnicodeDecodeError, json.JSONDecodeError:
-        return _render(request, error="Die Datei ist kein gültiges JSON.")
+        return _render(request, session, error="Die Datei ist kein gültiges JSON.")
 
     if is_food_document(document):
         try:
             food_result = import_foods(session, document)
         except FoodImportError as error:
-            return _render(request, error=str(error))
+            return _render(request, session, error=str(error))
         session.commit()
         logger.info(
             "Lebensmittel-Import aus %s: %d neu, %d aktualisiert, %d übersprungen",
@@ -94,13 +90,13 @@ def import_upload(
             food_result.updated,
             len(food_result.skipped),
         )
-        return _render(request, food_result=food_result)
+        return _render(request, session, food_result=food_result)
 
     try:
         result = import_document(session, document)
     except ImportFormatError as error:
-        return _render(request, error=str(error))
-    adopted = _adopt_servings(session, result)
+        return _render(request, session, error=str(error))
+    adopted = adopt_servings(session, result)
     session.commit()
     logger.info(
         "Rezept-Import aus %s: %d neu, %d aktualisiert, %d von %d Zeilen zugeordnet",
@@ -110,4 +106,13 @@ def import_upload(
         result.matched_lines,
         result.lines,
     )
-    return _render(request, result=result, adopted=adopted)
+    return _render(request, session, result=result, adopted=adopted)
+
+
+@router.post("/placeholders", response_class=HTMLResponse)
+def import_placeholders(request: Request, session: SessionDep) -> HTMLResponse:
+    """Platzhalter aus „Meine Woche“ von der Rezeptseite in Cookidoo füllen."""
+    account = cookidoo_account(request.app.state.settings)
+    fill_result = fill_placeholders(session, account, list_placeholders(session))
+    session.commit()
+    return _render(request, session, fill_result=fill_result)

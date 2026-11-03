@@ -51,7 +51,7 @@ Damit der Abgleich unterscheiden kann, *wer* etwas geändert hat, merkt sich jed
 | Tag X | Tag Y | Z (beide verschoben) | Cookidoo gewinnt → Tellerplan nach X |
 | – | Tag X | gesetzt | in Cookidoo entfernt → in Tellerplan löschen |
 | Tag X | – (Notiz `cookidoo_removal`) | – | in Tellerplan gelöscht → in Cookidoo entfernen |
-| Rezept unbekannt | – | – | Platzhalter-Rezept (Titel, ID, Link) anlegen und an X einplanen |
+| Rezept unbekannt | – | – | Platzhalter-Rezept (Titel, ID, Link) anlegen und an X einplanen; danach von der Rezeptseite füllen (Schritt 6b) |
 | – | Rezept ohne Cookidoo-ID | – | bleibt nur im Tellerplan |
 | Tag X | Tag in der Vergangenheit | X | in Tellerplan zurückgelegt (nicht gekocht) → in Cookidoo entfernen, Basis leeren |
 | Tag X | Tag nach dem Planende | X | Tellerplan hat verschoben → in Cookidoo verschieben (nach dem Zeitraum darf geschrieben werden) |
@@ -68,7 +68,7 @@ Steht dasselbe Rezept mehrmals im Zeitraum, werden zuerst gleiche Tage gepaart, 
    - *Browser:* Ein Link öffnet die Vorwerk-Anmeldung, die Rückleitung `com.vorwerk.cookidoo://code-grant?code=…` (kann der Browser nicht öffnen) wird kopiert und eingefügt. Braucht eine neuere Version der Bibliothek.
 2. **Immer einplanen**, auch wenn der Cookidoo-Tag schon Rezepte hat.
 3. **In Cookidoo entfernt → in Tellerplan löschen**; die Vorschau zeigt es vorher an.
-4. **Unbekannte Cookidoo-Rezepte als Platzhalter:** Tellerplan legt ein Rezept nur mit Titel, Cookidoo-ID und Link an (`source = cookidoo`, ohne Zutaten, Standardportionen 1 bis zur Pflege) und plant es ein. Im Plan zeigt der Eintrag den Link „In Cookidoo öffnen“, damit klar ist, welches Rezept gemeint ist. Das entspricht Regel 2 (Titel, Link, ID, keine Nährwerte). Ein späterer Import der Sammlung ergänzt die Zutaten, weil er dasselbe Rezept an Quelle und ID erkennt (dafür muss der Import erweitert werden, siehe Schritt 3).
+4. **Unbekannte Cookidoo-Rezepte als Platzhalter** (seit Schritt 6b nur noch Zwischenstand und Rückfall, siehe dort): Tellerplan legt ein Rezept nur mit Titel, Cookidoo-ID und Link an (`source = cookidoo`, ohne Zutaten, Standardportionen 1 bis zur Pflege) und plant es ein. Im Plan zeigt der Eintrag den Link „In Cookidoo öffnen“, damit klar ist, welches Rezept gemeint ist. Das entspricht Regel 2 (Titel, Link, ID, keine Nährwerte). Ein späterer Import der Sammlung ergänzt die Zutaten, weil er dasselbe Rezept an Quelle und ID erkennt (dafür muss der Import erweitert werden, siehe Schritt 3).
 5. **Nur auf Knopfdruck**, kein zyklischer Abgleich.
 6. **Land und Sprache als feste Option** `cookidoo_locale` (Vorgabe `de-DE`, Land wird daraus abgeleitet).
 
@@ -141,6 +141,21 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [x] Test auf dem Pi (0.4.9): bekannte Rezepte übernommen, unbekannte als Platzhalter angelegt (2026-11-02).
 - [x] Befund danach: Platzhalter waren mit 1 Portion eingeplant und blieben das auch nach dem Import (Plan und Einkaufsliste zu klein). Behoben: Füllt der Import einen Platzhalter, übernehmen dessen Planeinträge die neuen Standardportionen, sofern sie noch auf den alten stehen. Der Import meldet die gefüllten Platzhalter (`ImportResult.filled`), die Import-Seite setzt die Portionen über den Plan (Regel 7). Ablauf in [[Datenpflege#Platzhalter aus „Meine Woche“ füllen]].
 
+### Schritt 6b: Unbekannte Rezepte sofort laden (Wunsch vom 2026-11-03)
+
+Die Cookidoo-ID reicht, um ein Rezept zu laden; der umständliche Weg über `tools/cookidoo_fetch.py` am Rechner entfällt für Rezepte aus „Meine Woche“.
+
+**Ablauf:** Der Abgleich bleibt unverändert und legt in seiner Transaktion Platzhalter an (`SyncResult.placeholders`). Nach dem Festschreiben holt die Plan-Seite deren Rezeptseiten und füllt sie über den normalen Import; Planeinträge bekommen dabei die Standardportionen der Seite. Scheitert ein Abruf, bleibt der Platzhalter – nichts geht verloren, und der Abgleich ist schon gespeichert.
+
+- [x] `modules/importers/cookidoo_page.py`: Rezeptseite → Entwurf, reine Logik (JSON-LD `schema.org/Recipe` wie im Tool, damit Zeilenformat und gelernte Zuordnungen gleich bleiben). Titel, Portionen aus `recipeYield`, Gesamtzeit, Zutatenzeilen; `nutrition` (pro Portion) nur als Vergleichswert (Regel 2). Texte gekürzt, höchstens 100 Zeilen. Kategorie wird nicht übernommen (Cookidoo-Kategorien passen nicht zur eigenen Auswahl).
+- [x] `cookidoo.py`: `recipe_page(id)` ohne Anmeldung von der öffentlichen Seite; Link nur aus der geprüften ID, keine Weiterleitungen, höchstens 2 MB, 30 s. Seite fehlt (z. B. 404) → `RecipePageMissingError`, sonst `CookidooError`.
+- [x] `web/cookidoo_fill.py`: führt Abruf, Titelprüfung, Import und Portionen zusammen (nur hier, Regel 7). Gedrosselt (1 s zwischen den Seiten), höchstens 10 Seiten je Lauf. Seite fehlt oder Titel passt nicht → überspringen, weiter; Cookidoo nicht erreichbar → abbrechen.
+- [x] **Titelprüfung:** Der Titel der Seite muss zum Titel aus dem Kalender passen (ohne Groß-/Kleinschreibung, Satzzeichen, Leerraum). Sonst bleibt der Platzhalter, und der Grund wird gezeigt.
+- [x] Vorschau: Gruppe „Neue Rezepte“ statt „Neue Platzhalter“. Meldung im Plan: „N neue Rezepte aus Cookidoo geladen“ mit Link zum Zuordnen, ggf. „M bleiben vorerst Platzhalter“.
+- [x] Einstellungen → Importieren: „Platzhalter füllen“ (nur verbunden und wenn es Platzhalter gibt) für alle vorhandenen Platzhalter, mit Grund je übersprungenem Rezept.
+- [x] Tests: `test_cookidoo_page.py`, `test_cookidoo_fill.py`, Abruf in `test_cookidoo.py`. Am Rechner gegen die echte Seite geprüft (r821223: 15 Zeilen, 4 Portionen, 430 kcal Vergleich; r1: 404).
+- [ ] Test auf dem Pi: siehe Punkte 11–13 unten.
+
 ### Test auf dem Pi (0.4.9)
 
 Am besten mit einem Rezept an einem Tag in der nächsten Woche, das sonst nirgends geplant ist.
@@ -155,6 +170,9 @@ Am besten mit einem Rezept an einem Tag in der nächsten Woche, das sonst nirgen
 8. [ ] Platzhalter: Kennzeichen im Plan und in der Rezeptliste, „In Cookidoo öffnen“ führt zum richtigen Rezept; Tagebuch zeigt bei einem gegessenen Platzhalter den Hinweis „eher zu niedrig“.
 9. [ ] Vorschau öffnen, in der Cookidoo-App etwas ändern, dann „Übernehmen“ → Hinweis und neue Vorschau, nichts geschrieben.
 10. [ ] Am iPhone: Knopf, Vorschau und Meldungen gut bedienbar.
+11. [ ] Schritt 6b: Unbekanntes Rezept in Cookidoo einplanen → Vorschau zeigt es unter „Neue Rezepte“; nach „Übernehmen“ steht es mit Zutatenzeilen und Standardportionen der Seite im Plan, Meldung „1 neues Rezept aus Cookidoo geladen“.
+12. [ ] Vorhandene Platzhalter (aus 0.4.9): Einstellungen → Importieren → „Platzhalter füllen“; Planeinträge bekommen die Standardportionen.
+13. [ ] Zuordnen der neuen Zutaten; danach rechnet das Rezept, Einkaufsliste mit richtigen Mengen.
 
 Erst wenn alle Punkte erledigt sind: Schritt 7 und Version 0.5.0.
 
@@ -201,5 +219,4 @@ Die Bibliothek und ihre Abhängigkeiten laufen im Prozess des Add-ons und hätte
 
 ## Später
 
-- Platzhalter direkt mit Zutatenzeilen füllen (`get_recipe_details`; Nährwerte nur als Vergleich, Regel 2)
 - Einkaufsliste wahlweise an Cookidoo statt an Bring (`add_ingredient_items_for_recipes`)

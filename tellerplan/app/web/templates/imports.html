@@ -25,6 +25,31 @@
     </section>
   {% endif %}
 
+  {% if fill_result %}
+    <section class="card">
+      <h2>Platzhalter gefüllt</h2>
+      <p class="success" role="status">{{ fill_result.filled }} Platzhalter mit Zutaten und Portionen aus Cookidoo gefüllt{% if fill_result.adopted %}; {{ fill_result.adopted }} Planeintr{{ "ag" if fill_result.adopted == 1 else "äge" }} auf die neuen Standardportionen gesetzt{% endif %}.</p>
+      {% if fill_result.skipped %}
+        <p class="meta">{{ fill_result.skipped|length }} {{ "bleibt" if fill_result.skipped|length == 1 else "bleiben" }} Platzhalter:</p>
+        <ul class="list">{% for item in fill_result.skipped %}<li>{{ item.title }} <span class="meta">– {{ item.reason }}</span></li>{% endfor %}</ul>
+      {% endif %}
+      {% if fill_result.filled %}
+        <div class="form-actions">
+          <a class="btn" href="{{ url('matching_page') }}">Zutaten zuordnen</a>
+          <a class="btn ghost" href="{{ url('recipes_page') }}">Zu den Rezepten</a>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if placeholders %}
+    <form class="form card" method="post" action="{{ url('import_placeholders') }}">
+      <h2>Platzhalter aus „Meine Woche“</h2>
+      <p class="meta">{{ placeholders|length }} Rezept{{ "e" if placeholders|length != 1 }} ohne Zutaten: {{ placeholders|map(attribute="title")|join(", ") }}. Tellerplan lädt Zutatenzeilen und Portionen von der Rezeptseite in Cookidoo; Nährwerte der Seite dienen nur zum Vergleich.</p>
+      <div class="form-actions"><button class="btn" type="submit">Platzhalter füllen</button></div>
+    </form>
+  {% endif %}
+
   {% if food_result %}
     <section class="card">
       <h2>Lebensmittel importiert</h2>

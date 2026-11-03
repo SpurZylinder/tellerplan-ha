@@ -78,6 +78,8 @@ class SyncResult:
     applied: list[Change] = field(default_factory=list)
     failed: list[Change] = field(default_factory=list)
     error: str | None = None
+    # Neu angelegte Platzhalter (Rezept-IDs); der Aufrufer kann sie danach füllen
+    placeholders: list[int] = field(default_factory=list)
 
 
 def preview(session: Session, calendar: CookidooCalendar, first: date, last: date) -> SyncPreview:
@@ -158,10 +160,10 @@ def _execute(session: Session, calendar: CookidooCalendar, changes: Sequence[Cha
         else:
             result.applied.append(change)
 
-    placeholders: dict[str, Recipe] = {}
+    recipes: dict[str, Recipe] = {}
     for change in changes:
         if not isinstance(change, COOKIDOO_CHANGES):
-            _write_tellerplan(session, change, placeholders)
+            _write_tellerplan(session, change, recipes, result.placeholders)
             result.applied.append(change)
     session.flush()
     return result
@@ -189,10 +191,12 @@ def _write_cookidoo(session: Session, calendar: CookidooCalendar, change: Change
                 _drop_note(session, note_id)
 
 
-def _write_tellerplan(session: Session, change: Change, placeholders: dict[str, Recipe]) -> None:
+def _write_tellerplan(
+    session: Session, change: Change, recipes: dict[str, Recipe], created: list[int]
+) -> None:
     match change:
         case AddToTellerplan(day=day, cookidoo_id=rid, name=name, url=url):
-            recipe = _recipe_for(session, rid, name, url, placeholders)
+            recipe = _recipe_for(session, rid, name, url, recipes, created)
             add_entry(session, day, recipe).cookidoo_day = day
         case MoveInTellerplan(entry_id=entry_id, to_day=to_day):
             entry = move_entry(session, _entry(session, entry_id), to_day)
@@ -208,13 +212,21 @@ def _write_tellerplan(session: Session, change: Change, placeholders: dict[str, 
 
 
 def _recipe_for(
-    session: Session, cookidoo_id: str, name: str, url: str, placeholders: dict[str, Recipe]
+    session: Session,
+    cookidoo_id: str,
+    name: str,
+    url: str,
+    recipes: dict[str, Recipe],
+    created: list[int],
 ) -> Recipe:
     """Vorhandenes Rezept zur Cookidoo-ID oder ein Platzhalter (je ID nur einmal)."""
-    if cookidoo_id not in placeholders:
-        existing = find_recipe_by_source(session, COOKIDOO_SOURCE, cookidoo_id)
-        placeholders[cookidoo_id] = existing or create_placeholder(session, cookidoo_id, name, url)
-    return placeholders[cookidoo_id]
+    if cookidoo_id not in recipes:
+        recipe = find_recipe_by_source(session, COOKIDOO_SOURCE, cookidoo_id)
+        if recipe is None:
+            recipe = create_placeholder(session, cookidoo_id, name, url)
+            created.append(recipe.id)
+        recipes[cookidoo_id] = recipe
+    return recipes[cookidoo_id]
 
 
 def _entry(session: Session, entry_id: int) -> PlanEntry:

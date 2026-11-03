@@ -14,6 +14,10 @@ Antworten von Cookidoo gelten als nicht vertrauenswürdig: Rezept-IDs müssen di
 Landes zeigen (sonst aus der ID gebaut), Namen werden gekürzt. Sie landen als Platzhalter
 in der Datenbank und als Link in der Oberfläche.
 
+Rezeptseiten (für unbekannte Rezepte aus dem Kalender) kommen ohne Anmeldung von der
+öffentlichen Seite des Landes. Der Link wird nur aus der geprüften ID gebaut,
+Weiterleitungen werden nicht verfolgt, die Größe ist begrenzt.
+
 Die Bibliothek arbeitet asynchron; die Funktionen hier sind synchron (FastAPI führt
 synchrone Routen in einem eigenen Thread aus, dort läuft `asyncio.run`).
 """
@@ -47,6 +51,10 @@ TOKEN_FILE_MODE = 0o600
 RECIPE_ID_PATTERN = re.compile(r"^r\d{1,12}$")
 # Wie `recipe.title`; längere Namen werden gekürzt
 MAX_NAME_LENGTH = 300
+# Eine Rezeptseite hat rund 100 KB; größere Antworten werden abgelehnt
+MAX_PAGE_BYTES = 2 * 1024 * 1024
+HTTP_OK = 200
+USER_AGENT = "Mozilla/5.0 (Tellerplan, privater Rezeptimport)"
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +65,10 @@ class CookidooError(RuntimeError):
 
 class NotConnectedError(CookidooError):
     """Es gibt noch keine Verbindung (keine gespeicherten Tokens)."""
+
+
+class RecipePageMissingError(CookidooError):
+    """Cookidoo liefert zu dieser ID keine Rezeptseite (z. B. 404); andere IDs gehen noch."""
 
 
 @dataclass(frozen=True)
@@ -139,6 +151,32 @@ class CookidooAccount:
             await cookidoo.remove_recipe_from_calendar(day, recipe_id)
 
         self._run(remove)
+
+    def recipe_page(self, recipe_id: str) -> str:
+        """HTML der öffentlichen Rezeptseite; Fehler als `CookidooError`."""
+        if not RECIPE_ID_PATTERN.match(recipe_id):
+            raise CookidooError(f"„{recipe_id[:20]}“ ist keine Cookidoo-Rezept-ID.")
+        try:
+            return asyncio.run(self._fetch_page(recipe_id))
+        except (CookidooException, ClientError, TimeoutError, UnicodeDecodeError) as error:
+            logger.warning("Rezeptseite %s nicht geladen: %s", recipe_id, type(error).__name__)
+            raise CookidooError("Die Rezeptseite ist gerade nicht erreichbar.") from error
+
+    async def _fetch_page(self, recipe_id: str) -> str:
+        host = urlsplit((await self._localization()).url).netloc
+        url = f"https://{host}/recipes/recipe/{self.locale}/{recipe_id}"
+        headers = {"User-Agent": USER_AGENT, "Accept-Language": self.locale}
+        timeout = ClientTimeout(total=TIMEOUT_SECONDS)
+        async with (
+            ClientSession(timeout=timeout) as session,
+            session.get(url, headers=headers, allow_redirects=False) as response,
+        ):
+            if response.status != HTTP_OK:
+                raise RecipePageMissingError(f"Rezeptseite nicht gefunden ({response.status}).")
+            content = await response.content.read(MAX_PAGE_BYTES + 1)
+        if len(content) > MAX_PAGE_BYTES:
+            raise RecipePageMissingError("Die Rezeptseite ist unerwartet groß.")
+        return content.decode("utf-8")
 
     def _checked(self, day: date, recipe: Any, host: str) -> CalendarRecipe | None:
         """Geprüfter Kalendereintrag; None bei einer ID, die kein Cookidoo-Rezept sein kann."""

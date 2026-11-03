@@ -1,10 +1,11 @@
 """Kleine Helfer, um Testdaten anzulegen."""
 
+import json
 from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from cookidoo import CalendarRecipe, CookidooError
+from cookidoo import CalendarRecipe, CookidooError, RecipePageMissingError
 from modules.foods.models import Food, FoodSource
 from modules.foods.service import FoodInput, create_food, set_unit
 from modules.recipes.models import Recipe
@@ -53,6 +54,10 @@ class FakeCalendar:
         self.entries = [(FAKE_TODAY + timedelta(days=offset), rid) for offset, rid in entries]
         self.fail: set[tuple[str, date]] = set()
         self.calls: list[tuple[str, date, str]] = []
+        # Rezeptseiten je ID; fehlende antworten wie Cookidoo mit 404
+        self.pages: dict[str, str] = {}
+        self.page_requests: list[str] = []
+        self.unreachable = False
 
     def read_calendar(self, first: date, last: date) -> list[CalendarRecipe]:
         return [
@@ -72,6 +77,38 @@ class FakeCalendar:
         self.calls.append(("unplan", day, recipe_id))
         self.entries.remove((day, recipe_id))
 
+    def recipe_page(self, recipe_id: str) -> str:
+        self.page_requests.append(recipe_id)
+        if self.unreachable:
+            raise CookidooError("Die Rezeptseite ist gerade nicht erreichbar.")
+        if recipe_id not in self.pages:
+            raise RecipePageMissingError("Rezeptseite nicht gefunden (404).")
+        return self.pages[recipe_id]
+
     def _maybe_fail(self, action: str, day: date) -> None:
         if (action, day) in self.fail:
             raise CookidooError("Cookidoo ist gerade nicht erreichbar.")
+
+
+def recipe_page(
+    name: str,
+    ingredients: list[str],
+    recipe_yield: object = "4 Portionen",
+    nutrition: dict[str, str] | None = None,
+    total_time: str = "PT30M",
+) -> str:
+    """Rezeptseite wie bei Cookidoo: HTML mit JSON-LD (schema.org/Recipe), stark gekürzt."""
+    data = {
+        "@context": "http://schema.org/",
+        "@type": "Recipe",
+        "name": name,
+        "totalTime": total_time,
+        "recipeYield": recipe_yield,
+        "recipeIngredient": ingredients,
+        "nutrition": {"@type": "NutritionInformation", **(nutrition or {})},
+    }
+    return (
+        '<html><head><script type="application/ld+json">{"@type": "WebSite"}</script>'
+        f'<script type="application/ld+json">{json.dumps(data)}</script></head>'
+        "<body>…</body></html>"
+    )

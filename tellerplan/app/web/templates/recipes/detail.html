@@ -27,7 +27,7 @@
       {{ match_badge(summary.match) }}
     </span>
     {% if recipe.is_placeholder %}
-      <p class="note">Platzhalter aus „Meine Woche“ in Cookidoo: Tellerplan kennt dieses Rezept noch nicht und rechnet es ohne Nährwerte. Die Zutaten kommen mit dem nächsten Import der Cookidoo-Sammlung (Einstellungen → Importieren), oder von Hand unten.</p>
+      <p class="note">Platzhalter aus „Meine Woche“ in Cookidoo: Tellerplan kennt dieses Rezept noch nicht und rechnet es ohne Nährwerte. Zutaten und Portionen lädt <a href="{{ url('import_page') }}">Einstellungen → Importieren → Platzhalter füllen</a> von der Rezeptseite; alternativ von Hand unten.</p>
     {% elif not summary.match.complete %}
       <p class="note">Unvollständig: Nicht alle Zutaten haben ein Lebensmittel mit Grammangabe. <a href="{{ url('matching_page') }}">Zuordnen</a></p>
     {% endif %}

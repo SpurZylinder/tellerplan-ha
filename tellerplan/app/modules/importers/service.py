@@ -174,6 +174,12 @@ def import_document(session: Session, document: object) -> ImportResult:
     )
 
 
+def import_drafts(session: Session, source: str, drafts: list[dict[str, Any]]) -> ImportResult:
+    """Einzelne Entwürfe einer Quelle, z. B. aus `cookidoo_page.draft_from_page`."""
+    document = {"format": FORMAT, "version": FORMAT_VERSION, "source": source, "recipes": drafts}
+    return import_document(session, document)
+
+
 def _with_instructions(recipe: Recipe, data: RecipeInput) -> RecipeInput:
     """Von Hand eingetragene Kochschritte und Kategorien überstehen einen erneuten Import."""
     return RecipeInput(
