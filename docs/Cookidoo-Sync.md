@@ -154,25 +154,25 @@ Die Cookidoo-ID reicht, um ein Rezept zu laden; der umständliche Weg über `too
 - [x] Vorschau: Gruppe „Neue Rezepte“ statt „Neue Platzhalter“. Meldung im Plan: „N neue Rezepte aus Cookidoo geladen“ mit Link zum Zuordnen, ggf. „M bleiben vorerst Platzhalter“.
 - [x] Einstellungen → Importieren: „Platzhalter füllen“ (nur verbunden und wenn es Platzhalter gibt) für alle vorhandenen Platzhalter, mit Grund je übersprungenem Rezept.
 - [x] Tests: `test_cookidoo_page.py`, `test_cookidoo_fill.py`, Abruf in `test_cookidoo.py`. Am Rechner gegen die echte Seite geprüft (r821223: 15 Zeilen, 4 Portionen, 430 kcal Vergleich; r1: 404).
-- [ ] Test auf dem Pi: siehe Punkte 11–13 unten.
+- [x] Test auf dem Pi: siehe Punkte 11–13 unten.
 
 ### Test auf dem Pi (0.4.9)
 
 Am besten mit einem Rezept an einem Tag in der nächsten Woche, das sonst nirgends geplant ist.
 
-1. [ ] Plan → „⇄ Cookidoo“: Die Vorschau zeigt, was in „Meine Woche“ steht und Tellerplan noch nicht hat (bekannte Rezepte unter „In Tellerplan“, unbekannte unter „Neue Platzhalter“), und umgekehrt unter „In Cookidoo“. Stimmt das mit der Cookidoo-App?
-2. [ ] „Übernehmen“: Meldung im Plan, Einträge stehen an den richtigen Tagen; in der Cookidoo-App stehen die Tellerplan-Rezepte.
-3. [ ] Sofort erneut „⇄ Cookidoo“ → „Alles abgeglichen“.
-4. [ ] In der Cookidoo-App ein Rezept auf einen anderen Tag verschieben → Abgleich verschiebt es in Tellerplan.
-5. [ ] In Tellerplan ein abgeglichenes Rezept verschieben → Abgleich verschiebt es in Cookidoo (am alten Tag weg, am neuen da).
-6. [ ] In Tellerplan ein abgeglichenes Rezept entfernen → Abgleich entfernt es in Cookidoo.
-7. [ ] In der Cookidoo-App ein Rezept entfernen → Abgleich entfernt es in Tellerplan.
-8. [ ] Platzhalter: Kennzeichen im Plan und in der Rezeptliste, „In Cookidoo öffnen“ führt zum richtigen Rezept; Tagebuch zeigt bei einem gegessenen Platzhalter den Hinweis „eher zu niedrig“.
-9. [ ] Vorschau öffnen, in der Cookidoo-App etwas ändern, dann „Übernehmen“ → Hinweis und neue Vorschau, nichts geschrieben.
-10. [ ] Am iPhone: Knopf, Vorschau und Meldungen gut bedienbar.
-11. [ ] Schritt 6b: Unbekanntes Rezept in Cookidoo einplanen → Vorschau zeigt es unter „Neue Rezepte“; nach „Übernehmen“ steht es mit Zutatenzeilen und Standardportionen der Seite im Plan, Meldung „1 neues Rezept aus Cookidoo geladen“.
-12. [ ] Vorhandene Platzhalter (aus 0.4.9): Einstellungen → Importieren → „Platzhalter füllen“; Planeinträge bekommen die Standardportionen.
-13. [ ] Zuordnen der neuen Zutaten; danach rechnet das Rezept, Einkaufsliste mit richtigen Mengen.
+1. [x] Plan → „⇄ Cookidoo“: Die Vorschau zeigt, was in „Meine Woche“ steht und Tellerplan noch nicht hat (bekannte Rezepte unter „In Tellerplan“, unbekannte unter „Neue Platzhalter“), und umgekehrt unter „In Cookidoo“. Stimmt das mit der Cookidoo-App?
+2. [x] „Übernehmen“: Meldung im Plan, Einträge stehen an den richtigen Tagen; in der Cookidoo-App stehen die Tellerplan-Rezepte.
+3. [x] Sofort erneut „⇄ Cookidoo“ → „Alles abgeglichen“.
+4. [x] In der Cookidoo-App ein Rezept auf einen anderen Tag verschieben → Abgleich verschiebt es in Tellerplan.
+5. [x] In Tellerplan ein abgeglichenes Rezept verschieben → Abgleich verschiebt es in Cookidoo (am alten Tag weg, am neuen da).
+6. [x] In Tellerplan ein abgeglichenes Rezept entfernen → Abgleich entfernt es in Cookidoo.
+7. [x] In der Cookidoo-App ein Rezept entfernen → Abgleich entfernt es in Tellerplan.
+8. [x] Platzhalter: Kennzeichen im Plan und in der Rezeptliste, „In Cookidoo öffnen“ führt zum richtigen Rezept; Tagebuch zeigt bei einem gegessenen Platzhalter den Hinweis „eher zu niedrig“.
+9. [x] Vorschau öffnen, in der Cookidoo-App etwas ändern, dann „Übernehmen“ → Hinweis und neue Vorschau, nichts geschrieben.
+10. [ ] Am iPhone: Knopf, Vorschau und Meldungen gut bedienbar. (0.4.12: Abstände in der Knopfleiste des Plans, in Vorschau und Meldungen erhöht – erneut prüfen)
+11. [x] Schritt 6b: Unbekanntes Rezept in Cookidoo einplanen → Vorschau zeigt es unter „Neue Rezepte“; nach „Übernehmen“ steht es mit Zutatenzeilen und Standardportionen der Seite im Plan, Meldung „1 neues Rezept aus Cookidoo geladen“.
+12. [x] Vorhandene Platzhalter (aus 0.4.9): Einstellungen → Importieren → „Platzhalter füllen“; Planeinträge bekommen die Standardportionen.
+13. [x] Zuordnen der neuen Zutaten; danach rechnet das Rezept, Einkaufsliste mit richtigen Mengen.
 
 Erst wenn alle Punkte erledigt sind: Schritt 7 und Version 0.5.0.
 

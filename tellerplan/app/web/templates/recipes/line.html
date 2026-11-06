@@ -28,12 +28,19 @@
     <label class="check"><input type="checkbox" name="is_optional" value="true"{% if ingredient.is_optional %} checked{% endif %}> optional</label>
 
     <h2>Rechnung</h2>
+    {% set base = ingredient.base_ingredient %}
     <label class="field">Grundzutat <span class="meta">bestimmt das Standardprodukt</span>
-      <input class="input" name="base_name" value="{{ ingredient.base_ingredient.name if ingredient.base_ingredient else '' }}" list="base-names">
+      <input class="input" name="base_name" value="{{ base.name if base else '' }}" list="base-names"
+             {%- if not base %} placeholder="z. B. {{ ingredient.name or label }}"{% endif %}>
     </label>
     <datalist id="base-names">{% for name in base_names %}<option value="{{ name }}">{% endfor %}</datalist>
+    {% if base %}
+      <p class="meta"><a href="{{ url('base_detail', base_id=base.id) }}">Grundzutat „{{ base.name }}“ bearbeiten</a> – Standardprodukt, weitere Produkte, Namen</p>
+    {% elif not ingredient.food %}
+      <p class="meta">Noch keine Grundzutat. Eine hier eingetragene gilt für alle Zeilen „{{ ingredient.name or label }}“ ohne Zuordnung, auch bei künftigen Importen.</p>
+    {% endif %}
+    <label class="check"><input type="checkbox" name="no_nutrients" value="true"{% if base and base.no_nutrients %} checked{% endif %}> ohne Nährwerte (z. B. Gewürz) – gilt für die Grundzutat in allen Rezepten</label>
 
-    {% set base = ingredient.base_ingredient %}
     <div class="picker">
       {% if base %}
         <label>
@@ -60,9 +67,6 @@
         </label>
       {% endif %}
     </div>
-    {% if base and not base.no_nutrients and not base.default_food %}
-      <p class="meta"><a href="{{ url('base_detail', base_id=base.id) }}">Standardprodukt für „{{ base.name }}“ festlegen</a></p>
-    {% endif %}
     <input class="input" type="search" name="q" placeholder="Anderes Produkt suchen" autocomplete="off"
            hx-get="{{ url('foods_picker') }}?preselect=false&optional=true" hx-trigger="input changed delay:250ms, search"
            hx-target="#line-picker">

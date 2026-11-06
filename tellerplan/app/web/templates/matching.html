@@ -18,7 +18,7 @@
     <a class="chip" href="{{ url('matching_page') }}?view=products" aria-pressed="{{ 'true' if view == 'products' else 'false' }}">Ohne Produkt · {{ without_product|length }}</a>
     <a class="chip" href="{{ url('matching_page') }}?view=units" aria-pressed="{{ 'true' if view == 'units' else 'false' }}">Einheiten · {{ gaps|length }}</a>
   </div>
-  {{ error_message(error) }}
+  {% if error_at is none %}{{ error_message(error) }}{% endif %}
 
   <datalist id="base-names">
     {% for name in base_names %}<option value="{{ name }}">{% endfor %}
@@ -28,8 +28,11 @@
     {% if groups %}
       <p class="meta">{{ open_total }} Namen in {{ open_lines }} Zeilen haben noch keine Grundzutat. Fehlt ein Produkt, z. B. deine Milch einer bestimmten Marke: <a href="{{ url('food_new') }}">Lebensmittel anlegen</a>.</p>
       {% for group in groups %}
-        <form class="form card" method="post" action="{{ url('matching_assign') }}">
+        <form class="form card" id="card-{{ loop.index0 }}" method="post" action="{{ url('matching_assign') }}">
           <input type="hidden" name="name" value="{{ group.name }}">
+          <input type="hidden" name="position" value="{{ loop.index0 }}">
+          {% if show_all %}<input type="hidden" name="show_all" value="true">{% endif %}
+          {% if error_at == loop.index0 %}{{ error_message(error) }}{% endif %}
           <div>
             <h2>{{ group.name }}</h2>
             <span class="meta">{{ group.lines }} Zeile{{ "n" if group.lines != 1 }} in {{ group.recipes|length }} Rezept{{ "en" if group.recipes|length != 1 }} · z. B. {{ group.examples|join(" · ") }}</span>
@@ -74,13 +77,15 @@
       <p class="meta">Diese Grundzutaten werden in Rezepten verwendet, haben aber noch kein Standardprodukt.</p>
       {% for usage in without_product %}
         {% set base = usage.base %}
-        <section class="card">
+        <section class="card" id="card-{{ loop.index0 }}">
+          {% if error_at == loop.index0 %}{{ error_message(error) }}{% endif %}
           <div>
             <h2><a href="{{ url('base_detail', base_id=base.id) }}">{{ base.name }}</a></h2>
             <span class="meta">{{ usage.lines }} Zeile{{ "n" if usage.lines != 1 }}{% if usage.names %} · Namen: {{ usage.names|join(", ") }}{% endif %}</span>
           </div>
           <form class="form" method="post" action="{{ url('base_set_default', base_id=base.id) }}">
             <input type="hidden" name="back" value="matching">
+            <input type="hidden" name="position" value="{{ loop.index0 }}">
             <input class="input" type="search" name="q" value="{{ base.name }}" autocomplete="off"
                    aria-label="Produkt suchen für {{ base.name }}"
                    hx-get="{{ url('foods_picker') }}?preselect=false" hx-trigger="input changed delay:250ms, search"
@@ -91,6 +96,7 @@
           </form>
           <form method="post" action="{{ url('base_settings', base_id=base.id) }}">
             <input type="hidden" name="back" value="matching">
+            <input type="hidden" name="position" value="{{ loop.index0 }}">
             <input type="hidden" name="no_nutrients" value="true">
             <button class="btn ghost small" type="submit">Ohne Nährwerte (Gewürz)</button>
           </form>
@@ -104,8 +110,10 @@
     {% if gaps %}
       <p class="meta">Diesen Zeilen fehlt nur noch, wie viel Gramm die Einheit beim Lebensmittel wiegt. Ein Eintrag gilt in allen Rezepten.</p>
       {% for gap in gaps %}
-        <form class="form card" method="post" action="{{ url('matching_unit') }}">
+        <form class="form card" id="card-{{ loop.index0 }}" method="post" action="{{ url('matching_unit') }}">
           <input type="hidden" name="food_id" value="{{ gap.food.id }}">
+          <input type="hidden" name="position" value="{{ loop.index0 }}">
+          {% if error_at == loop.index0 %}{{ error_message(error) }}{% endif %}
           <input type="hidden" name="unit" value="{{ gap.unit }}">
           <div>
             <h2><a href="{{ url('food_detail', food_id=gap.food.id) }}">{{ gap.food.name }}</a></h2>

@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session
 from db import get_session
 from modules.foods.service import get_food
 from modules.planner.service import delete_entries_of_recipe
-from modules.recipes.matching import base_names, choose_product, create_base, set_line_base
+from modules.recipes.matching import (
+    base_for_name,
+    base_names,
+    choose_product,
+    create_base,
+    link_name,
+    set_line_base,
+    set_no_nutrients,
+)
 from modules.recipes.models import Recipe, RecipeIngredient
 from modules.recipes.service import (
     IngredientInput,
@@ -310,7 +318,15 @@ def ingredient_update(
     is_optional: Annotated[bool, Form()] = False,
     base_name: Annotated[str, Form()] = "",
     food_id: Annotated[str, Form()] = "",
+    no_nutrients: Annotated[bool, Form()] = False,
 ) -> Response:
+    """Zeile speichern.
+
+    Bekommt eine offene Zeile eine Grundzutat und ist ihr Name noch nirgends zugeordnet,
+    lernt Tellerplan den Namen wie auf der Zuordnen-Seite (gilt für alle Rezepte).
+    „Ohne Nährwerte“ gilt für die Grundzutat; ohne eingetragene Grundzutat heißt sie wie
+    die Zeile.
+    """
     recipe = _recipe_or_404(session, recipe_id)
     ingredient = _ingredient_or_404(recipe, ingredient_id)
     try:
@@ -321,8 +337,16 @@ def ingredient_update(
     except FormError as error:
         return _render_line(request, session, recipe, ingredient, error=str(error))
 
-    base_text = clean_text(base_name)
-    set_line_base(session, ingredient, create_base(session, base_text) if base_text else None)
+    previous_base = ingredient.base_ingredient
+    base_text = clean_text(base_name) or (line_name if no_nutrients else None)
+    base = create_base(session, base_text) if base_text else None
+    if base is not None:
+        if previous_base is None and base_for_name(session, line_name) is None:
+            link_name(session, line_name, base)
+        # Der Haken zeigt den Stand der bisherigen Grundzutat; eine andere ändert nur ein Haken.
+        if no_nutrients or base is previous_base:
+            set_no_nutrients(session, base, no_nutrients)
+    set_line_base(session, ingredient, base)
     food = get_food(session, int(food_id)) if food_id.strip().isdigit() else None
     if ingredient.base_ingredient is None and food is None:
         food = ingredient.food  # Zeile von Hand ohne Grundzutat behält ihr Lebensmittel

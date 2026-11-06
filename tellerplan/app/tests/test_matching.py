@@ -209,6 +209,94 @@ def test_base_without_product_gets_one_from_matching_page(
     assert base_for_name(session, "Milch").default_food == milk
 
 
+def test_assign_with_product_but_empty_name_uses_the_ingredient_name(
+    ingress_client: TestClient, session: Session
+) -> None:
+    import_document(session, _document(("k", ["200 g Dinkelmehl Type 630"])))
+    create_base(session, "Dinkelmehl")  # erzeugt einen Vorschlag, das Textfeld bleibt leer
+    flour = make_food(session, "Dinkelmehl Type 630", kcal=340)
+    session.commit()
+
+    response = ingress_client.post(
+        "/matching/assign",
+        data={
+            "name": "Dinkelmehl Type 630",
+            "base_name": "",
+            "food_id": str(flour.id),
+            "position": "3",
+        },
+        follow_redirects=False,
+    )
+
+    assert "error" not in response.headers["location"]
+    assert response.headers["location"].endswith("#card-3")
+    session.expire_all()
+    assert base_for_name(session, "Dinkelmehl Type 630").default_food == flour
+
+
+def test_assign_without_anything_keeps_the_place_and_shows_the_error_there(
+    ingress_client: TestClient, session: Session
+) -> None:
+    import_document(session, _document(("l", ["1 Prise Zimt"])))
+    session.commit()
+
+    response = ingress_client.post(
+        "/matching/assign",
+        data={"name": "Zimt", "base_name": "", "position": "0", "show_all": "true"},
+    )
+
+    assert response.url.fragment == "card-0"
+    assert "show_all=true" in str(response.url)
+    assert 'id="card-0"' in response.text
+    card = response.text.split('id="card-0"', 1)[1]
+    assert card.index("Bitte eine Grundzutat") < card.index("</form>")
+
+
+def test_line_page_marks_an_open_line_as_spice_for_all_recipes(
+    ingress_client: TestClient, session: Session
+) -> None:
+    import_document(session, _document(("m", ["1 TL Kümmel"]), ("n", ["2 TL Kümmel"])))
+    session.commit()
+    recipe = _recipe(session, "m")
+    line = recipe.ingredients[0]
+
+    page = ingress_client.get(f"/recipes/{recipe.id}/ingredients/{line.id}")
+    assert "ohne Nährwerte" in page.text
+    ingress_client.post(
+        f"/recipes/{recipe.id}/ingredients/{line.id}",
+        data={"name": "Kümmel", "quantity": "1", "unit": "TL", "no_nutrients": "true"},
+    )
+
+    session.expire_all()
+    base = base_for_name(session, "Kümmel")
+    assert base is not None and base.no_nutrients
+    assert summarize(_recipe(session, "m")).match.complete
+    assert summarize(_recipe(session, "n")).match.complete
+    page = ingress_client.get(f"/recipes/{recipe.id}/ingredients/{line.id}")
+    assert f"/bases/{base.id}" in page.text
+
+
+def test_line_page_switching_base_keeps_the_other_bases_flag(
+    ingress_client: TestClient, session: Session
+) -> None:
+    import_document(session, _document(("o", ["1 Prise Gewürzsalz"])))
+    salt = create_base(session, "Salz", no_nutrients=True)
+    session.commit()
+    recipe = _recipe(session, "o")
+    line = recipe.ingredients[0]
+    link_name(session, "Gewürzsalz", create_base(session, "Gewürzsalz"))
+    session.commit()
+
+    ingress_client.post(
+        f"/recipes/{recipe.id}/ingredients/{line.id}",
+        data={"name": "Gewürzsalz", "base_name": "Salz"},
+    )
+
+    session.expire_all()
+    assert salt.no_nutrients
+    assert _recipe(session, "o").ingredients[0].base_ingredient == salt
+
+
 def test_line_page_chooses_product_only_for_this_recipe(
     ingress_client: TestClient, session: Session
 ) -> None:

@@ -29,7 +29,7 @@
   </header>
 
   {% if synced is not none or sync_error %}
-    <section class="card" role="status">
+    <section class="card sync-card" role="status">
       {% if sync_error %}
         <p class="error">{{ sync_error }}{% if failed %} – {{ failed }} Änderung{{ "en" if failed != 1 }} in Cookidoo nicht übernommen; der nächste Abgleich versucht es erneut.{% endif %}</p>
       {% endif %}

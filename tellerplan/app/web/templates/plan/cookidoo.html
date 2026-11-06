@@ -11,31 +11,31 @@
   </header>
 
   {% if error %}
-    <section class="card">
+    <section class="card sync-card">
       {{ error_message(error) }}
       <p class="meta">Verbindung prüfen oder neu verbinden: <a href="{{ url('settings_page') }}#cookidoo">Einstellungen → Cookidoo</a></p>
     </section>
   {% elif in_sync %}
-    <section class="card">
+    <section class="card sync-card">
       <p class="success" role="status">Alles abgeglichen – Plan und „Meine Woche“ stimmen überein.</p>
-      <div class="form-actions"><a class="btn" href="{{ url('plan_page') }}">Zurück zum Plan</a></div>
+      <div class="form-actions sync-actions"><a class="btn" href="{{ url('plan_page') }}">Zurück zum Plan</a></div>
     </section>
   {% else %}
     {% if changed_meanwhile %}
       <p class="note" role="status">In Cookidoo hat sich seit der Vorschau etwas geändert. Bitte die neue Vorschau prüfen.</p>
     {% endif %}
     {% for group, lines in groups if lines %}
-      <section class="card">
+      <section class="card sync-card">
         <h2>{{ group }}</h2>
         {% if group == "Neue Rezepte" %}
           <p class="meta">Rezepte aus Cookidoo, die Tellerplan noch nicht kennt. Nach dem Übernehmen lädt Tellerplan Zutatenzeilen und Portionen von der Rezeptseite; klappt das nicht, bleiben sie vorerst Platzhalter (nur Titel und Link).</p>
         {% endif %}
-        <ul class="list">
+        <ul class="list sync-list">
           {% for text in lines %}<li>{{ text }}</li>{% endfor %}
         </ul>
       </section>
     {% endfor %}
-    <form class="form-actions" method="post" action="{{ url('cookidoo_apply') }}">
+    <form class="form-actions sync-actions" method="post" action="{{ url('cookidoo_apply') }}">
       <input type="hidden" name="fingerprint" value="{{ fingerprint }}">
       <button class="btn" type="submit">Übernehmen</button>
       <a class="btn ghost" href="{{ url('plan_page') }}">Abbrechen</a>

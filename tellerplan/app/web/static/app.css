@@ -213,6 +213,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   padding: 14px 16px;
   display: grid;
   gap: 10px;
+  scroll-margin-top: 12px;
 }
 .card h2, .card h3 { margin: 0; }
 .card h2 a, .card h3 a { color: inherit; text-decoration: none; }
@@ -369,6 +370,13 @@ a.chip { text-decoration: none; display: inline-block; }
 .list > li:has(> .diary-entry[open]) { align-items: start; }
 
 .plan-day-head { display: flex; align-items: center; gap: 6px; }
+
+/* Cookidoo-Abgleich: etwas mehr Luft für die Bedienung am iPhone */
+.plan-header .nums { gap: 10px; }
+.plan-header .chip { padding: 8px 14px; }
+.sync-card { gap: 12px; }
+.sync-list > li { padding: 12px 0; }
+.sync-actions { gap: 12px; margin-top: 8px; }
 .plan-day-head h2 { margin: 0; font-size: 1rem; }
 .plan-day-head .icon-btn { margin-left: auto; }
 .plan-recipes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

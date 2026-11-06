@@ -60,11 +60,27 @@ def _base_or_404(session: Session, base_id: int) -> BaseIngredient:
     return base
 
 
-def _back(request: Request, view: str, error: str | None = None) -> Response:
+def _back(
+    request: Request,
+    view: str,
+    error: str | None = None,
+    position: int | None = None,
+    show_all: bool = False,
+) -> Response:
+    """Zurück zur Zuordnen-Seite, an die Stelle der bearbeiteten Karte.
+
+    Ist die Karte erledigt, rückt die nächste an ihre Position; bei einem Fehler
+    steht dort dieselbe Karte mit der Meldung.
+    """
     query = {"view": view if view in VIEWS else VIEWS[0]}
+    if show_all:
+        query["show_all"] = "true"
     if error:
         query["error"] = error
-    return redirect_to(request, "matching_page", query=query)
+        if position is not None:
+            query["error_at"] = str(position)
+    anchor = f"#card-{position}" if position is not None else ""
+    return redirect_to(request, "matching_page", anchor=anchor, query=query)
 
 
 @router.get("/matching", response_class=HTMLResponse)
@@ -74,6 +90,7 @@ def matching_page(
     view: str = VIEWS[0],
     show_all: bool = False,
     error: str | None = None,
+    error_at: int | None = None,
 ) -> HTMLResponse:
     view = view if view in VIEWS else VIEWS[0]
     groups = open_groups(session)
@@ -97,7 +114,9 @@ def matching_page(
         without_product=without_product,
         gaps=gaps,
         base_names=base_names(session),
+        show_all=show_all,
         error=error,
+        error_at=error_at,
     )
 
 
@@ -110,14 +129,20 @@ def matching_assign(
     suggestion: Annotated[str, Form()] = "",
     food_id: Annotated[int | None, Form()] = None,
     no_nutrients: Annotated[bool, Form()] = False,
+    position: Annotated[int | None, Form()] = None,
+    show_all: Annotated[bool, Form()] = False,
 ) -> Response:
     """Name → Grundzutat (wird bei Bedarf angelegt), optional mit Produkt oder „ohne Nährwerte“.
 
-    Ein Tipp auf einen Vorschlag (`suggestion`) geht vor dem Textfeld.
+    Ein Tipp auf einen Vorschlag (`suggestion`) geht vor dem Textfeld. Bleibt das Textfeld
+    leer, aber ist ein Produkt oder „ohne Nährwerte“ gewählt, heißt die Grundzutat wie der Name.
     """
     chosen = clean_text(suggestion) or clean_text(base_name)
+    if chosen is None and (food_id is not None or no_nutrients):
+        chosen = clean_text(name)
     if chosen is None:
-        return _back(request, "open", "Bitte eine Grundzutat wählen oder einen Namen eingeben.")
+        message = "Bitte eine Grundzutat wählen oder einen Namen eingeben."
+        return _back(request, "open", message, position, show_all)
     base = create_base(session, chosen, no_nutrients=no_nutrients)
     if no_nutrients:
         set_no_nutrients(session, base, True)
@@ -129,7 +154,7 @@ def matching_assign(
             add_product(session, base, food)
     link_name(session, name, base)
     session.commit()
-    return _back(request, "open")
+    return _back(request, "open", position=position, show_all=show_all)
 
 
 @router.post("/matching/unit", response_model=None)
@@ -139,6 +164,7 @@ def matching_unit(
     food_id: Annotated[int, Form()],
     unit: Annotated[str, Form()],
     grams: Annotated[str, Form()] = "",
+    position: Annotated[int | None, Form()] = None,
 ) -> Response:
     food = _food_or_404(session, food_id)
     try:
@@ -146,10 +172,10 @@ def matching_unit(
         if amount <= 0:
             raise FormError("Gramm müssen größer als 0 sein.")
     except FormError as error:
-        return _back(request, "units", str(error))
+        return _back(request, "units", str(error), position)
     set_unit(session, food, unit, amount)
     session.commit()
-    return _back(request, "units")
+    return _back(request, "units", position=position)
 
 
 # --- Grundzutaten ---------------------------------------------------------
@@ -203,19 +229,20 @@ def base_set_default(
     base_id: int,
     food_id: Annotated[int | None, Form()] = None,
     back: Annotated[str, Form()] = "",
+    position: Annotated[int | None, Form()] = None,
 ) -> Response:
     """Standardprodukt setzen; gilt sofort für alle Zeilen ohne eigene Produktwahl."""
     base = _base_or_404(session, base_id)
     if food_id is None:
         if back == "matching":
-            return _back(request, "products", "Bitte ein Produkt wählen.")
+            return _back(request, "products", "Bitte ein Produkt wählen.", position)
         return redirect_to(
             request, "base_detail", query={"error": "Bitte ein Produkt wählen."}, base_id=base.id
         )
     set_default_product(session, base, _food_or_404(session, food_id))
     session.commit()
     if back == "matching":
-        return _back(request, "products")
+        return _back(request, "products", position=position)
     return redirect_to(request, "base_detail", base_id=base.id)
 
 
@@ -237,6 +264,7 @@ def base_settings(
     name: Annotated[str, Form()] = "",
     no_nutrients: Annotated[bool, Form()] = False,
     back: Annotated[str, Form()] = "",
+    position: Annotated[int | None, Form()] = None,
 ) -> Response:
     base = _base_or_404(session, base_id)
     new_name = clean_text(name)
@@ -245,10 +273,10 @@ def base_settings(
             rename_base(session, base, new_name)
         except BaseNameTakenError as error:
             if back == "matching":
-                return _back(request, "products", str(error))
+                return _back(request, "products", str(error), position)
             return redirect_to(request, "base_detail", query={"error": str(error)}, base_id=base.id)
     set_no_nutrients(session, base, no_nutrients)
     session.commit()
     if back == "matching":
-        return _back(request, "products")
+        return _back(request, "products", position=position)
     return redirect_to(request, "base_detail", base_id=base.id)
