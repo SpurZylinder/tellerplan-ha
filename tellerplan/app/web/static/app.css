@@ -369,7 +369,31 @@ a.chip { text-decoration: none; display: inline-block; }
 .diary-entry > form { padding-top: 10px; }
 .list > li:has(> .diary-entry[open]) { align-items: start; }
 
-.plan-day-head { display: flex; align-items: center; gap: 6px; }
+.plan-day-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.plan-day-head h2 { margin: 0; font-size: 1rem; white-space: nowrap; }
+.plan-day-head .icon-btn { margin-left: auto; }
+.plan-recipes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.plan-recipe summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--fg);
+  font-weight: 600;
+  font-size: .9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.plan-servings { display: block; margin-top: 4px; font-weight: 400; font-size: .76rem; color: var(--muted); }
+.plan-recipe summary::-webkit-details-marker { display: none; }
+.plan-recipe[open] summary { outline: 1px solid var(--accent); }
+.plan-actions { display: grid; gap: 12px; padding: 12px 2px 4px; font-size: .85rem; justify-items: start; }
+.plan-actions form { margin: 0; }
+.plan-actions a { color: var(--accent); font-weight: 600; padding-block: 2px; }
+/* Datumsfeld über die ganze Spaltenbreite, Knopf darunter */
+.plan-move { display: grid; gap: 8px; justify-self: stretch; justify-items: start; }
+.plan-move .input { display: block; width: 100%; min-width: 0; padding: 7px 8px; }
 
 /* Cookidoo-Abgleich: etwas mehr Luft für die Bedienung am iPhone */
 .plan-header .nums { gap: 10px; }
@@ -377,28 +401,6 @@ a.chip { text-decoration: none; display: inline-block; }
 .sync-card { gap: 12px; }
 .sync-list > li { padding: 12px 0; }
 .sync-actions { gap: 12px; margin-top: 8px; }
-.plan-day-head h2 { margin: 0; font-size: 1rem; }
-.plan-day-head .icon-btn { margin-left: auto; }
-.plan-recipes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.plan-recipe summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 7px 9px;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--fg);
-  font-weight: 600;
-  font-size: .9rem;
-  overflow-wrap: anywhere;
-}
-.plan-servings { display: block; font-weight: 400; font-size: .76rem; color: var(--muted); }
-.plan-recipe summary::-webkit-details-marker { display: none; }
-.plan-recipe[open] summary { outline: 1px solid var(--accent); }
-.plan-actions { display: grid; gap: 6px; padding: 8px 2px 2px; font-size: .85rem; }
-.plan-actions form { margin: 0; }
-.plan-actions a { color: var(--accent); font-weight: 600; }
-.plan-move { display: flex; flex-wrap: wrap; gap: 6px; }
-.plan-move .input { flex: 1 1 130px; min-width: 0; padding: 5px 8px; }
 
 /* Tageslimit als Halbkreis */
 .gauge-card { justify-items: center; text-align: center; }
