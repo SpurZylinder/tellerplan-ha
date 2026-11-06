@@ -1,14 +1,17 @@
 """Zuordnen über Grundzutaten: Name → Grundzutat → Standardprodukt, Ausnahmen je Rezept."""
 
+from datetime import date
 from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from factories import make_food
-from modules.foods.models import Food
+from modules.diary.models import DiaryEntry
+from modules.foods.models import Food, FoodSource
 from modules.importers.service import import_document
 from modules.recipes.matching import (
+    add_product,
     base_for_name,
     base_usages,
     choose_product,
@@ -368,3 +371,60 @@ def test_unit_page_accepts_grams_with_unit(ingress_client: TestClient, session: 
     assert "bitte eine Zahl" not in response.text
     session.expire_all()
     assert summarize(_recipe(session, "n")).match.complete
+
+
+# --- Lebensmittel löschen -------------------------------------------------
+
+
+def test_deleting_a_food_releases_bases_lines_and_keeps_the_diary(
+    ingress_client: TestClient, session: Session
+) -> None:
+    import_document(session, _document(("p", ["200 ml Milch"]), ("q", ["100 ml Milch"])))
+    base, milk = _milk_base(session)
+    oat = make_food(session, "Haferdrink", units={"ml": 1})
+    add_product(session, base, oat)
+    choose_product(session, _recipe(session, "q").ingredients[0], oat)
+    entry = DiaryEntry(
+        day=date(2026, 11, 6),
+        meal="Frühstück",
+        food_id=oat.id,
+        quantity=200,
+        unit="ml",
+        grams=200,
+        label="200 ml Haferdrink",
+        kcal=90,
+        protein_g=1,
+        fat_g=3,
+        carbs_g=13,
+    )
+    session.add(entry)
+    session.commit()
+    oat_id, milk_id = oat.id, milk.id
+
+    page = ingress_client.get(f"/foods/{oat_id}/delete")
+    assert "Weiteres Produkt von Milch" in page.text
+    assert "Rezept q" in page.text
+    assert "Standardprodukt von Milch" in ingress_client.get(f"/foods/{milk_id}/delete").text
+
+    response = ingress_client.post(f"/foods/{oat_id}/delete", follow_redirects=False)
+    assert response.status_code == 303
+    ingress_client.post(f"/foods/{milk_id}/delete")
+
+    session.expire_all()
+    assert session.get(Food, oat_id) is None
+    assert entry.food_id is None and entry.kcal == 90
+    assert base.default_food is None and base.products == []
+    line = _recipe(session, "q").ingredients[0]
+    assert line.food is None and line.base_ingredient == base
+    assert "Milch" in ingress_client.get("/matching?view=products").text
+
+
+def test_bls_food_cannot_be_deleted(ingress_client: TestClient, session: Session) -> None:
+    food = make_food(session, "Hafer Flocken", source=FoodSource.BLS, source_id="C133000")
+    session.commit()
+
+    assert "Löschen" not in ingress_client.get(f"/foods/{food.id}").text
+    assert ingress_client.get(f"/foods/{food.id}/delete").status_code == 403
+    assert ingress_client.post(f"/foods/{food.id}/delete").status_code == 403
+    session.expire_all()
+    assert session.get(Food, food.id) is not None

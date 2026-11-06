@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ food.name }} löschen · Tellerplan{% endblock %}
+
+{% block content %}
+  <header>
+    <a class="back" href="{{ url('food_detail', food_id=food.id) }}">← {{ food.name }}</a>
+    <h1>Lebensmittel löschen?</h1>
+  </header>
+
+  <section class="card">
+    <h2>{{ food.name }}{% if food.brand %} · {{ food.brand }}{% endif %}</h2>
+    {% if usage.unused %}
+      <p class="meta">Kein Rezept und keine Grundzutat verwendet dieses Lebensmittel.</p>
+    {% else %}
+      <ul class="list">
+        {% if usage.default_of %}
+          <li><span>Standardprodukt von {{ usage.default_of|join(", ") }} – die Grundzutat{{ "en" if usage.default_of|length != 1 }} {{ "haben" if usage.default_of|length != 1 else "hat" }} danach kein Standardprodukt mehr und {{ "erscheinen" if usage.default_of|length != 1 else "erscheint" }} unter Zuordnen → Ohne Produkt.</span></li>
+        {% endif %}
+        {% if usage.product_of %}
+          <li><span>Weiteres Produkt von {{ usage.product_of|join(", ") }} – fällt aus der Auswahl.</span></li>
+        {% endif %}
+        {% if usage.recipes %}
+          <li><span>Direkt gewählt in {{ usage.recipes|join(", ") }} – diese Zeilen rechnen danach mit dem Standard ihrer Grundzutat oder sind wieder offen.</span></li>
+        {% endif %}
+      </ul>
+    {% endif %}
+    <p class="meta">Tagebucheinträge behalten ihre Nährwerte.</p>
+    <form class="form-actions" method="post" action="{{ url('food_delete', food_id=food.id) }}">
+      <button class="btn danger" type="submit">Endgültig löschen</button>
+      <a class="btn ghost" href="{{ url('food_detail', food_id=food.id) }}">Abbrechen</a>
+    </form>
+  </section>
+{% endblock %}

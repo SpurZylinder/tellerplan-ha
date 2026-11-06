@@ -315,6 +315,7 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 - [ ] Braucht die Einstellseite `hassio_api` wirklich? Laut Supervisor-Quellcode sind Aufrufe an `/addons/self/…` womöglich auch ohne erreichbar. Beim ersten Test im Add-on prüfen und den Schalter entfernen, falls er unnötig ist.
 - [x] Vorratsliste: Stichwörter als Option `pantry_keywords` in `options.json` (z. B. „salz“ trifft alle Salz-Einträge aus BLS), einstellbar in HA und auf der Einstellseite. Kein Kennzeichen am Lebensmittel.
 - [x] Artikelnamen: neues optionales Feld „Einkaufsname“ an `food` (z. B. „Hähnchenbrust“), gepflegt in der Lebensmittel-Ansicht, Migration 0006. Ohne Eintrag wird der Name aus dem BLS-Namen abgeleitet.
+- [x] REWE-Produktnummer: optionales Feld `food.rewe_id` (Migration 0016), gepflegt in der Lebensmittel-Ansicht (Nummer oder Link der Produktseite, auch bei BLS); der Lebensmittel-Import übernimmt sie aus `rewe_id` oder dem Link `url`. Grundlage für die Idee, aus der Bring-Liste einen REWE-Warenkorb mit den Standardprodukten zu füllen (Abholung).
 
 **Befunde der Projektprüfung vom 2026-10-25**
 

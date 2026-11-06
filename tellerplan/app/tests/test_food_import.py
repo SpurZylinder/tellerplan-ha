@@ -170,3 +170,15 @@ def test_upload_page_imports_foods(ingress_client: TestClient) -> None:
     assert "1 neu, 0 schon vorhanden" in response.text
     search = ingress_client.get("/foods/search?q=frischmilch").text
     assert "Frankenland - Die Frankenmilch" in search
+
+
+def test_rewe_id_comes_from_field_or_link_and_hand_value_stays(session: Session) -> None:
+    import_foods(session, _document({**MILK, "rewe_id": "7001"}))
+    assert _by_barcode(session, "4099936001270").rewe_id == "7001"
+
+    link = "https://www.rewe.de/shop/products/7002?variantArticleId=4099936001270"
+    import_foods(session, _document({**MILK, "url": link}))
+    assert _by_barcode(session, "4099936001270").rewe_id == "7002"
+
+    import_foods(session, _document(MILK))  # ohne Nummer: die vorhandene bleibt
+    assert _by_barcode(session, "4099936001270").rewe_id == "7002"

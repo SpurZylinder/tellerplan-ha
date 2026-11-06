@@ -21,6 +21,19 @@ from modules.recipes.service import alias_key, ingredient_issue, resolved_food
 
 
 @dataclass(frozen=True)
+class FoodUsage:
+    """Wo ein Lebensmittel in Rezepten steckt – für die Rückfrage vor dem Löschen."""
+
+    default_of: list[str]  # Grundzutaten, deren Standardprodukt es ist
+    product_of: list[str]  # Grundzutaten, die es nur zur Auswahl haben
+    recipes: list[str]  # Rezepte, die es in einer Zeile direkt gewählt haben
+
+    @property
+    def unused(self) -> bool:
+        return not (self.default_of or self.product_of or self.recipes)
+
+
+@dataclass(frozen=True)
 class OpenGroup:
     """Alle Zeilen mit demselben Zutatennamen ohne Grundzutat, über alle Rezepte."""
 
@@ -304,6 +317,26 @@ def choose_product(session: Session, ingredient: RecipeIngredient, food: Food | 
         to_grams(food, ingredient.quantity, ingredient.unit) if has_quantity else None
     )
     session.flush()
+
+
+def food_usage(session: Session, food: Food) -> FoodUsage:
+    bases = session.scalars(
+        select(BaseIngredient)
+        .where(BaseIngredient.products.any(Food.id == food.id))
+        .order_by(BaseIngredient.name)
+    ).all()
+    recipes = session.scalars(
+        select(Recipe.title)
+        .join(RecipeIngredient)
+        .where(RecipeIngredient.food_id == food.id)
+        .distinct()
+        .order_by(Recipe.title)
+    ).all()
+    return FoodUsage(
+        default_of=[base.name for base in bases if base.default_food_id == food.id],
+        product_of=[base.name for base in bases if base.default_food_id != food.id],
+        recipes=list(recipes),
+    )
 
 
 def set_line_base(

@@ -13,6 +13,7 @@
       {{ food_source(food) }}
       {% if food.source != "bls" %}
         <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
+        <a class="btn danger small" href="{{ url('food_delete_confirm', food_id=food.id) }}">Löschen</a>
       {% endif %}
     </div>
   </header>
@@ -34,14 +35,18 @@
   </section>
 
   <section class="card" id="shopping">
-    <h2>Einkaufsname</h2>
-    <p class="meta">So heißt der Artikel auf der Einkaufsliste in Bring. Leer lassen für „{{ default_shopping_name }}“.</p>
+    <h2>Einkauf</h2>
     <form class="form" method="post" action="{{ url('shopping_name_set', food_id=food.id) }}">
-      <div class="field-row">
-        <input class="input" name="shopping_name" value="{{ food.shopping_name or '' }}"
-               placeholder="{{ default_shopping_name }}" maxlength="100" aria-label="Einkaufsname">
-      </div>
-      <div class="form-actions"><button class="btn ghost small" type="submit">Einkaufsnamen speichern</button></div>
+      {{ error_message(shopping_error) }}
+      <label class="field">Einkaufsname <span class="meta">so heißt der Artikel in Bring; leer = „{{ default_shopping_name }}“</span>
+        <input class="input" name="shopping_name" value="{{ form.shopping_name if form else (food.shopping_name or '') }}"
+               placeholder="{{ default_shopping_name }}" maxlength="100">
+      </label>
+      <label class="field">REWE-Produktnummer <span class="meta">Nummer oder Link der Produktseite, z. B. rewe.de/shop/products/1325124</span>
+        <input class="input" name="rewe_id" value="{{ form.rewe_id if form else (food.rewe_id or '') }}"
+               inputmode="url" autocomplete="off" placeholder="z. B. 1325124">
+      </label>
+      <div class="form-actions"><button class="btn ghost small" type="submit">Speichern</button></div>
     </form>
   </section>
 

@@ -6,6 +6,8 @@ einzige Stelle mit Nährwerten (Regel 1), externe Lebensmitteldaten kommen nur h
 Ein Produkt wird zuerst am Barcode wiedererkannt (dasselbe Produkt aus REWE und Open
 Food Facts nur einmal), sonst an Quelle und Quell-ID. Ein erneuter Import aktualisiert
 Name, Hersteller, Packung und Nährwerte; Kurzname und Einheiten von Hand bleiben.
+Die REWE-Produktnummer kommt aus `rewe_id` oder dem Link der Produktseite (`url`);
+fehlt beides, bleibt eine von Hand eingetragene.
 
 Angaben je 100 ml (Getränke, Milch) werden wie je 100 g gespeichert; dazu bekommt das
 Produkt die Einheiten „ml“ (1 ml = 1 g) und „l“, damit „200 ml Milch“ genau mit den
@@ -20,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from modules.foods.models import Food, FoodSource, FoodUnit
+from modules.foods.service import InvalidReweIdError, parse_rewe_id
 
 FORMAT = "tellerplan-foods"
 FORMAT_VERSION = 1
@@ -94,11 +97,24 @@ def _units(entry: dict[str, Any]) -> list[tuple[str, float]]:
     return valid
 
 
+def _rewe_id(entry: dict[str, Any]) -> str | None:
+    for key in ("rewe_id", "url"):
+        value = entry.get(key)
+        if isinstance(value, str | int):
+            try:
+                if found := parse_rewe_id(str(value)):
+                    return found
+            except InvalidReweIdError:
+                continue
+    return None
+
+
 def _apply(food: Food, entry: dict[str, Any]) -> None:
     food.name = entry["name"].strip()
     food.brand = entry.get("brand") or None
     food.barcode = entry.get("barcode") or None
     food.package = entry.get("package") or None
+    food.rewe_id = _rewe_id(entry) or food.rewe_id
     for key in (*REQUIRED, *OPTIONAL):
         setattr(food, key, _number(entry, key))
     if entry.get("basis") == VOLUME_BASIS:

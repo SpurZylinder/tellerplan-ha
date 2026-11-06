@@ -202,6 +202,47 @@ def set_shopping_name(session: Session, food: Food, name: str | None) -> Food:
     return food
 
 
+# Nummer allein oder Link der Produktseite:
+# rewe.de/shop/products/1325124, shop.rewe.de/p/name/1325124
+REWE_ID_PATTERN = re.compile(r"^\d{1,20}$")
+REWE_LINK_PATTERN = re.compile(r"rewe\.de/(?:shop/products|p/[^/?#]+)/(\d{1,20})(?:[/?#]|$)")
+
+
+class InvalidReweIdError(ValueError):
+    """Weder eine REWE-Produktnummer noch ein Link auf eine Produktseite."""
+
+
+def parse_rewe_id(text: str | None) -> str | None:
+    """Produktnummer aus Nummer oder Link; leer → None."""
+    value = (text or "").strip()
+    if not value:
+        return None
+    if REWE_ID_PATTERN.match(value):
+        return value
+    if match := REWE_LINK_PATTERN.search(value):
+        return match.group(1)
+    raise InvalidReweIdError(
+        "Bitte die REWE-Produktnummer oder den Link der Produktseite eingeben."
+    )
+
+
+def set_rewe_id(session: Session, food: Food, text: str | None) -> Food:
+    """Setzt die REWE-Produktnummer; leer entfernt sie wieder."""
+    food.rewe_id = parse_rewe_id(text)
+    session.flush()
+    return food
+
+
+def delete_food(session: Session, food: Food) -> None:
+    """Löscht ein Lebensmittel samt Einheiten.
+
+    Die Datenbank löst die Verweise: Tagebucheinträge behalten ihren Snapshot,
+    Rezeptzeilen und Grundzutaten verlieren nur das Produkt.
+    """
+    session.delete(food)
+    session.flush()
+
+
 def delete_unit(session: Session, food: Food, unit_id: int) -> None:
     food.units[:] = [unit for unit in food.units if unit.id != unit_id]
     session.flush()

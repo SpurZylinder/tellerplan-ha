@@ -36,6 +36,8 @@ class Food(Base):
     barcode: Mapped[str | None] = mapped_column(String(14), index=True, unique=True)
     # Packungsgröße laut Handel, z. B. „1l“ oder „200g“
     package: Mapped[str | None] = mapped_column(String(60))
+    # Produktnummer im REWE-Shop (…/shop/products/1325124), auch für BLS und eigene Lebensmittel
+    rewe_id: Mapped[str | None] = mapped_column(String(20), index=True)
 
     # Nährwerte pro 100 g
     kcal: Mapped[float]

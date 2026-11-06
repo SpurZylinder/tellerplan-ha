@@ -1,9 +1,16 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from factories import make_food
 from modules.foods.models import FoodSource
-from modules.foods.service import delete_unit, search_foods, set_unit
+from modules.foods.service import (
+    InvalidReweIdError,
+    delete_unit,
+    parse_rewe_id,
+    search_foods,
+    set_unit,
+)
 
 
 def test_search_requires_all_terms_and_ignores_case(session: Session) -> None:
@@ -148,3 +155,47 @@ def test_frequency_lifts_matches_but_not_weak_ones(session: Session) -> None:
     names = [f.name for f in search_foods(session, "ei", frequency={other.id: 5, bread.id: 50})]
 
     assert names == ["Hühnerei roh", "Wachtelei roh", "Weizenbrot"]
+
+
+@pytest.mark.parametrize(
+    ("text", "rewe_id"),
+    [
+        ("1325124", "1325124"),
+        (" 1325124 ", "1325124"),
+        ("https://www.rewe.de/shop/products/1325124?variantArticleId=5000189363069", "1325124"),
+        ("https://shop.rewe.de/p/after-eight-200g/1325124", "1325124"),
+        ("", None),
+    ],
+)
+def test_rewe_id_from_number_or_link(text: str, rewe_id: str | None) -> None:
+    assert parse_rewe_id(text) == rewe_id
+
+
+@pytest.mark.parametrize("text", ["abc", "https://example.com/shop/products/1325124", "12-34"])
+def test_rewe_id_rejects_anything_else(text: str) -> None:
+    with pytest.raises(InvalidReweIdError):
+        parse_rewe_id(text)
+
+
+def test_rewe_id_on_food_page_also_for_bls(ingress_client: TestClient, session: Session) -> None:
+    food = make_food(session, "Hafer Flocken", source=FoodSource.BLS, source_id="C133000")
+    session.commit()
+
+    ingress_client.post(
+        f"/foods/{food.id}/shopping-name",
+        data={"shopping_name": "Haferflocken", "rewe_id": "https://www.rewe.de/shop/products/42"},
+    )
+    session.expire_all()
+    assert (food.shopping_name, food.rewe_id) == ("Haferflocken", "42")
+
+    page = ingress_client.post(
+        f"/foods/{food.id}/shopping-name", data={"shopping_name": "Flocken", "rewe_id": "abc"}
+    )
+    assert "Bitte die REWE-Produktnummer" in page.text
+    assert 'value="Flocken"' in page.text
+    session.expire_all()
+    assert (food.shopping_name, food.rewe_id) == ("Haferflocken", "42")
+
+    ingress_client.post(f"/foods/{food.id}/shopping-name", data={"rewe_id": ""})
+    session.expire_all()
+    assert food.rewe_id is None

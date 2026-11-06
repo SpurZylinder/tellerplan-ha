@@ -10,16 +10,20 @@ from db import get_session
 from modules.foods.models import Food, FoodSource
 from modules.foods.service import (
     FoodInput,
+    InvalidReweIdError,
     create_food,
     default_short_name,
+    delete_food,
     delete_unit,
     get_food,
     search_foods,
+    set_rewe_id,
     set_shopping_name,
     set_unit,
     update_food,
 )
 from modules.nutrition.service import standard_units, uses_standard_unit
+from modules.recipes.matching import food_usage
 from web.forms import FormError, clean_text, parse_number, redirect_to, required_number
 from web.templating import render
 
@@ -46,9 +50,9 @@ def _food_or_404(session: Session, food_id: int) -> Food:
 
 
 def _editable_food_or_error(session: Session, food_id: int) -> Food:
-    """Nur eigene Lebensmittel sind änderbar; BLS-Werte bleiben, wie sie sind."""
+    """Eigene und Produkte (REWE, Open Food Facts) sind änderbar; BLS-Werte bleiben."""
     food = _food_or_404(session, food_id)
-    if food.source != FoodSource.CUSTOM:
+    if food.source == FoodSource.BLS:
         raise HTTPException(status_code=403, detail="BLS-Lebensmittel sind schreibgeschützt")
     return food
 
@@ -145,7 +149,13 @@ def food_detail(request: Request, session: SessionDep, food_id: int) -> HTMLResp
     return _render_detail(request, food)
 
 
-def _render_detail(request: Request, food: Food, unit_error: str | None = None) -> HTMLResponse:
+def _render_detail(
+    request: Request,
+    food: Food,
+    unit_error: str | None = None,
+    shopping_error: str | None = None,
+    form: dict[str, str] | None = None,
+) -> HTMLResponse:
     return render(
         request,
         "foods/detail.html",
@@ -155,6 +165,8 @@ def _render_detail(request: Request, food: Food, unit_error: str | None = None) 
         # Standard-Einheiten, für die das Lebensmittel keine eigene Angabe hat
         standard_units=[unit for unit in standard_units() if uses_standard_unit(food, unit.name)],
         unit_error=unit_error,
+        shopping_error=shopping_error,
+        form=form or {},
     )
 
 
@@ -188,6 +200,20 @@ async def food_update(request: Request, session: SessionDep, food_id: int) -> Re
     return redirect_to(request, "food_detail", food_id=food.id)
 
 
+@router.get("/{food_id}/delete", response_class=HTMLResponse)
+def food_delete_confirm(request: Request, session: SessionDep, food_id: int) -> HTMLResponse:
+    """Rückfrage mit allem, was das Löschen in Rezepten ändert."""
+    food = _editable_food_or_error(session, food_id)
+    return render(request, "foods/delete.html", food=food, usage=food_usage(session, food))
+
+
+@router.post("/{food_id}/delete", response_model=None)
+def food_delete(request: Request, session: SessionDep, food_id: int) -> Response:
+    delete_food(session, _editable_food_or_error(session, food_id))
+    session.commit()
+    return redirect_to(request, "foods_page")
+
+
 @router.post("/{food_id}/units", response_model=None)
 def unit_add(
     request: Request,
@@ -214,8 +240,15 @@ def shopping_name_set(
     session: SessionDep,
     food_id: int,
     shopping_name: Annotated[str, Form()] = "",
+    rewe_id: Annotated[str, Form()] = "",
 ) -> Response:
+    """Einkaufsname und REWE-Produktnummer; beides darf auch bei BLS gepflegt werden."""
     food = _food_or_404(session, food_id)
+    try:
+        set_rewe_id(session, food, rewe_id)
+    except InvalidReweIdError as error:
+        form = {"shopping_name": shopping_name, "rewe_id": rewe_id}
+        return _render_detail(request, food, shopping_error=str(error), form=form)
     set_shopping_name(session, food, shopping_name)
     session.commit()
     return redirect_to(request, "food_detail", anchor="#shopping", food_id=food.id)

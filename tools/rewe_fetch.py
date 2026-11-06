@@ -183,6 +183,7 @@ def from_rewe_page(product: dict, page: str) -> tuple[dict | None, str | None]:
         "brand": brand.get("name") if isinstance(brand, dict) else brand,
         "package": product.get("grammage"),
         "basis": basis,
+        "rewe_id": product["product_id"],
         "url": product["url"],
         **values,
     }
@@ -243,6 +244,7 @@ def from_off(product: dict, barcode: str, off: dict) -> tuple[dict | None, str |
         "brand": brand,
         "package": product.get("grammage") or off.get("quantity"),
         "basis": "100 g",
+        "rewe_id": product["product_id"],
         "url": product["url"],
         **_rounded(values),
     }

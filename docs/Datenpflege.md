@@ -91,7 +91,7 @@ Mehrere eigene Lebensmittel auf einmal (z. B. das Sortiment eines Bäckers) komm
 ```
 
 - Pflicht: `source`, `source_id` (eindeutig, z. B. `bäcker:produkt`), `name`, `kcal`, `protein_g`, `fat_g`, `carbs_g`
-- Optional: `brand`, `barcode`, `package`, `fiber_g`, `sugar_g`, `salt_g`, `units`
+- Optional: `brand`, `barcode`, `package`, `fiber_g`, `sugar_g`, `salt_g`, `units`, `rewe_id` (Produktnummer im REWE-Shop; fehlt sie, wird sie aus `url` gelesen, wenn das ein Link auf eine REWE-Produktseite ist)
 - Weitere Felder (z. B. `source_url`, `note`) stören nicht, werden aber nicht gespeichert.
 - Ein erneuter Import erkennt die Lebensmittel an `source_id` und aktualisiert sie; von Hand angepasste Einheiten bleiben.
 
