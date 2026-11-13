@@ -7,7 +7,6 @@ der Datenbank, E-Mail und Passwort werden nur für die Anmeldung weitergereicht.
 
 import re
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Request
@@ -15,6 +14,7 @@ from fastapi.responses import HTMLResponse, Response
 
 import clock
 from cookidoo import CalendarRecipe, CookidooAccount, CookidooError
+from modules.planner.service import PLAN_DAYS_AHEAD, plan_horizon
 from settings import (
     TODO_ENTITY_PATTERN,
     OptionsFileError,
@@ -27,9 +27,6 @@ from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
 router = APIRouter(prefix="/settings")
-
-# „Verbindung prüfen“ liest so viele Tage ab heute aus „Meine Woche“
-COOKIDOO_CHECK_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -82,7 +79,7 @@ def _render(
         cookidoo_error=cookidoo_error,
         cookidoo_email=cookidoo_email,
         cookidoo_check=cookidoo_check,
-        cookidoo_check_days=COOKIDOO_CHECK_DAYS,
+        cookidoo_check_days=PLAN_DAYS_AHEAD + 1,
     )
 
 
@@ -191,8 +188,7 @@ def cookidoo_check(request: Request) -> HTMLResponse:
     """Liest die nächsten Tage aus „Meine Woche“, ohne etwas zu ändern."""
     settings = request.app.state.settings
     values = _current_values(settings)
-    first = clock.today()
-    last = first + timedelta(days=COOKIDOO_CHECK_DAYS - 1)
+    first, last = plan_horizon(clock.today())
     try:
         recipes = cookidoo_account(settings).read_calendar(first, last)
     except CookidooError as error:

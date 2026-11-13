@@ -25,7 +25,7 @@ from modules.foods.importer import (
 from modules.importers.service import ImportFormatError, ImportResult, import_document
 from modules.recipes.service import list_placeholders
 from web.cookidoo_fill import FillResult, adopt_servings, fill_placeholders
-from web.pages.options import cookidoo_account
+from web.pages.settings_page import cookidoo_account
 from web.templating import render
 
 logger = logging.getLogger(__name__)

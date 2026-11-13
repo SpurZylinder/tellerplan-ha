@@ -6,11 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+import clock
 import modules.shopping.service as shopping_service
 from factories import make_food, make_recipe
 from main import create_app
 from modules.foods.service import default_short_name, set_shopping_name
-from modules.planner.service import add_entry
+from modules.planner.service import PLAN_DAYS_AHEAD, add_entry
 from modules.recipes.models import RecipeIngredient
 from modules.shopping.service import (
     ShoppingItem,
@@ -71,7 +72,7 @@ def test_same_food_is_added_up_per_unit(session: Session) -> None:
     add_entry(session, MONDAY, first)
     add_entry(session, MONDAY + timedelta(days=3), second)
 
-    shopping = build_shopping_list(session, MONDAY, 14, PANTRY)
+    shopping = build_shopping_list(session, MONDAY, MONDAY + timedelta(days=13), PANTRY)
 
     assert [(item.name, item.description) for item in shopping.items] == [
         ("Broccoli", "550 g"),
@@ -85,7 +86,7 @@ def test_planned_servings_scale_amounts(session: Session) -> None:
     recipe = make_recipe(session, "Pfanne", servings=2, ingredients=[(broccoli, 300, "g")])
     add_entry(session, MONDAY, recipe, servings=3)
 
-    (item,) = build_shopping_list(session, MONDAY, 1, PANTRY).items
+    (item,) = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
 
     assert item.description == "450 g"
 
@@ -95,7 +96,7 @@ def test_mixed_units_are_listed_side_by_side(session: Session) -> None:
     add_entry(session, MONDAY, make_recipe(session, "Salat", ingredients=[(chickpeas, 1, "Dose")]))
     add_entry(session, MONDAY, make_recipe(session, "Curry", ingredients=[(chickpeas, 200, "g")]))
 
-    (item,) = build_shopping_list(session, MONDAY, 1, PANTRY).items
+    (item,) = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
 
     assert item.description == "1 Dose + 200 g"
 
@@ -109,7 +110,7 @@ def test_pantry_items_are_set_aside(session: Session) -> None:
     )
     add_entry(session, MONDAY, recipe)
 
-    shopping = build_shopping_list(session, MONDAY, 1, PANTRY)
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
 
     assert [item.name for item in shopping.items] == ["Speisequark Magerstufe"]
     assert [item.name for item in shopping.pantry] == ["Speisesalz jodiert", "Weizenmehl Type 405"]
@@ -123,7 +124,7 @@ def test_shopping_name_wins_and_merges_foods(session: Session) -> None:
     recipe = make_recipe(session, "Pfanne", ingredients=[(fillet, 400, "g"), (meat, 200, "g")])
     add_entry(session, MONDAY, recipe)
 
-    (item,) = build_shopping_list(session, MONDAY, 1, PANTRY).items
+    (item,) = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
 
     assert (item.name, item.description) == ("Hähnchenbrust", "600 g")
 
@@ -146,7 +147,7 @@ def test_only_days_in_range_count(session: Session) -> None:
         make_recipe(session, "Passt", ingredients=[(skyr, 4, "g")]),
     )
 
-    (item,) = build_shopping_list(session, MONDAY, 14, PANTRY).items
+    (item,) = build_shopping_list(session, MONDAY, MONDAY + timedelta(days=13), PANTRY).items
 
     assert item.description == "4 g"
     assert item.recipes == {"Passt"}
@@ -164,7 +165,7 @@ def test_unmatched_and_optional_lines(session: Session) -> None:
     session.flush()
     add_entry(session, MONDAY, recipe)
 
-    items = build_shopping_list(session, MONDAY, 1, PANTRY).items
+    items = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
 
     assert [(item.name, item.description) for item in items] == [
         ("200 g Feta", ""),
@@ -296,7 +297,7 @@ def test_items_sort_umlauts_like_their_base_letter(session: Session) -> None:
     )
     add_entry(session, MONDAY, recipe)
 
-    items = build_shopping_list(session, MONDAY, 1, PANTRY).items
+    items = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
 
     assert [item.name for item in items] == ["Hähnchen", "Honig"]
 
@@ -307,7 +308,7 @@ def test_unmatched_line_with_pantry_word_is_set_aside(session: Session) -> None:
     session.flush()
     add_entry(session, MONDAY, recipe)
 
-    shopping = build_shopping_list(session, MONDAY, 1, PANTRY)
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
 
     assert [item.name for item in shopping.pantry] == ["1 TL Salz"]
 
@@ -327,10 +328,10 @@ def test_sent_entries_are_not_sent_again(monkeypatch: pytest.MonkeyPatch, sessio
     )
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
 
-    first = build_shopping_list(session, MONDAY, 14, PANTRY)
+    first = build_shopping_list(session, MONDAY, MONDAY + timedelta(days=13), PANTRY)
     send_shopping_list(session, first, "todo.einkauf", "token")
     _plan(session, MONDAY + timedelta(days=2), "Curry", "Kichererbse")
-    second = build_shopping_list(session, MONDAY, 14, PANTRY)
+    second = build_shopping_list(session, MONDAY, MONDAY + timedelta(days=13), PANTRY)
 
     assert calls == ["Broccoli"]
     assert [item.name for item in second.items] == ["Kichererbse"]
@@ -340,9 +341,9 @@ def test_sent_entries_are_not_sent_again(monkeypatch: pytest.MonkeyPatch, sessio
 def test_resend_includes_sent_entries(monkeypatch: pytest.MonkeyPatch, session: Session) -> None:
     monkeypatch.setattr(shopping_service, "call_service", lambda *args: None)
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
-    send_shopping_list(session, build_shopping_list(session, MONDAY, 1, PANTRY), "todo.x", "t")
+    send_shopping_list(session, build_shopping_list(session, MONDAY, MONDAY, PANTRY), "todo.x", "t")
 
-    again = build_shopping_list(session, MONDAY, 1, PANTRY, include_sent=True)
+    again = build_shopping_list(session, MONDAY, MONDAY, PANTRY, include_sent=True)
 
     assert [item.name for item in again.items] == ["Broccoli"]
     assert again.already_sent == []
@@ -355,9 +356,9 @@ def test_failed_send_marks_nothing(monkeypatch: pytest.MonkeyPatch, session: Ses
     monkeypatch.setattr(shopping_service, "call_service", reject)
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
 
-    send_shopping_list(session, build_shopping_list(session, MONDAY, 1, PANTRY), "todo.x", "t")
+    send_shopping_list(session, build_shopping_list(session, MONDAY, MONDAY, PANTRY), "todo.x", "t")
 
-    assert [item.name for item in build_shopping_list(session, MONDAY, 1, PANTRY).items] == [
+    assert [item.name for item in build_shopping_list(session, MONDAY, MONDAY, PANTRY).items] == [
         "Broccoli"
     ]
 
@@ -390,7 +391,9 @@ def test_send_result_is_logged(
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
 
     with caplog.at_level("INFO"):
-        send_shopping_list(session, build_shopping_list(session, MONDAY, 1, PANTRY), "todo.x", "t")
+        send_shopping_list(
+            session, build_shopping_list(session, MONDAY, MONDAY, PANTRY), "todo.x", "t"
+        )
 
     assert "0 Artikel aus 1 Rezepten an todo.x gesendet, 1 fehlgeschlagen" in caplog.text
     assert "Broccoli: Entität unbekannt" in caplog.text
@@ -411,9 +414,64 @@ def test_imported_unmatched_lines_use_parsed_name_and_amount(session: Session) -
     session.flush()
     add_entry(session, MONDAY, recipe)
 
-    shopping = build_shopping_list(session, MONDAY, 1, PANTRY)
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
 
     assert [(item.name, item.description) for item in shopping.items] == [
         ("Brokkoliröschen", "350 g")
     ]
     assert [item.name for item in shopping.pantry] == ["Salz"]
+
+
+def test_shopping_page_covers_the_same_days_as_the_plan(
+    monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient, session: Session
+) -> None:
+    # K11: Plan und Einkaufsliste reichen beide bis heute + PLAN_DAYS_AHEAD
+    monkeypatch.setattr(clock, "today", lambda: MONDAY)
+    last = MONDAY + timedelta(days=PLAN_DAYS_AHEAD)
+    add_entry(
+        session,
+        last,
+        make_recipe(
+            session, "Letzter Tag", ingredients=[(make_food(session, "Lauch roh"), 100, "g")]
+        ),
+    )
+    add_entry(
+        session,
+        last + timedelta(days=1),
+        make_recipe(session, "Danach", ingredients=[(make_food(session, "Kohl roh"), 100, "g")]),
+    )
+    session.commit()
+
+    text = ingress_client.get("/plan/shopping").text
+
+    assert "Lauch" in text
+    assert "Kohl" not in text
+    assert f"day-{last.isoformat()}" in ingress_client.get("/plan").text
+
+
+def test_unit_spellings_are_added_up(session: Session) -> None:
+    # K10: „EL“/„el“ und „g“/„kg“ sind dieselbe Einheit, eigene Einheiten ohne Groß/klein
+    oil = make_food(session, "Rapsöl", units={"EL": 10})
+    potatoes = make_food(session, "Kartoffel roh")
+    garlic = make_food(session, "Knoblauch roh", units={"Zehe": 4})
+    add_entry(
+        session,
+        MONDAY,
+        make_recipe(
+            session, "A", ingredients=[(oil, 2, "EL"), (potatoes, 500, "g"), (garlic, 1, "Zehe")]
+        ),
+    )
+    add_entry(
+        session,
+        MONDAY,
+        make_recipe(
+            session, "B", ingredients=[(oil, 1, "el"), (potatoes, 1, "kg"), (garlic, 2, "zehe")]
+        ),
+    )
+
+    items = {
+        item.name: item.description
+        for item in build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
+    }
+
+    assert items == {"Rapsöl": "3 EL", "Kartoffel": "1,5 kg", "Knoblauch": "3 Zehe"}

@@ -14,6 +14,7 @@ from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from modules.foods.models import Food
 from modules.foods.service import get_food, short_name
+from modules.foods.units import COUNT_UNIT
 from modules.nutrition.service import (
     Nutrients,
     StandardUnit,
@@ -300,8 +301,6 @@ UNIT_PLURALS = {
     "Zweig": "Zweige",
     "Blatt": "Blätter",
 }
-# Zähleinheit, die der Zeilenparser ergänzt; im Text steht sie nicht („2 Zwiebeln“)
-COUNT_UNIT = "Stück"
 
 
 def _display_unit(quantity: float | None, unit: str | None) -> str | None:

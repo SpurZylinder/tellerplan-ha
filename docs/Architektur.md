@@ -331,11 +331,11 @@ Konzept, nach Gewicht:
 - [x] **K6 Planportionen und „eingetragen“** (2026-11-13: kein Befund, Komfort-Idee, zum Abschluss von 0.6.0 bewerten, siehe [[Version-0.6.0]])**:** Ein Planeintrag gilt nach der ersten eingetragenen Portion als erledigt; Reste (Meal-Prep) bildet das Modell nicht ab. Nach dem Verschieben erscheint ein eingetragener Eintrag wieder als offen.
 - [ ] **K7 Doku und Umsetzung:** Das Datenmodell nennt eine historisierte Tabelle `goal`, umgesetzt sind Ziele als Optionen (alte Tage zeigen das neue Ziel). Außerdem fehlen die Tabellen `ingredient_alias`, `weight`, `import_job` noch, und die Systemübersicht zeigt `shopping` nicht.
 - [x] **K8 Zwei Schreiber für die Optionen** (behoben 0.5.1: Grundlage sind die Optionen beim Supervisor, gespeichert wird nur Geändertes)**:** Eine Änderung in HA ohne Neustart geht verloren, wenn danach die Einstellseite speichert (letzter Schreiber gewinnt).
-- [ ] **K9 Zutat ohne Einheit = Gramm:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
-- [ ] **K10 Einheiten-Schreibweisen:** Die Einkaufsliste addiert je Einheitstext; „EL“/„el“, „g“/„kg“, „Stück“/„Stk.“ bleiben getrennt.
-- [ ] **K11 Zeiträume:** Der Plan zeigt bis heute + 14, die Einkaufsliste rechnet bis heute + 13.
+- [x] **K9 Zutat ohne Einheit = Gramm** (geprüft 0.5.3: Parser setzt immer eine Einheit, fehlende Schreibweisen ergänzt)**:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
+- [x] **K10 Einheiten-Schreibweisen** (behoben 0.5.3: `modules/foods/units.py`, Umrechnung kg/l)**:** Die Einkaufsliste addiert je Einheitstext; „EL“/„el“, „g“/„kg“, „Stück“/„Stk.“ bleiben getrennt.
+- [x] **K11 Zeiträume** (behoben 0.5.3: ein Zeitraum `plan_horizon`, überall bis heute + 14)**:** Der Plan zeigt bis heute + 14, die Einkaufsliste rechnet bis heute + 13.
 - [x] **K12 Ingress-Port im internen Netz offen:** Andere Add-ons erreichten Port 8000 ohne Login. *Behoben mit der Vollbild-App:* Im Add-on nimmt Port 8000 nur Anfragen vom Ingress-Proxy `172.30.32.2` an; lokal ohne Supervisor bleibt er offen.
-- [ ] **K13 Browser-Cache nach Updates:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
+- [x] **K13 Browser-Cache nach Updates** (behoben 0.5.3: Inhalts-Hash `?v=` an statischen Dateien)**:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
 - [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
 - [x] **K17 Einstellungen kommen nicht in Home Assistant an** – geschlossen 2026-11-13, kein Befund (falsch beobachtet beim Pi-Test von 0.5.1; die Einstellseite schreibt in den Reiter „Konfiguration“).
@@ -352,7 +352,7 @@ Code, nach Gewicht:
 - [ ] **C-G Testlücken:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.
 - [ ] **C-H Kein CSRF-Schutz** für POST-Formulare (geringes Risiko, Ingress setzt eine HA-Sitzung voraus).
 - [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
-- [ ] **C-I Kleinigkeiten:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
+- [x] **C-I Kleinigkeiten** (behoben 0.5.3, siehe [[Version-0.6.0]])**:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
 
 Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 

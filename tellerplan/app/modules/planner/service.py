@@ -16,6 +16,15 @@ from modules.planner.models import CookidooRemoval, PlanEntry
 from modules.recipes.models import COOKIDOO_SOURCE, Recipe
 from modules.recipes.service import load_recipe_details, summarize
 
+# Der Plan reicht von heute bis heute + PLAN_DAYS_AHEAD. Plan, Einkaufsliste und der
+# Abgleich mit Cookidoo nutzen denselben Zeitraum, damit nichts dazwischen verloren geht.
+PLAN_DAYS_AHEAD = 14
+
+
+def plan_horizon(today: date) -> tuple[date, date]:
+    """Erster und letzter Tag des Plans ab heute (beide eingeschlossen)."""
+    return today, today + timedelta(days=PLAN_DAYS_AHEAD)
+
 
 @dataclass(frozen=True)
 class PlannedDish:
@@ -36,7 +45,13 @@ class PlanDay:
 def add_entry(
     session: Session, day: date, recipe: Recipe, servings: float | None = None
 ) -> PlanEntry:
-    """Plant ein Rezept ein; ohne `servings` mit seinen Standardportionen."""
+    """Plant ein Rezept ein; ohne `servings` mit seinen Standardportionen.
+
+    0 oder weniger Portionen sind ein Fehler des Aufrufers und fallen nicht still auf
+    den Standard zurück.
+    """
+    if servings is not None and servings <= 0:
+        raise ValueError(f"Portionen müssen größer als 0 sein, nicht {servings:g}")
     entry = PlanEntry(day=day, recipe=recipe, servings=servings or recipe.servings)
     session.add(entry)
     session.flush()

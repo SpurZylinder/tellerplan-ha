@@ -11,56 +11,9 @@ ohne Menge und Einheit.
 import re
 from dataclasses import dataclass
 
+from modules.foods.units import COUNT_UNIT, UNIT_SPELLINGS
 from modules.recipes.service import alias_key
 
-COUNT_UNIT = "Stück"
-
-# Schreibweise im Text (klein) → einheitliche Einheit
-UNITS = {
-    "g": "g",
-    "gramm": "g",
-    "kg": "kg",
-    "ml": "ml",
-    "l": "l",
-    "liter": "l",
-    "tl": "TL",
-    "el": "EL",
-    "prise": "Prise",
-    "prisen": "Prise",
-    "msp.": "Msp.",
-    "messerspitze": "Msp.",
-    "bund": "Bund",
-    "stängel": "Stängel",
-    "dose": "Dose",
-    "dosen": "Dose",
-    "würfel": "Würfel",
-    "kugel": "Kugel",
-    "kugeln": "Kugel",
-    "scheibe": "Scheibe",
-    "scheiben": "Scheibe",
-    "pck.": "Packung",
-    "päckchen": "Packung",
-    "packung": "Packung",
-    "packungen": "Packung",
-    "zweig": "Zweig",
-    "zweige": "Zweig",
-    "zweigchen": "Zweig",
-    "blatt": "Blatt",
-    "blätter": "Blatt",
-    "glas": "Glas",
-    "gläser": "Glas",
-    "einmachglas": "Glas",
-    "flasche": "Flasche",
-    "flaschen": "Flasche",
-    "becher": "Becher",
-    "tasse": "Tasse",
-    "tassen": "Tasse",
-    "cm": "cm",
-    "spritzer": "Spritzer",
-    "handvoll": "Handvoll",
-    "stück": COUNT_UNIT,
-    "stk.": COUNT_UNIT,
-}
 # Zusätze zwischen Menge und Einheit, die als Notiz erhalten bleiben
 MODIFIERS = ("geh.", "gestr.", "knapp", "gut", "ca.", "etwa")
 FRACTIONS = {"½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125}
@@ -115,7 +68,7 @@ def _take_modifiers(text: str) -> tuple[list[str], str]:
 
 def _take_unit(text: str) -> tuple[str | None, str]:
     first, _, rest = text.partition(" ")
-    unit = UNITS.get(first.casefold().rstrip(","))
+    unit = UNIT_SPELLINGS.get(first.casefold().rstrip(","))
     if unit is None or not rest:
         return None, text
     return unit, rest

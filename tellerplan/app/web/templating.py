@@ -2,9 +2,15 @@
 
 Links entstehen über `url(name, **params)`: ein Pfad mit Ingress-Präfix, aber ohne
 Host. Absolute URLs (`url_for`) würden hinter dem Home-Assistant-Proxy brechen.
+
+Statische Dateien (`url('static', path=…)`) bekommen `?v=` mit einem Hash ihres Inhalts.
+Ändert sich eine Datei mit einem Update, ändert sich der Link, und Safari auf dem iPhone
+lädt sie neu, statt die alte aus dem Cache zu nehmen.
 """
 
+import hashlib
 from datetime import date, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -15,6 +21,9 @@ from jinja2 import pass_context
 from jinja2.runtime import Context
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+# Stellen des Inhalts-Hashes im Link; genug, damit sich Versionen sicher unterscheiden
+ASSET_HASH_LENGTH = 10
 
 
 def path_for(request: Request, name: str, **params: Any) -> str:
@@ -24,9 +33,28 @@ def path_for(request: Request, name: str, **params: Any) -> str:
     return f"{root}{path}"
 
 
+def asset_version(path: str) -> str:
+    """Kurzer Hash des Inhalts einer statischen Datei; leer, wenn es sie nicht gibt."""
+    file = STATIC_DIR / path
+    try:
+        modified = file.stat().st_mtime_ns
+    except OSError:
+        return ""
+    return _content_hash(file, modified)
+
+
+@lru_cache(maxsize=64)
+def _content_hash(file: Path, modified: int) -> str:
+    # `modified` gehört zum Schlüssel: Eine geänderte Datei wird neu gehasht (lokal beim Entwickeln)
+    return hashlib.sha256(file.read_bytes()).hexdigest()[:ASSET_HASH_LENGTH]
+
+
 @pass_context
 def _url(context: Context, name: str, **params: Any) -> str:
-    return path_for(context["request"], name, **params)
+    path = path_for(context["request"], name, **params)
+    if name == "static" and (version := asset_version(str(params.get("path", "")))):
+        return f"{path}?v={version}"
+    return path
 
 
 def _format_number(value: float | None, digits: int = 0) -> str:

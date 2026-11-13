@@ -26,11 +26,11 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 
 ### A2: Alltag
 
-- [ ] **K13 Browser-Cache:** `url('static', …)` hängt `?v=<Version>` an (Version aus `config.yaml`, einzige Versionsquelle). Nach einem Update lädt das iPhone CSS und JS neu.
-- [ ] **K11 Zeiträume:** Eine Konstante für den Planzeitraum an einer Stelle (heute bis heute + 14). Plan (`web/pages/plan.py:46`), Einkaufsliste (`web/pages/shopping.py:24`, heute bis heute + 13) und Cookidoo-Prüfung (`web/pages/options.py:26`) nutzen sie. Test für die Grenzen.
-- [ ] **K10 Einheiten-Schreibweisen:** Die Einkaufsliste fasst Einheiten zusammen, bevor sie addiert (`modules/shopping/service.py:117-118`): Groß- und Kleinschreibung („EL“/„el“), Schreibweisen („Stück“/„Stk.“), Umrechnung auf eine Grundeinheit (kg → g, l → ml). Die Zuordnung der Schreibweisen steht an einer Stelle, nicht verstreut.
-- [ ] **K9 Zutat ohne Einheit = Gramm:** Zuerst prüfen, was der Zeilenparser heute bei „2 Eier“ setzt. Fehlt die Einheit noch immer, bekommt eine Zeile ohne Einheit „Stück“, und die Zuordnung braucht dann ein Stückgewicht. Sonst schließen mit Begründung.
-- [ ] **C-I Kleinigkeiten:** `add_entry` lehnt 0 Portionen ab statt still den Standard zu nehmen; `ShoppingItem.optional` bekommt den Wert hereingereicht; Modul `options.py` heißt wie seine Route (`settings_page.py`).
+- [x] **K13 Browser-Cache** (0.5.3): `url('static', …)` hängt `?v=` mit einem Hash des Dateiinhalts an (`web/templating.asset_version`). Abweichung vom Plan: Inhalts-Hash statt Version, weil `config.yaml` nicht im Image liegt und sich der Link so nur ändert, wenn sich die Datei ändert.
+- [x] **K11 Zeiträume** (0.5.3): `modules/planner/service.PLAN_DAYS_AHEAD` und `plan_horizon(today)`; Plan, Einkaufsliste, Abgleich und „Verbindung prüfen“ reichen alle bis heute + 14. `build_shopping_list` bekommt Anfang und Ende statt einer Anzahl Tage. Grenztest in `test_shopping.py`.
+- [x] **K10 Einheiten-Schreibweisen** (0.5.3): neues Modul `modules/foods/units.py` mit einer Schreibweise je Einheit, genutzt von Zeilenparser und Einkaufsliste. Die Einkaufsliste rechnet kg → g und l → ml, zeigt ab 1000 wieder kg/l und fasst eigene Einheiten („Zehe“/„zehe“) ohne Groß/klein zusammen.
+- [x] **K9 Zutat ohne Einheit = Gramm** (geprüft 0.5.3): Der Zeilenparser setzt bei einer Menge immer eine Einheit („2 Eier“ → 2 Stück); Gramm ohne Einheit gilt nur noch im Tagebuch, wo man Gramm einträgt. Gefundene Lücke behoben: „gr“, „Stk“, „Pkg.“, „Esslöffel“ u. a. wurden nicht erkannt („500 gr Mehl“ → 500 Stück „gr Mehl“).
+- [x] **C-I Kleinigkeiten** (0.5.3): `add_entry` lehnt 0 oder weniger Portionen ab; `web/pages/options.py` heißt jetzt `settings_page.py` wie die Route. `ShoppingItem.optional` geschlossen, kein Befund (2026-11-13): `shopping` darf nach Regel 7 auf `recipes` zugreifen.
 
 ### A3: Robustheit und Aufbau
 

@@ -36,6 +36,11 @@ from modules.importers.line_parser import ParsedLine, parse_line
         ("280 g Weizenmehl Type 550", ParsedLine(280, "g", "Weizenmehl Type 550", None)),
         ("Salz", ParsedLine(None, None, "Salz", None)),
         ("Öl zum Braten", ParsedLine(None, None, "Öl zum Braten", None)),
+        # Weitere Schreibweisen (K9/K10, 0.5.3), z. B. aus Chefkoch oder von Hand
+        ("500 gr Mehl", ParsedLine(500, "g", "Mehl", None)),
+        ("3 Stk Karotten", ParsedLine(3, "Stück", "Karotten", None)),
+        ("1 Pkg. Vanillezucker", ParsedLine(1, "Packung", "Vanillezucker", None)),
+        ("2 Esslöffel Öl", ParsedLine(2, "EL", "Öl", None)),
     ],
 )
 def test_real_lines(text: str, expected: ParsedLine) -> None:

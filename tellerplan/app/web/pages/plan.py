@@ -32,18 +32,25 @@ from modules.planner.cookidoo_sync import (
     RemoveFromCookidoo,
 )
 from modules.planner.models import PlanEntry
-from modules.planner.service import add_entry, delete_entry, get_entry, move_entry, plan_days
+from modules.planner.service import (
+    PLAN_DAYS_AHEAD,
+    add_entry,
+    delete_entry,
+    get_entry,
+    move_entry,
+    plan_days,
+    plan_horizon,
+)
 from modules.recipes.service import get_recipe, recipe_summaries, summarize
 from web.cookidoo_fill import fill_placeholders
 from web.forms import FormError, parse_number, redirect_to
-from web.pages.options import cookidoo_account
+from web.pages.settings_page import cookidoo_account
 from web.templating import format_day, render
 
 router = APIRouter(prefix="/plan")
 SessionDep = Annotated[Session, Depends(get_session)]
 
 PAST_DAYS = 3
-FUTURE_DAYS = 14
 LAYOUTS = ("columns", "list")
 LAYOUT_COOKIE = "plan_layout"
 LAYOUT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -84,7 +91,7 @@ def plan_page(
         request,
         "plan/week.html",
         tab="plan",
-        days=plan_days(session, today - timedelta(days=PAST_DAYS), PAST_DAYS + 1 + FUTURE_DAYS),
+        days=plan_days(session, today - timedelta(days=PAST_DAYS), PAST_DAYS + 1 + PLAN_DAYS_AHEAD),
         today=today,
         cookidoo_connected=cookidoo_account(request.app.state.settings).username() is not None,
         synced=synced,
@@ -206,8 +213,7 @@ GROUPS = ("In Tellerplan", "Neue Rezepte", "In Cookidoo")
 
 def _sync_range() -> tuple[date, date]:
     """Von heute bis zum Ende des Plans; vergangene Tage bleiben unberührt."""
-    today = clock.today()
-    return today, today + timedelta(days=FUTURE_DAYS)
+    return plan_horizon(clock.today())
 
 
 def _describe(change: Change, shown: SyncPreview) -> ChangeLine | None:

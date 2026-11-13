@@ -14,12 +14,13 @@ import re
 import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy.orm import Session
 
 import clock
 from modules.foods.service import short_name
+from modules.foods.units import to_base_unit, to_display_unit
 from modules.planner.models import PlanEntry
 from modules.planner.service import entries_between, mark_shopping_sent
 from modules.recipes.models import RecipeIngredient
@@ -61,6 +62,7 @@ class ShoppingList:
 
 
 def _format_amount(quantity: float, unit: str) -> str:
+    quantity, unit = to_display_unit(quantity, unit)
     number = f"{round(quantity, 2):g}".replace(".", ",")
     return f"{number} {unit}".strip()
 
@@ -107,6 +109,11 @@ def _names_for_pantry(ingredient: RecipeIngredient) -> list[str]:
     return [food.name, short_name(food)]
 
 
+def _amount_key(item: ShoppingItem, unit: str) -> str:
+    """Vorhandener Schlüssel derselben Einheit; eigene Einheiten („Zehe“/„zehe“) ohne Groß/klein."""
+    return next((key for key in item.amounts if key.casefold() == unit.casefold()), unit)
+
+
 def _add(
     item: ShoppingItem, ingredient: RecipeIngredient, recipe_title: str, factor: float
 ) -> None:
@@ -114,8 +121,9 @@ def _add(
     if ingredient.quantity is not None and (
         resolved_food(ingredient) is not None or ingredient.name
     ):
-        unit = ingredient.unit or "g"
-        item.amounts[unit] = item.amounts.get(unit, 0) + ingredient.quantity * factor
+        quantity, unit = to_base_unit(ingredient.quantity * factor, ingredient.unit or "g")
+        key = _amount_key(item, unit)
+        item.amounts[key] = item.amounts.get(key, 0) + quantity
     # optional nur, wenn der Artikel in keinem Rezept Pflicht ist
     first = not item.recipes
     item.optional = ingredient.is_optional and (first or item.optional)
@@ -125,15 +133,14 @@ def _add(
 def build_shopping_list(
     session: Session,
     first: date,
-    days: int,
+    last: date,
     pantry_keywords: Sequence[str],
     include_sent: bool = False,
 ) -> ShoppingList:
-    """Fasst die Planeinträge von `first` an über `days` Tage zusammen.
+    """Fasst die Planeinträge von `first` bis einschließlich `last` zusammen.
 
     Ohne `include_sent` nur Einträge, die noch nicht gesendet wurden.
     """
-    last = first + timedelta(days=days - 1)
     in_range = entries_between(session, first, last)
     entries = [e for e in in_range if include_sent or e.shopping_sent_at is None]
     items: dict[str, ShoppingItem] = {}

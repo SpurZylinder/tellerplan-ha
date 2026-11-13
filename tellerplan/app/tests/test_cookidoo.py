@@ -246,13 +246,15 @@ def test_check_lists_the_next_days(
     )
     fake.calendar = {
         MONDAY + timedelta(days=1): [("r2", False)],
-        MONDAY + timedelta(days=14): [("r9", False)],  # nach den 14 Tagen
+        MONDAY + timedelta(days=14): [("r8", False)],  # letzter Tag des Plans
+        MONDAY + timedelta(days=15): [("r9", False)],  # nach dem Plan
     }
 
     page = ingress_client.post("/settings/cookidoo/check").text
 
     assert "Di 03.11." in page
     assert "Rezept r2" in page
+    assert "Rezept r8" in page
     assert "Rezept r9" not in page
     assert fake.calendar[MONDAY + timedelta(days=1)] == [("r2", False)]  # nichts geändert
 

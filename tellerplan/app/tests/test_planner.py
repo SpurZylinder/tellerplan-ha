@@ -75,3 +75,11 @@ def test_move_entry_to_another_day(session: Session) -> None:
     monday, next_day = plan_days(session, MONDAY, 2)
     assert not monday.dishes
     assert next_day.dishes[0].entry.recipe.title == "Bolognese"
+
+
+@pytest.mark.parametrize("servings", [0, -1])
+def test_zero_or_negative_servings_are_rejected(session: Session, servings: float) -> None:
+    recipe = make_recipe(session, "Linsen-Dal")
+
+    with pytest.raises(ValueError, match="größer als 0"):
+        add_entry(session, MONDAY, recipe, servings=servings)

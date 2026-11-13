@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 import clock
 from db import get_session
+from modules.planner.service import plan_horizon
 from modules.shopping.service import ShoppingList, build_shopping_list, send_shopping_list
 from supervisor import supervisor_token
 from web.forms import redirect_to
@@ -21,14 +22,14 @@ from web.templating import render
 router = APIRouter(prefix="/plan/shopping")
 SessionDep = Annotated[Session, Depends(get_session)]
 
-SHOPPING_DAYS = 14
 STATUS_NO_SUPERVISOR = "local"
 STATUS_NO_LIST = "no-list"
 
 
 def _shopping_list(request: Request, session: Session, include_sent: bool = False) -> ShoppingList:
     keywords = request.app.state.settings.pantry_keywords
-    return build_shopping_list(session, clock.today(), SHOPPING_DAYS, keywords, include_sent)
+    first, last = plan_horizon(clock.today())
+    return build_shopping_list(session, first, last, keywords, include_sent)
 
 
 @router.get("", response_class=HTMLResponse)
