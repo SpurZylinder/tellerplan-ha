@@ -339,7 +339,7 @@ Konzept, nach Gewicht:
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
 - [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
 - [x] **K18 Keine Statusmeldung nach „Einkaufsliste“** (gefunden 2026-11-13, behoben 0.5.4: Senden im Hintergrund mit Fortschritt).
-- [ ] **K19 Bring wird zugemüllt** (gefunden 2026-11-13): Erneutes Klicken sendete alles doppelt (behoben 0.5.4); vorhandene Artikel werden nicht erweitert (offen, 0.5.5). [[Version-0.6.0]], A3b.
+- [x] **K19 Bring wird zugemüllt** (gefunden 2026-11-13, behoben 0.5.4/0.5.5): Erneutes Klicken sendete alles doppelt; vorhandene Artikel werden jetzt ergänzt statt neu angelegt, je Rezept abgehakt. [[Version-0.6.0]], A3b.
 - [x] **K20 Produktname statt Grundzutat auf der Einkaufsliste** (gefunden 2026-11-13, behoben 0.5.4: Grundzutat als Name, Produkt in den Details).
 - [x] **K17 Einstellungen kommen nicht in Home Assistant an** – geschlossen 2026-11-13, kein Befund (falsch beobachtet beim Pi-Test von 0.5.1; die Einstellseite schreibt in den Reiter „Konfiguration“).
 - [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2).
@@ -352,7 +352,7 @@ Code, nach Gewicht:
 - [x] **C-D Optionen nicht atomar geschrieben** (behoben 0.5.1: atomar über `files.write_text_atomic`, Fehler nach dem Supervisor-Aufruf mit Meldung)**:** Abbruch beim Schreiben beschädigt `options.json`; schlägt das Schreiben nach dem Supervisor-Aufruf fehl, weichen HA und App voneinander ab.
 - [x] **C-E Netzwerk im Fachmodul** (behoben 0.5.4: Senden wird hereingereicht)**:** `modules/shopping` importiert `supervisor` direkt; das Senden sollte hereingereicht werden.
 - [x] **C-F Keine zentrale Uhr:** *Behoben mit K5:* alle Seiten nutzen `clock.today()`.
-- [ ] **C-G Testlücken** (0.5.4 teilweise: Datumsgrenzen, Coverage-Bericht; offen: echte Supervisor-Antworten)**:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.
+- [x] **C-G Testlücken** (behoben 0.5.4/0.5.5: Datumsgrenzen, Coverage-Bericht, aufgezeichnete Antwort von `todo.get_items`).
 - [ ] **C-H Kein CSRF-Schutz** für POST-Formulare (geringes Risiko, Ingress setzt eine HA-Sitzung voraus).
 - [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
 - [x] **C-K Zeitstempel der Sicherung in Container-Zeit** (gefunden 2026-11-13, behoben 0.5.4): `db.backup_database` nutzte `datetime.now()` statt `clock.now()`.

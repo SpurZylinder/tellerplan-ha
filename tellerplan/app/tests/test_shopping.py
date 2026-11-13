@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -16,11 +17,12 @@ from modules.planner.service import PLAN_DAYS_AHEAD, add_entry
 from modules.recipes.matching import create_base, set_default_product
 from modules.recipes.models import RecipeIngredient
 from modules.shopping.service import (
+    ListItem,
     SendError,
     ShoppingItem,
     build_shopping_list,
     is_pantry,
-    send_items,
+    merge_description,
     send_shopping_list,
 )
 from security import INGRESS_PROXY_IP
@@ -32,16 +34,42 @@ PANTRY = ["salz", "mehl", "zucker"]
 
 
 class FakeList:
-    """Nimmt Artikel an wie eine To-do-Liste; einzelne Namen schlagen fehl."""
+    """Einkaufsliste wie Bring: offene Einträge lesen, anlegen, ergänzen; Namen können scheitern."""
 
-    def __init__(self, failing: dict[str, str] | None = None) -> None:
-        self.added: list[tuple[str, str]] = []
+    def __init__(self, failing: dict[str, str] | None = None, unreadable: bool = False) -> None:
+        self.items: list[ListItem] = []
         self.failing = failing or {}
+        self.unreadable = unreadable
+        self.calls: list[tuple[str, str, str]] = []
 
-    def add_item(self, name: str, description: str) -> None:
+    def open_items(self) -> list[ListItem]:
+        if self.unreadable:
+            raise SendError("Supervisor nicht erreichbar")
+        return list(self.items)
+
+    def add(self, name: str, description: str) -> None:
+        self._maybe_fail(name)
+        self.calls.append(("add", name, description))
+        self.items.append(ListItem(f"u{len(self.items)}", name, description))
+
+    def update(self, item: str, description: str) -> None:
+        index = next(i for i, e in enumerate(self.items) if item in (e.uid, e.name))
+        self._maybe_fail(self.items[index].name)
+        self.calls.append(("update", item, description))
+        old = self.items[index]
+        self.items[index] = ListItem(old.uid, old.name, description)
+
+    def descriptions(self) -> dict[str, str]:
+        return {item.name: item.description for item in self.items}
+
+    def _maybe_fail(self, name: str) -> None:
         if name in self.failing:
             raise SendError(self.failing[name])
-        self.added.append((name, description))
+
+
+RECORDED_ITEMS = json.loads(
+    (Path(__file__).parent / "data" / "bring_get_items.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.mark.parametrize(
@@ -189,68 +217,217 @@ def test_unmatched_and_optional_lines(session: Session) -> None:
     ]
 
 
-def test_send_items_adds_name_and_description() -> None:
+def test_send_adds_new_items_and_extends_existing_ones(session: Session) -> None:
+    # K19b: vorhandene Einträge werden ergänzt, nicht doppelt angelegt
     target = FakeList()
-    items = [ShoppingItem("Broccoli", {"g": 550}), ShoppingItem("200 g Feta")]
+    target.items = [ListItem("u-b", "Broccoli", "200 g")]
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+    _plan(session, MONDAY, "Curry", "Kichererbse")
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
 
-    result = send_items(items, target.add_item)
+    result = send_shopping_list(session, shopping, target, "todo.x")
 
-    assert (result.sent, result.not_sent) == (2, 0)
-    assert target.added == [("Broccoli", "550 g"), ("200 g Feta", "")]
-
-
-def test_send_collects_errors() -> None:
-    target = FakeList({"Broccoli": "Entität unbekannt"})
-
-    result = send_items([ShoppingItem("Broccoli"), ShoppingItem("Feta")], target.add_item)
-
-    assert (result.sent, result.not_sent) == (1, 1)
-    assert result.errors == ["Broccoli: Entität unbekannt"]
+    assert target.descriptions() == {"Broccoli": "500 g", "Kichererbse": "300 g"}
+    assert ("update", "u-b", "500 g") in target.calls
+    assert (result.added, result.updated, result.recipes_sent) == (1, 1, 2)
 
 
-def test_todo_list_sender_calls_add_item_with_short_timeout(
+def test_same_item_in_two_recipes_is_one_entry(session: Session) -> None:
+    target = FakeList()
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+    _plan(session, MONDAY, "Auflauf", "Broccoli roh")
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
+
+    send_shopping_list(session, shopping, target, "todo.x")
+
+    assert target.descriptions() == {"Broccoli": "600 g"}
+    assert [call[0] for call in target.calls] == ["add", "update"]
+
+
+def test_names_are_matched_tolerantly(session: Session) -> None:
+    # Wie beim Zuordnen: Groß/klein, Bindestrich und Mehrzahl zählen nicht
+    target = FakeList()
+    target.items = [ListItem("u1", "broccolis", "100 g")]
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+
+    send_shopping_list(session, build_shopping_list(session, MONDAY, MONDAY, PANTRY), target, "x")
+
+    assert target.descriptions() == {"broccolis": "400 g"}
+
+
+def test_unreadable_list_sends_nothing(session: Session) -> None:
+    target = FakeList(unreadable=True)
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
+
+    result = send_shopping_list(session, shopping, target, "todo.x")
+
+    assert target.calls == []
+    assert result.errors == ["Liste nicht lesbar: Supervisor nicht erreichbar"]
+    assert result.recipes_open == 1
+    assert [i.name for i in build_shopping_list(session, MONDAY, MONDAY, PANTRY).items] == [
+        "Broccoli"
+    ]
+
+
+def test_failed_recipe_stays_open_others_are_marked(session: Session) -> None:
+    # Je Rezept abhaken: ein Fehler betrifft nur sein Rezept
+    target = FakeList({"Kichererbse": "abgelehnt"})
+    _plan(session, MONDAY, "Pfanne", "Broccoli roh")
+    _plan(session, MONDAY, "Curry", "Kichererbse")
+    checkpoints: list[int] = []
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
+
+    result = send_shopping_list(
+        session, shopping, target, "todo.x", checkpoint=lambda: checkpoints.append(1)
+    )
+    again = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
+
+    assert (result.recipes_sent, result.recipes_open) == (1, 1)
+    assert result.errors == ["Kichererbse: abgelehnt"]
+    assert checkpoints == [1]
+    assert [item.name for item in again.items] == ["Kichererbse"]
+
+
+@pytest.mark.parametrize(
+    ("existing", "amounts", "products", "expected"),
+    [
+        # Angaben aus der aufgezeichneten Bring-Liste
+        (
+            "200 g · ja! Blattspinat 1kg",
+            {"g": 300},
+            {"ja! Blattspinat 1kg"},
+            "500 g · ja! Blattspinat 1kg",
+        ),
+        ("8 Stängel + 1 TL", {"Stängel": 2}, set(), "10 Stängel + 1 TL"),
+        ("", {"Blatt": 5}, set(), "5 Blatt"),
+        ("2,5 Prise", {"Prise": 1}, set(), "3,5 Prise"),
+        (
+            "130 g · Berchtesgadener Land Bio Milch 1,5% 1l",
+            {"g": 200},
+            set(),
+            "330 g · Berchtesgadener Land Bio Milch 1,5% 1l",
+        ),
+        ("1,5 kg", {"g": 500}, set(), "2 kg"),
+        (
+            "200 g · ja! Tomatenmark",
+            {"g": 100},
+            {"Mutti Tomatenmark"},
+            "300 g · Mutti Tomatenmark, ja! Tomatenmark",
+        ),
+        # Von Hand in Bring geändert: anhängen statt rechnen
+        ("für Pesto", {"g": 100}, set(), "für Pesto + 100 g"),
+    ],
+)
+def test_merge_description(
+    existing: str, amounts: dict[str, float], products: set[str], expected: str
+) -> None:
+    item = ShoppingItem("Artikel", amounts=amounts, products=products)
+
+    assert merge_description(existing, item) == expected
+
+
+def test_home_assistant_list_reads_recorded_items(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        shopping_page, "call_service_with_response", lambda *args, **kwargs: RECORDED_ITEMS
+    )
+
+    items = shopping_page.HomeAssistantTodoList("todo.furth", "token").open_items()
+
+    assert items[1] == ListItem(
+        "114e1328-91e7-40dd-96e4-f71849b96d5b", "Blattspinat", "200 g · ja! Blattspinat 1kg"
+    )
+    assert items[0].description == ""
+    assert len(items) == 6
+
+
+def test_home_assistant_list_adds_and_updates_with_short_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[Any, ...]] = []
     monkeypatch.setattr(
         shopping_page, "call_service", lambda *args, **kwargs: calls.append((*args, kwargs))
     )
-    add_item = shopping_page.todo_list_sender("todo.einkauf", "token")
+    todo = shopping_page.HomeAssistantTodoList("todo.einkauf", "token")
 
-    add_item("Broccoli", "550 g")
-    add_item("Feta", "")
+    todo.add("Broccoli", "550 g")
+    todo.add("Feta", "")
+    todo.update("uid-1", "700 g")
 
+    timeout = {"timeout": shopping_page.ITEM_TIMEOUT_SECONDS}
     assert calls == [
         (
             "todo",
             "add_item",
             {"entity_id": "todo.einkauf", "item": "Broccoli", "description": "550 g"},
             "token",
-            {"timeout": shopping_page.ITEM_TIMEOUT_SECONDS},
+            timeout,
         ),
+        ("todo", "add_item", {"entity_id": "todo.einkauf", "item": "Feta"}, "token", timeout),
         (
             "todo",
-            "add_item",
-            {"entity_id": "todo.einkauf", "item": "Feta"},
+            "update_item",
+            {"entity_id": "todo.einkauf", "item": "uid-1", "description": "700 g"},
             "token",
-            {"timeout": shopping_page.ITEM_TIMEOUT_SECONDS},
+            timeout,
         ),
     ]
 
 
-def test_todo_list_sender_turns_supervisor_errors_into_send_errors(
+def test_home_assistant_list_turns_supervisor_errors_into_send_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def reject(*args: Any, **kwargs: Any) -> None:
         raise SupervisorError("Entität unbekannt")
 
     monkeypatch.setattr(shopping_page, "call_service", reject)
+    monkeypatch.setattr(shopping_page, "call_service_with_response", reject)
+    todo = shopping_page.HomeAssistantTodoList("todo.x", "token")
 
     with pytest.raises(SendError, match="Entität unbekannt"):
-        shopping_page.todo_list_sender("todo.x", "token")("Broccoli", "")
+        todo.add("Broccoli", "")
+    with pytest.raises(SendError, match="Entität unbekannt"):
+        todo.open_items()
 
 
 # --- Seiten ---------------------------------------------------------------
+
+
+class FakeHomeAssistant:
+    """Supervisor-Aufrufe der Seite: `todo.add_item`, `todo.update_item`, `todo.get_items`."""
+
+    def __init__(self) -> None:
+        self.items: list[dict[str, str]] = []
+        self.calls: list[dict[str, Any]] = []
+
+    def call_service(
+        self, domain: str, service: str, data: dict[str, Any], *args: Any, **kwargs: Any
+    ) -> None:
+        self.calls.append({"service": service, **data})
+        if service == "add_item":
+            uid = f"u{len(self.items)}"
+            self.items.append(
+                {"summary": data["item"], "uid": uid, "description": data.get("description", "")}
+            )
+        elif service == "update_item":
+            item = next(i for i in self.items if data["item"] in (i["uid"], i["summary"]))
+            item["description"] = data["description"]
+
+    def call_service_with_response(
+        self, domain: str, service: str, data: dict[str, Any], *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        return {data["entity_id"]: {"items": [dict(item) for item in self.items]}}
+
+
+@pytest.fixture
+def home_assistant(monkeypatch: pytest.MonkeyPatch) -> FakeHomeAssistant:
+    fake = FakeHomeAssistant()
+    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
+    monkeypatch.setattr(shopping_page, "call_service", fake.call_service)
+    monkeypatch.setattr(
+        shopping_page, "call_service_with_response", fake.call_service_with_response
+    )
+    return fake
 
 
 @pytest.fixture(autouse=True)
@@ -296,18 +473,12 @@ def test_send_without_supervisor_only_shows_list(
 
 @pytest.mark.usefixtures("planned_today")
 def test_send_adds_items_to_bring_list(
-    monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
+    home_assistant: FakeHomeAssistant, ingress_client: TestClient
 ) -> None:
-    calls: list[dict[str, Any]] = []
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
-    monkeypatch.setattr(
-        shopping_page, "call_service", lambda *args, **kwargs: calls.append(args[2])
-    )
-
     response = ingress_client.post("/plan/shopping")
 
-    assert calls == [{"entity_id": "todo.einkauf", "item": "Broccoli", "description": "300 g"}]
-    assert "1 Artikel an todo.einkauf gesendet." in response.text
+    assert home_assistant.items == [{"summary": "Broccoli", "uid": "u0", "description": "300 g"}]
+    assert "1 Rezept an todo.einkauf gesendet: 1 Artikel neu, 0 ergänzt." in response.text
 
 
 def test_send_without_list_asks_for_settings(
@@ -380,11 +551,11 @@ def test_sent_entries_are_not_sent_again(session: Session) -> None:
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
 
     first = build_shopping_list(session, MONDAY, MONDAY + timedelta(days=13), PANTRY)
-    send_shopping_list(session, first, target.add_item, "todo.einkauf")
+    send_shopping_list(session, first, target, "todo.einkauf")
     _plan(session, MONDAY + timedelta(days=2), "Curry", "Kichererbse")
     second = build_shopping_list(session, MONDAY, MONDAY + timedelta(days=13), PANTRY)
 
-    assert [name for name, _ in target.added] == ["Broccoli"]
+    assert [name for _, name, _ in target.calls] == ["Broccoli"]
     assert [item.name for item in second.items] == ["Kichererbse"]
     assert [entry.recipe.title for entry in second.already_sent] == ["Pfanne"]
 
@@ -392,7 +563,7 @@ def test_sent_entries_are_not_sent_again(session: Session) -> None:
 def test_resend_includes_sent_entries(session: Session) -> None:
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
     shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
-    send_shopping_list(session, shopping, FakeList().add_item, "todo.x")
+    send_shopping_list(session, shopping, FakeList(), "todo.x")
 
     again = build_shopping_list(session, MONDAY, MONDAY, PANTRY, include_sent=True)
 
@@ -404,7 +575,7 @@ def test_failed_send_marks_nothing(session: Session) -> None:
     _plan(session, MONDAY, "Pfanne", "Broccoli roh")
     shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
 
-    send_shopping_list(session, shopping, FakeList({"Broccoli": "weg"}).add_item, "todo.x")
+    send_shopping_list(session, shopping, FakeList({"Broccoli": "weg"}), "todo.x")
 
     assert [item.name for item in build_shopping_list(session, MONDAY, MONDAY, PANTRY).items] == [
         "Broccoli"
@@ -413,22 +584,16 @@ def test_failed_send_marks_nothing(session: Session) -> None:
 
 @pytest.mark.usefixtures("planned_today")
 def test_second_press_sends_nothing_new(
-    monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
+    home_assistant: FakeHomeAssistant, ingress_client: TestClient
 ) -> None:
-    calls: list[dict[str, Any]] = []
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
-    monkeypatch.setattr(
-        shopping_page, "call_service", lambda *args, **kwargs: calls.append(args[2])
-    )
-
     ingress_client.post("/plan/shopping")
     second = ingress_client.post("/plan/shopping")
     resent = ingress_client.post("/plan/shopping", data={"resend": "true"})
 
     assert "Keine neuen Rezepte im Plan, nichts gesendet." in second.text
     assert "Bereits gesendet" in second.text
-    assert "1 Artikel an todo.einkauf gesendet." in resent.text
-    assert len(calls) == 2
+    assert "1 Rezept an todo.einkauf gesendet: 0 Artikel neu, 1 ergänzt." in resent.text
+    assert home_assistant.items == [{"summary": "Broccoli", "uid": "u0", "description": "600 g"}]
 
 
 def test_send_result_is_logged(session: Session, caplog: pytest.LogCaptureFixture) -> None:
@@ -437,13 +602,10 @@ def test_send_result_is_logged(session: Session, caplog: pytest.LogCaptureFixtur
 
     with caplog.at_level("INFO"):
         send_shopping_list(
-            session,
-            build_shopping_list(session, MONDAY, MONDAY, PANTRY),
-            target.add_item,
-            "todo.x",
+            session, build_shopping_list(session, MONDAY, MONDAY, PANTRY), target, "todo.x"
         )
 
-    assert "0 Artikel aus 1 Rezepten an todo.x gesendet, 1 nicht gesendet" in caplog.text
+    assert "0 Rezepte an todo.x gesendet (0 Artikel neu, 0 ergänzt), 1 offen" in caplog.text
     assert "Broccoli: Entität unbekannt" in caplog.text
 
 
@@ -550,13 +712,12 @@ def test_own_food_is_not_listed_as_product(session: Session) -> None:
     assert item.description == "300 g"
 
 
-@pytest.mark.usefixtures("planned_today")
+@pytest.mark.usefixtures("planned_today", "home_assistant")
 def test_running_send_is_not_started_twice(
     monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
 ) -> None:
     # K19a: Ein Klick während des Sendens startet nichts Neues
     started: list[object] = []
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
     monkeypatch.setattr(shopping_page, "_start_thread", started.append)
 
     ingress_client.post("/plan/shopping")
@@ -569,16 +730,11 @@ def test_running_send_is_not_started_twice(
 
 @pytest.mark.usefixtures("planned_today")
 def test_status_shows_progress_and_reloads_when_done(
-    monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
+    monkeypatch: pytest.MonkeyPatch, home_assistant: FakeHomeAssistant, ingress_client: TestClient
 ) -> None:
     # K18: Die Seite antwortet sofort und fragt den Stand ab
     started: list[Any] = []
-    calls: list[dict[str, Any]] = []
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
     monkeypatch.setattr(shopping_page, "_start_thread", started.append)
-    monkeypatch.setattr(
-        shopping_page, "call_service", lambda *args, **kwargs: calls.append(args[2])
-    )
     ingress_client.post("/plan/shopping")
 
     running = ingress_client.get("/plan/shopping/status")
@@ -588,19 +744,18 @@ def test_status_shows_progress_and_reloads_when_done(
 
     assert "Wird an todo.einkauf gesendet" in running.text
     assert done.headers["HX-Refresh"] == "true"
-    assert "1 Artikel an todo.einkauf gesendet." in page
-    assert "Wird an" not in ingress_client.get("/plan/shopping").text  # Meldung nur einmal
-    assert len(calls) == 1
+    assert "1 Rezept an todo.einkauf gesendet" in page
+    assert "1 Rezept an" not in ingress_client.get("/plan/shopping").text  # Meldung nur einmal
+    assert len(home_assistant.items) == 1
 
 
-@pytest.mark.usefixtures("planned_today")
+@pytest.mark.usefixtures("planned_today", "home_assistant")
 def test_unexpected_error_in_background_is_reported(
     monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
 ) -> None:
     def broken(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("kaputt")
 
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
     monkeypatch.setattr(shopping_page, "call_service", broken)
 
     page = ingress_client.post("/plan/shopping").text
@@ -642,3 +797,23 @@ def test_check_shows_supervisor_errors(
     monkeypatch.setattr(shopping_page, "get_core_state", reject)
 
     assert "Entität unbekannt" in ingress_client.post("/plan/shopping/check").text
+
+
+@pytest.mark.parametrize(
+    ("product_name", "expected"),
+    [
+        ("Cherry Romatomaten 250g", "Cherry Romatomaten"),
+        ("ja! Kokosmilch fettreduziert 400 g", "ja! Kokosmilch fettreduziert"),
+        ("Bio Milch 1,5% 1l", "Bio Milch 1,5%"),
+        ("ja! Eier", "ja! Eier"),
+    ],
+)
+def test_product_without_base_ingredient_drops_package_size(
+    session: Session, product_name: str, expected: str
+) -> None:
+    product = make_food(session, product_name, source=FoodSource.REWE, source_id=product_name)
+    add_entry(session, MONDAY, make_recipe(session, "Salat", ingredients=[(product, 1, "Stück")]))
+
+    (item,) = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
+
+    assert item.name == expected

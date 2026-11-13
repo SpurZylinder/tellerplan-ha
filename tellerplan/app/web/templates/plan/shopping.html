@@ -21,13 +21,18 @@
 
   {% if job %}
     {% include "plan/_shopping_job.html" %}
-  {% elif sent is not none and not sent and not failed %}
-    <p class="meta" role="status">Keine neuen Rezepte im Plan, nichts gesendet.</p>
-  {% elif sent is not none %}
-    <p class="{{ 'error' if failed else 'success' }}" role="status">
-      {{ sent }} Artikel an {{ list_entity }} gesendet{% if failed %}, {{ failed }} nicht gesendet. Die Rezepte gelten noch nicht als gesendet; ein erneuter Klick schickt sie mit{% endif %}.
-    </p>
-    {{ error_message(error) }}
+  {% elif outcome and outcome.error %}
+    <p class="error" role="alert">{{ outcome.error }}</p>
+  {% elif outcome %}
+    {% set r = outcome.result %}
+    {% if not r.recipes_sent and not r.failed and not r.errors %}
+      <p class="meta" role="status">Keine neuen Rezepte im Plan, nichts gesendet.</p>
+    {% else %}
+      <p class="{{ 'error' if r.errors else 'success' }}" role="status">
+        {{ r.recipes_sent }} Rezept{{ "e" if r.recipes_sent != 1 }} an {{ outcome.target }} gesendet: {{ r.added }} Artikel neu, {{ r.updated }} ergänzt{% if r.errors %}. {{ r.recipes_open }} Rezept{{ "e" if r.recipes_open != 1 }} noch offen; ein erneuter Klick schickt nur sie{% endif %}.
+      </p>
+      {% if r.errors %}{{ error_message(r.errors[0]) }}{% endif %}
+    {% endif %}
   {% elif status == "local" %}
     <p class="meta" role="status">Lokal ohne Home Assistant: nichts gesendet. Die Liste lässt sich unten kopieren.</p>
   {% elif status == "no-list" %}
@@ -66,7 +71,7 @@
           </li>
         {% endfor %}
       </ul>
-      <p class="meta">Ihre Zutaten kommen nicht noch einmal auf die Liste. Wenn die Bring-Liste geleert wurde, alles neu senden:</p>
+      <p class="meta">Ihre Zutaten kommen nicht noch einmal auf die Liste. „Alles erneut senden“ ergänzt vorhandene Einträge in Bring um die Mengen aller Rezepte; gedacht für eine geleerte Liste.</p>
       <form method="post" action="{{ url('shopping_send') }}">
         <input type="hidden" name="resend" value="true">
         <button class="btn ghost small" type="submit">Alles erneut senden</button>

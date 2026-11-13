@@ -26,11 +26,12 @@ import clock
 from db import get_session
 from modules.planner.service import plan_horizon
 from modules.shopping.service import (
-    AddItem,
+    ListItem,
     SendError,
     SendResult,
     ShoppingList,
     build_shopping_list,
+    planned_writes,
     send_shopping_list,
 )
 from supervisor import (
@@ -97,19 +98,48 @@ class BringCheck:
     error: str | None = None
 
 
-def todo_list_sender(entity_id: str, token: str) -> AddItem:
-    """Sendet Artikel per `todo.add_item` an eine To-do-Liste in Home Assistant (z. B. Bring)."""
+@dataclass(frozen=True)
+class HomeAssistantTodoList:
+    """Eine To-do-Liste in Home Assistant (z. B. Bring) für das Senden der Einkaufsliste.
 
-    def add_item(name: str, description: str) -> None:
-        data = {"entity_id": entity_id, "item": name}
-        if description:
-            data["description"] = description
+    Liest offene Einträge mit `todo.get_items`, legt mit `todo.add_item` an und ergänzt
+    mit `todo.update_item`. Fehler des Supervisors kommen als SendError.
+    """
+
+    entity_id: str
+    token: str
+
+    def open_items(self) -> list[ListItem]:
+        data = {"entity_id": self.entity_id, "status": "needs_action"}
         try:
-            call_service("todo", "add_item", data, token, timeout=ITEM_TIMEOUT_SECONDS)
+            response = call_service_with_response(
+                "todo", "get_items", data, self.token, timeout=ITEM_TIMEOUT_SECONDS
+            )
         except SupervisorError as error:
             raise SendError(str(error)) from error
+        items = response.get(self.entity_id, {}).get("items", [])
+        return [
+            ListItem(str(item.get("uid", "")), str(item["summary"]), item.get("description") or "")
+            for item in items
+            if isinstance(item, dict) and item.get("summary")
+        ]
 
-    return add_item
+    def add(self, name: str, description: str) -> None:
+        data = {"entity_id": self.entity_id, "item": name}
+        if description:
+            data["description"] = description
+        self._call("add_item", data)
+
+    def update(self, item: str, description: str) -> None:
+        self._call(
+            "update_item", {"entity_id": self.entity_id, "item": item, "description": description}
+        )
+
+    def _call(self, service: str, data: dict[str, str]) -> None:
+        try:
+            call_service("todo", service, data, self.token, timeout=ITEM_TIMEOUT_SECONDS)
+        except SupervisorError as error:
+            raise SendError(str(error)) from error
 
 
 def _start_thread(work: Callable[[], None]) -> None:
@@ -133,13 +163,15 @@ def _run_send(app: FastAPI, job: SendJob, token: str, include_sent: bool) -> Non
             first, last = plan_horizon(clock.today())
             keywords = app.state.settings.pantry_keywords
             shopping = build_shopping_list(session, first, last, keywords, include_sent)
-            job.total = len(shopping.items)
-            sender = todo_list_sender(job.target, token)
+            job.total = planned_writes(shopping)
+            todo = HomeAssistantTodoList(job.target, token)
 
-            def progress(sent: int) -> None:
-                job.sent = sent
+            def progress(written: int) -> None:
+                job.sent = written
 
-            job.result = send_shopping_list(session, shopping, sender, job.target, progress)
+            job.result = send_shopping_list(
+                session, shopping, todo, job.target, progress, checkpoint=session.commit
+            )
             session.commit()
     except Exception:
         logger.exception("Einkaufsliste: Senden abgebrochen")
@@ -148,22 +180,13 @@ def _run_send(app: FastAPI, job: SendJob, token: str, include_sent: bool) -> Non
         job.done = True
 
 
-def _finished_message(job: SendJob) -> dict[str, Any]:
-    """Werte für die Ergebnismeldung; danach ist der Auftrag erledigt und wird vergessen."""
-    result = job.result
-    return {
-        "sent": result.sent if result else 0,
-        "failed": result.not_sent if result else job.total,
-        "error": job.error or (result.errors[0] if result and result.errors else None),
-    }
-
-
 @router.get("", response_class=HTMLResponse)
 def shopping_page(request: Request, session: SessionDep, status: str | None = None) -> HTMLResponse:
     job = _job(request.app)
-    message: dict[str, Any] = {"sent": None, "failed": None, "error": None}
+    outcome = None
     if job is not None and job.done:
-        message = _finished_message(job)
+        # Das Ergebnis erscheint einmal; danach ist der Auftrag vergessen
+        outcome = job
         request.app.state.shopping_job = None
     return render(
         request,
@@ -172,10 +195,10 @@ def shopping_page(request: Request, session: SessionDep, status: str | None = No
         shopping=_shopping_list(request, session),
         list_entity=request.app.state.settings.bring_list_entity,
         job=job if job is not None and not job.done else None,
+        outcome=outcome,
         poll_seconds=POLL_SECONDS,
         status=status,
         can_check=supervisor_token() is not None,
-        **message,
     )
 
 
@@ -265,7 +288,5 @@ def shopping_check(request: Request, session: SessionDep) -> HTMLResponse:
         status=None,
         can_check=True,
         check=check,
-        sent=None,
-        failed=None,
-        error=None,
+        outcome=None,
     )

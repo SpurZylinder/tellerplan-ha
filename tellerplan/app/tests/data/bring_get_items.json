@@ -1,0 +1,13 @@
+{
+  "_comment": "Aufgezeichnet am 2026-11-13 auf dem Pi: POST /core/api/services/todo/get_items?return_response für die Bring-Liste (Auszug, supported_features der Liste: 71).",
+  "todo.furth": {
+    "items": [
+      {"summary": "Basilikum", "uid": "927d7985-a489-4443-be0c-4b6c274f2a50", "status": "needs_action", "description": ""},
+      {"summary": "Blattspinat", "uid": "114e1328-91e7-40dd-96e4-f71849b96d5b", "status": "needs_action", "description": "200 g · ja! Blattspinat 1kg"},
+      {"summary": "Cherry-Tomaten", "uid": "a01d0db3-3a3f-4d37-a1f6-db0c3f55f468", "status": "needs_action", "description": "200 g"},
+      {"summary": "Koriander", "uid": "3aa13e86-58f9-47da-b18f-cab9dc35a7e5", "status": "needs_action", "description": "8 Stängel + 1 TL"},
+      {"summary": "Milch", "uid": "d7f76472-569b-4025-b064-cb9e0794e539", "status": "needs_action", "description": "130 g · Berchtesgadener Land Bio Milch 1,5% 1l"},
+      {"summary": "Muskat", "uid": "4a2f4995-fe1f-46ca-a83b-a05763d2096a", "status": "needs_action", "description": "2,5 Prise"}
+    ]
+  }
+}
