@@ -53,6 +53,7 @@ tellerplan-ha/
         ├── files.py           Dateien atomar schreiben (Optionen, Tokens)
         ├── security.py        Zugriff je Port (Ingress nur vom Proxy, 8099: API mit Token)
         ├── ha_auth.py         Anmeldung über Home Assistant (OAuth mit PKCE)
+        ├── ha_users.py        Benutzer von Home Assistant erkennen (Erkundung für 0.6.0)
         ├── web_sessions.py    Sitzungen der Vollbild-App
         ├── supervisor.py      Aufrufe an die Supervisor-API (nur im Add-on)
         ├── cookidoo.py        Aufrufe an Cookidoo („Meine Woche“), Anmeldung über Tokens

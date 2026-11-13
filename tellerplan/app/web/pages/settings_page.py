@@ -5,6 +5,7 @@ Die Cookidoo-Verbindung ist keine Option: Sie besteht aus Tokens in einer Datei 
 der Datenbank, E-Mail und Passwort werden nur für die Anmeldung weitergereicht.
 """
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -14,6 +15,7 @@ from fastapi.responses import HTMLResponse, Response
 
 import clock
 from cookidoo import CalendarRecipe, CookidooAccount, CookidooError
+from ha_users import Probe, core_users, oauth_current_user, remote_user_headers, supervisor_users
 from modules.planner.service import PLAN_DAYS_AHEAD, plan_horizon
 from settings import (
     TODO_ENTITY_PATTERN,
@@ -23,9 +25,11 @@ from settings import (
     save_options,
 )
 from supervisor import SupervisorError, supervisor_token
+from web.access import is_standalone, server_url
 from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/settings")
 
 
@@ -64,6 +68,7 @@ def _render(
     cookidoo_error: str | None = None,
     cookidoo_email: str = "",
     cookidoo_check: list[CalendarRecipe] | None = None,
+    user_probes: list[Probe] | None = None,
 ) -> HTMLResponse:
     settings = request.app.state.settings
     return render(
@@ -80,7 +85,34 @@ def _render(
         cookidoo_email=cookidoo_email,
         cookidoo_check=cookidoo_check,
         cookidoo_check_days=PLAN_DAYS_AHEAD + 1,
+        user_probes=user_probes,
     )
+
+
+@router.post("/users", response_class=HTMLResponse)
+def users_check(request: Request) -> HTMLResponse:
+    """Erkundung B1: Wie erfährt Tellerplan, wer die Seite öffnet und wer Admin ist? Nur lesend."""
+    probes: list[Probe] = []
+    if is_standalone(request):
+        web_session = getattr(request.state, "web_session", None)
+        if web_session is not None:
+            probes.append(
+                oauth_current_user(
+                    server_url(request), web_session.client_id, web_session.refresh_token
+                )
+            )
+    else:
+        probes.append(remote_user_headers(request.headers))
+    token = supervisor_token()
+    if token is not None:
+        probes.append(supervisor_users(token))
+        probes.append(core_users(token))
+    logger.info(
+        "Benutzer geprüft: %s",
+        ", ".join(f"{probe.label} {'ok' if probe.ok else 'Fehler'}" for probe in probes) or "-",
+    )
+    settings = request.app.state.settings
+    return _render(request, _current_values(settings), user_probes=probes)
 
 
 def _current_values(settings: Settings) -> dict[str, Any]:

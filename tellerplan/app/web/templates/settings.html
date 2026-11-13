@@ -91,6 +91,32 @@
     <p class="meta">Cookidoo bietet keine offizielle Schnittstelle; Tellerplan nutzt die Bibliothek der Home-Assistant-Integration. Ändert Vorwerk etwas, kann der Abgleich zeitweise ausfallen.</p>
   </section>
 
+  <section class="card" id="benutzer">
+    <h2>Benutzer prüfen</h2>
+    <p class="meta">Erkundung für mehrere Benutzer (0.6.0): Wie erfährt Tellerplan, wer die Seite öffnet und wer Admin ist? Liest nur, ändert nichts.</p>
+    <form method="post" action="{{ url('users_check') }}#benutzer">
+      <button class="btn ghost small" type="submit">Prüfen</button>
+    </form>
+    {% if user_probes is not none %}
+      <ul class="list">
+        {% for probe in user_probes %}
+          <li>
+            <div class="grow">
+              <span>{{ "✓" if probe.ok else "✗" }} {{ probe.label }}</span>
+              <span class="meta">{{ probe.summary }}</span>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="meta">Antworten zum Kopieren:</p>
+      <textarea class="input copy-text" readonly rows="10">
+        {%- for probe in user_probes if probe.raw %}== {{ probe.label }} ==
+{{ probe.raw }}
+{% endfor -%}
+      </textarea>
+    {% endif %}
+  </section>
+
   <section class="card">
     <h2>Daten</h2>
     <ul class="list">

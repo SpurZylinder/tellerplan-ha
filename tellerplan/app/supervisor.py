@@ -67,6 +67,16 @@ def get_core_state(entity_id: str, token: str, timeout: float = TIMEOUT_SECONDS)
     return body
 
 
+def get_auth_users(token: str, timeout: float = TIMEOUT_SECONDS) -> list[dict[str, Any]]:
+    """Benutzer von Home Assistant laut Supervisor (`GET /auth/list`); Erkundung für 0.6.0."""
+    body = _request("GET", "/auth/list", None, token, timeout)
+    data = body.get("data") if isinstance(body, dict) else None
+    users = data.get("users") if isinstance(data, dict) else None
+    if not isinstance(users, list):
+        raise SupervisorError("Supervisor liefert keine Benutzerliste")
+    return [user for user in users if isinstance(user, dict)]
+
+
 def call_service_with_response(
     domain: str,
     service: str,

@@ -151,3 +151,24 @@ def test_service_without_response_is_an_error(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(SupervisorError, match="keine Antwort"):
         supervisor.call_service_with_response("todo", "get_items", {}, "geheim")
+
+
+def test_get_auth_users_reads_user_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: list[Request] = []
+    body = json.dumps({"result": "ok", "data": {"users": [{"username": "fabi", "is_owner": True}]}})
+
+    def fake_urlopen(request: Request, timeout: float) -> _Response:
+        requests.append(request)
+        return _Response(body.encode())
+
+    monkeypatch.setattr(supervisor, "urlopen", fake_urlopen)
+
+    assert supervisor.get_auth_users("geheim") == [{"username": "fabi", "is_owner": True}]
+    assert requests[0].full_url == "http://supervisor/auth/list"
+
+
+def test_get_auth_users_without_list_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(supervisor, "urlopen", lambda request, timeout: _Response(b'{"data": {}}'))
+
+    with pytest.raises(SupervisorError, match="keine Benutzerliste"):
+        supervisor.get_auth_users("geheim")

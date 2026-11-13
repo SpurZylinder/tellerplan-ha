@@ -128,7 +128,14 @@ Die Seiten zeigen nur, was der Benutzer darf. Jede Route prüft es zusätzlich a
 
 #### B1: Erkundung auf dem Pi (0.5.x, ändert nichts)
 
-Wie Schritt 1 bei [[Cookidoo-Sync]]: Erst messen, dann bauen. Einstellungen bekommt einen Abschnitt „Benutzer prüfen“, der nur anzeigt.
+Wie Schritt 1 bei [[Cookidoo-Sync]]: Erst messen, dann bauen. Einstellungen bekommt einen Abschnitt „Benutzer prüfen“, der nur anzeigt (0.5.9, Modul `ha_users.py`). Er probiert vier Wege und zeigt je Ergebnis und Rohantwort:
+
+1. Kopfzeilen `X-Remote-User-*` der aktuellen Anfrage (über Ingress).
+2. Supervisor-API `GET /auth/list`.
+3. Websocket von Home Assistant `config/auth/list` mit `SUPERVISOR_TOKEN` über den Supervisor-Proxy (`ws://supervisor/core/websocket`); Admins an der Gruppe `system-admin`.
+4. Vollbild-App: Zugang aus dem Refresh-Token der Sitzung, dann Websocket `auth/current_user` (`id`, `name`, `is_admin`).
+
+`panel_admin` bleibt in 0.5.9 auf der Vorgabe (`true`): Mit `false` sähen Nicht-Admins Tellerplan schon jetzt mit allen Rechten (K16). Die Punkte zu Nicht-Admins unten werden darum in B2 geprüft, zusammen mit den Rollen.
 
 - [ ] Kommen die Kopfzeilen `X-Remote-User-*` über Ingress an, für Admin und Nicht-Admin? (Für den Nicht-Admin vorher `panel_admin: false` setzen.)
 - [ ] Sieht und öffnet ein Nicht-Admin das Panel mit `panel_admin: false`? Geht Ingress für ihn ohne Fehler?
