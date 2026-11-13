@@ -207,3 +207,26 @@ def test_supervisor_error_is_shown(
 
     assert "Home Assistant hat die Werte nicht übernommen" in response.text
     assert "Limit <b>2.000</b>" in ingress_client.get("/").text
+
+
+def test_supervisor_that_does_not_keep_the_values_is_an_error(
+    monkeypatch: pytest.MonkeyPatch, fake_supervisor: FakeSupervisor, options_file: Path
+) -> None:
+    # Supervisor antwortet ohne Fehler, behält die Werte aber nicht
+    monkeypatch.setattr(settings_module, "set_own_options", lambda options, token: None)
+
+    with pytest.raises(SupervisorError, match="protein_goal_g nicht gespeichert"):
+        save_options(options_file, {"protein_goal_g": 170})
+
+    assert _options(options_file)["protein_goal_g"] == 150
+
+
+def test_settings_page_reports_values_not_kept_by_home_assistant(
+    monkeypatch: pytest.MonkeyPatch, fake_supervisor: FakeSupervisor, ingress_client: TestClient
+) -> None:
+    monkeypatch.setattr(settings_module, "set_own_options", lambda options, token: None)
+
+    response = ingress_client.post("/settings", data=GOALS)
+
+    assert "Home Assistant hat die Werte nicht übernommen" in response.text
+    assert "Limit <b>2.000</b>" in ingress_client.get("/").text

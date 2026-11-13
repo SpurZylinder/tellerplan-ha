@@ -19,7 +19,7 @@ from annotated_types import Ge, Le
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from files import write_text_atomic
-from supervisor import get_own_options, set_own_options, supervisor_token
+from supervisor import SupervisorError, get_own_options, set_own_options, supervisor_token
 
 OPTIONS_ENV_VAR = "TELLERPLAN_OPTIONS"
 DEFAULT_OPTIONS_PATH = Path("/data/options.json")
@@ -169,6 +169,10 @@ def save_options(path: Path, changes: Mapping[str, Any]) -> Settings:
     Settings.model_validate(options)
     if token:
         set_own_options(options, token)
+        _check_stored(changes, get_own_options(token))
+        logger.info("Optionen an Home Assistant übergeben und bestätigt")
+    else:
+        logger.info("Kein Supervisor-Token: Optionen nur in %s gespeichert", path)
     content = json.dumps(options, ensure_ascii=False, indent=2) + "\n"
     try:
         write_text_atomic(path, content)
@@ -180,6 +184,21 @@ def save_options(path: Path, changes: Mapping[str, Any]) -> Settings:
         ) from error
     logger.info("Optionen gespeichert: %s", ", ".join(sorted(changes)) or "keine Änderung")
     return load_settings(path)
+
+
+def _check_stored(changes: Mapping[str, Any], stored: Mapping[str, Any]) -> None:
+    """Prüft, ob der Supervisor die Änderungen wirklich übernommen hat.
+
+    Ohne diese Probe meldete die Seite „Gespeichert“, auch wenn Home Assistant die
+    Werte nicht behielt; nach dem nächsten Neustart wären sie dann verloren.
+    """
+    missing = sorted(name for name, value in changes.items() if stored.get(name) != value)
+    if missing:
+        logger.warning("Supervisor hat Optionen nicht übernommen: %s", ", ".join(missing))
+        raise SupervisorError(
+            f"Home Assistant hat {', '.join(missing)} nicht gespeichert; "
+            "nach einem Neustart gälte wieder der alte Wert."
+        )
 
 
 @lru_cache

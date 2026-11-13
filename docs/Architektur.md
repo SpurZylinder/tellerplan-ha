@@ -338,6 +338,7 @@ Konzept, nach Gewicht:
 - [ ] **K13 Browser-Cache nach Updates:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
 - [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
+- [x] **K17 Einstellungen kommen nicht in Home Assistant an** – geschlossen 2026-11-13, kein Befund (falsch beobachtet beim Pi-Test von 0.5.1; die Einstellseite schreibt in den Reiter „Konfiguration“).
 - [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2).
 
 Code, nach Gewicht:
@@ -350,6 +351,7 @@ Code, nach Gewicht:
 - [x] **C-F Keine zentrale Uhr:** *Behoben mit K5:* alle Seiten nutzen `clock.today()`.
 - [ ] **C-G Testlücken:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.
 - [ ] **C-H Kein CSRF-Schutz** für POST-Formulare (geringes Risiko, Ingress setzt eine HA-Sitzung voraus).
+- [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
 - [ ] **C-I Kleinigkeiten:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
 
 Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.

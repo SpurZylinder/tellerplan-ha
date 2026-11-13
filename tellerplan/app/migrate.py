@@ -18,6 +18,9 @@ def alembic_config(settings: Settings, skip_data_migrations: bool = False) -> Co
     config.set_main_option("script_location", str(APP_DIR / "migrations"))
     config.attributes["settings"] = settings
     config.attributes["skip_data_migrations"] = skip_data_migrations
+    # Die App hat ihr Logging schon eingerichtet. alembic.ini setzte sonst den Root-Logger
+    # auf WARNING, und danach fehlten alle INFO-Meldungen im Protokoll des Add-ons.
+    config.attributes["configure_logger"] = False
     return config
 
 

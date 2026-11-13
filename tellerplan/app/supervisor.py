@@ -53,7 +53,11 @@ def call_service(domain: str, service: str, data: dict[str, Any], token: str) ->
 
 
 def _post(path: str, payload: dict[str, Any], token: str) -> None:
-    _request("POST", path, payload, token)
+    body = _request("POST", path, payload, token)
+    if isinstance(body, dict) and body.get("result") == "error":
+        message = body.get("message") or "Supervisor meldet einen Fehler"
+        logger.warning("Supervisor meldet Fehler für %s: %s", path, message)
+        raise SupervisorError(str(message))
 
 
 def _request(method: str, path: str, payload: dict[str, Any] | None, token: str) -> Any:

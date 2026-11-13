@@ -96,3 +96,11 @@ def test_get_own_options_without_options_is_an_error(
 
     with pytest.raises(SupervisorError):
         get_own_options("geheim")
+
+
+def test_error_result_in_successful_response_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    body = json.dumps({"result": "error", "message": "Optionen ungültig"}).encode()
+    monkeypatch.setattr(supervisor, "urlopen", lambda request, timeout: _Response(body))
+
+    with pytest.raises(SupervisorError, match="Optionen ungültig"):
+        set_own_options({}, "geheim")
