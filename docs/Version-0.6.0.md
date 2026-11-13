@@ -16,10 +16,10 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 
 ### A1: Datensicherheit (vor jeder weiteren Migration)
 
-- [ ] **K4 HA-Sicherung „hot“:** `backup: cold` (entschieden 2026-11-13). Home Assistant hält das Add-on während der Sicherung kurz an, die Datenbank ist dann geschlossen und konsistent. Einfacher und sicherer als `backup_pre` mit Checkpoint, der Preis ist eine Pause von wenigen Sekunden. Test auf dem Pi: Sicherung anlegen, wiederherstellen, Daten vollständig.
-- [ ] **C-D Optionen nicht atomar:** `settings.save_options` (`settings.py:149-162`) schreibt atomar wie die Token-Datei in 0.4.15 (Nachbardatei, `fsync`, `os.replace`). Schlägt das Schreiben nach dem Supervisor-Aufruf fehl, kommt eine klare Meldung und die App liest die Optionen neu.
-- [ ] **K8 Zwei Schreiber:** Vor dem Speichern liest die Einstellseite die aktuellen Optionen beim Supervisor (`GET /addons/self/info`) und ändert nur die Felder, die auf der Seite geändert wurden. Eine Änderung in Home Assistant geht dann nicht mehr verloren. Mit Teil B wandern die Ziele ohnehin in die Datenbank.
-- [ ] **C-C Zwei Quellen für Optionen:** Ein Test vergleicht `settings.py` mit `options` und `schema` in `config.yaml`: gleiche Schlüssel, gleiche Vorgabewerte, gleiche Wertebereiche.
+- [x] **K4 HA-Sicherung „hot“** (0.5.1)**:** `backup: cold` (entschieden 2026-11-13). Home Assistant hält das Add-on während der Sicherung kurz an, die Datenbank ist dann geschlossen und konsistent. Einfacher und sicherer als `backup_pre` mit Checkpoint, der Preis ist eine Pause von wenigen Sekunden. Test auf dem Pi: Sicherung anlegen, wiederherstellen, Daten vollständig.
+- [x] **C-D Optionen nicht atomar** (0.5.1, gemeinsamer Helfer `files.write_text_atomic`, auch für die Cookidoo-Tokens)**:** `settings.save_options` (`settings.py:149-162`) schreibt atomar wie die Token-Datei in 0.4.15 (Nachbardatei, `fsync`, `os.replace`). Schlägt das Schreiben nach dem Supervisor-Aufruf fehl, kommt eine klare Meldung und die App liest die Optionen neu.
+- [x] **K8 Zwei Schreiber** (0.5.1, `supervisor.get_own_options`; die Seite übergibt nur Felder, die anders sind als angezeigt)**:** Vor dem Speichern liest die Einstellseite die aktuellen Optionen beim Supervisor (`GET /addons/self/info`) und ändert nur die Felder, die auf der Seite geändert wurden. Eine Änderung in Home Assistant geht dann nicht mehr verloren. Mit Teil B wandern die Ziele ohnehin in die Datenbank.
+- [x] **C-C Zwei Quellen für Optionen** (0.5.1, `tests/test_config_consistency.py`, prüft auch `dev/options.example.json`; PyYAML nur in `requirements-dev.txt`)**:** Ein Test vergleicht `settings.py` mit `options` und `schema` in `config.yaml`: gleiche Schlüssel, gleiche Vorgabewerte, gleiche Wertebereiche.
 
 ### A2: Alltag
 

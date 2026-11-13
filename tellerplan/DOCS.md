@@ -39,9 +39,11 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 | `api_token` | Token für Kurzbefehle und Skripte |
 | `database_path` | Pfad der SQLite-Datenbank (Standard `/data/app.db`, Teil der HA-Backups) |
 
-Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“.
+Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“. Gespeichert werden nur die Felder, die dort geändert wurden; eine Änderung, die vorher hier im Reiter gemacht wurde, bleibt erhalten.
 
 Steht beim Start eine Migration an, sichert das Add-on die Datenbank vorher als `app.db.<Zeitstempel>.bak`; die letzten drei Sicherungen bleiben erhalten.
+
+Für eine Sicherung in Home Assistant hält das Add-on kurz an (`backup: cold`), damit die Datenbank vollständig und stimmig gesichert wird. Tellerplan ist dann für ein paar Sekunden nicht erreichbar.
 
 ## Cookidoo
 

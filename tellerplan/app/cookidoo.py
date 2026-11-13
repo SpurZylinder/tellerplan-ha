@@ -25,7 +25,6 @@ synchrone Routen in einem eigenen Thread aus, dort läuft `asyncio.run`).
 import asyncio
 import json
 import logging
-import os
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -43,6 +42,8 @@ from cookidoo_api import (
     CookidooException,
     get_localization_options,
 )
+
+from files import write_text_atomic
 
 TIMEOUT_SECONDS = 30
 DAYS_PER_WEEK = 7
@@ -220,19 +221,7 @@ class CookidooAccount:
         Die Datei entsteht gleich mit Rechten 600, nicht erst nachträglich.
         """
         content = json.dumps({"username": username, "tokens": vars(auth_data)})
-        temporary = self.token_path.with_name(f"{self.token_path.name}.tmp")
-        temporary.unlink(missing_ok=True)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        try:
-            descriptor = os.open(temporary, flags, TOKEN_FILE_MODE)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as file:
-                file.write(content)
-                file.flush()
-                os.fsync(file.fileno())
-            os.replace(temporary, self.token_path)
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
+        write_text_atomic(self.token_path, content, TOKEN_FILE_MODE)
 
     def _tokens_renewed(self, auth_data: CookidooAuthData) -> None:
         stored = self._stored()

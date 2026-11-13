@@ -8,8 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+import files as files_module
 import settings as settings_module
-from settings import option_range, save_options
+from settings import OptionsFileError, option_range, save_options
 from supervisor import TOKEN_ENV_VAR, SupervisorError
 
 GOALS = {
@@ -24,6 +25,30 @@ GOALS = {
 
 def _options(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+class FakeSupervisor:
+    """Optionen, wie Home Assistant sie hält; können neuer sein als options.json."""
+
+    def __init__(self, options: dict[str, Any]) -> None:
+        self.options = dict(options)
+        self.sent: list[dict[str, Any]] = []
+
+    def get(self, token: str) -> dict[str, Any]:
+        return dict(self.options)
+
+    def set(self, options: dict[str, Any], token: str) -> None:
+        self.sent.append(options)
+        self.options = dict(options)
+
+
+@pytest.fixture
+def fake_supervisor(monkeypatch: pytest.MonkeyPatch, options_file: Path) -> FakeSupervisor:
+    fake = FakeSupervisor(_options(options_file))
+    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
+    monkeypatch.setattr(settings_module, "get_own_options", fake.get)
+    monkeypatch.setattr(settings_module, "set_own_options", fake.set)
+    return fake
 
 
 def test_save_options_changes_only_given_values(options_file: Path) -> None:
@@ -43,29 +68,50 @@ def test_save_options_rejects_values_outside_schema(options_file: Path) -> None:
 
 
 def test_save_options_sends_all_options_to_supervisor(
-    monkeypatch: pytest.MonkeyPatch, options_file: Path
+    fake_supervisor: FakeSupervisor, options_file: Path
 ) -> None:
-    sent: list[tuple[dict[str, Any], str]] = []
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
-    monkeypatch.setattr(
-        settings_module, "set_own_options", lambda options, token: sent.append((options, token))
-    )
-
     save_options(options_file, {"protein_goal_g": 170})
 
-    options, token = sent[0]
-    assert token == "supervisor-token"
+    options = fake_supervisor.sent[0]
     assert options["protein_goal_g"] == 170
     assert options["api_token"] == "test-token"
 
 
+def test_change_in_home_assistant_is_kept(
+    fake_supervisor: FakeSupervisor, options_file: Path
+) -> None:
+    # In HA geändert, ohne Neustart: options.json kennt den neuen Wert noch nicht (K8)
+    fake_supervisor.options["daily_kcal_limit"] = 1900
+
+    updated = save_options(options_file, {"protein_goal_g": 170})
+
+    assert fake_supervisor.sent[0]["daily_kcal_limit"] == 1900
+    assert _options(options_file)["daily_kcal_limit"] == 1900
+    assert updated.daily_kcal_limit == 1900
+    assert updated.protein_goal_g == 170
+
+
+def test_failed_file_write_is_reported_and_keeps_the_file(
+    monkeypatch: pytest.MonkeyPatch, fake_supervisor: FakeSupervisor, options_file: Path
+) -> None:
+    def broken_replace(source: object, target: object) -> None:
+        raise OSError("Datenträger voll")
+
+    monkeypatch.setattr(files_module.os, "replace", broken_replace)
+
+    with pytest.raises(OptionsFileError, match="nach einem Neustart"):
+        save_options(options_file, {"protein_goal_g": 170})
+
+    assert _options(options_file)["protein_goal_g"] == 150
+    assert not options_file.with_name("options.json.tmp").exists()
+
+
 def test_supervisor_rejection_leaves_file_unchanged(
-    monkeypatch: pytest.MonkeyPatch, options_file: Path
+    monkeypatch: pytest.MonkeyPatch, fake_supervisor: FakeSupervisor, options_file: Path
 ) -> None:
     def reject(options: dict[str, Any], token: str) -> None:
         raise SupervisorError("ungültig")
 
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
     monkeypatch.setattr(settings_module, "set_own_options", reject)
 
     with pytest.raises(SupervisorError):
@@ -121,13 +167,40 @@ def test_invalid_goal_is_reported(
     assert _options(options_file)["daily_kcal_limit"] == 2000
 
 
+def test_settings_page_saves_only_changed_fields(
+    fake_supervisor: FakeSupervisor, ingress_client: TestClient, options_file: Path
+) -> None:
+    # Die Seite zeigt 2000 kcal; in HA steht inzwischen 1900, die Seite ändert nur Eiweiß
+    fake_supervisor.options["daily_kcal_limit"] = 1900
+    form = {**GOALS, "daily_kcal_limit": "2000", "protein_goal_g": "170"}
+
+    ingress_client.post("/settings", data=form, follow_redirects=False)
+
+    assert fake_supervisor.sent[0]["daily_kcal_limit"] == 1900
+    assert fake_supervisor.sent[0]["protein_goal_g"] == 170
+    assert _options(options_file)["daily_kcal_limit"] == 1900
+
+
+def test_settings_page_reports_failed_file_write(
+    monkeypatch: pytest.MonkeyPatch, fake_supervisor: FakeSupervisor, ingress_client: TestClient
+) -> None:
+    def broken_replace(source: object, target: object) -> None:
+        raise OSError("Datenträger voll")
+
+    monkeypatch.setattr(files_module.os, "replace", broken_replace)
+
+    response = ingress_client.post("/settings", data=GOALS)
+
+    assert response.status_code == 200
+    assert "nach einem Neustart des Add-ons" in response.text
+
+
 def test_supervisor_error_is_shown(
-    monkeypatch: pytest.MonkeyPatch, ingress_client: TestClient
+    monkeypatch: pytest.MonkeyPatch, fake_supervisor: FakeSupervisor, ingress_client: TestClient
 ) -> None:
     def reject(options: dict[str, Any], token: str) -> None:
         raise SupervisorError("Wert außerhalb des Schemas")
 
-    monkeypatch.setenv(TOKEN_ENV_VAR, "supervisor-token")
     monkeypatch.setattr(settings_module, "set_own_options", reject)
 
     response = ingress_client.post("/settings", data=GOALS)

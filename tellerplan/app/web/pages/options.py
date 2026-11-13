@@ -15,7 +15,13 @@ from fastapi.responses import HTMLResponse, Response
 
 import clock
 from cookidoo import CalendarRecipe, CookidooAccount, CookidooError
-from settings import TODO_ENTITY_PATTERN, Settings, option_range, save_options
+from settings import (
+    TODO_ENTITY_PATTERN,
+    OptionsFileError,
+    Settings,
+    option_range,
+    save_options,
+)
 from supervisor import SupervisorError, supervisor_token
 from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
@@ -110,6 +116,15 @@ def _parse_list_entity(text: str) -> str:
     return entity
 
 
+def _changed(settings: Settings, submitted: dict[str, Any]) -> dict[str, Any]:
+    """Nur Felder, die anders sind als auf der angezeigten Seite.
+
+    Die Seite schickt immer alle Felder. Unverändert Mitgeschicktes darf eine Änderung,
+    die inzwischen in Home Assistant gemacht wurde, nicht überschreiben.
+    """
+    return {name: value for name, value in submitted.items() if getattr(settings, name) != value}
+
+
 @router.get("", response_class=HTMLResponse)
 def settings_page(request: Request, saved: bool = False) -> HTMLResponse:
     return _render(request, _current_values(request.app.state.settings), saved=saved)
@@ -134,13 +149,14 @@ def settings_save(
         "bring_list_entity": bring_list_entity,
     }
     try:
-        changes: dict[str, Any] = {
+        submitted: dict[str, Any] = {
             field.name: _parse_goal(field, texts[field.name]) for field in GOAL_FIELDS
         }
-        changes["pantry_keywords"] = _parse_keywords(pantry_keywords)
-        changes["bring_list_entity"] = _parse_list_entity(bring_list_entity)
+        submitted["pantry_keywords"] = _parse_keywords(pantry_keywords)
+        submitted["bring_list_entity"] = _parse_list_entity(bring_list_entity)
+        changes = _changed(request.app.state.settings, submitted)
         request.app.state.settings = save_options(request.app.state.options_file, changes)
-    except FormError as error:
+    except (FormError, OptionsFileError) as error:
         return _render(request, texts, error=str(error))
     except SupervisorError as error:
         message = f"Home Assistant hat die Werte nicht übernommen: {error}"

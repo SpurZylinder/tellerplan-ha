@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 import clock
 import cookidoo as cookidoo_module
+import files as files_module
 from cookidoo import (
     CookidooAccount,
     CookidooError,
@@ -483,7 +484,7 @@ def test_failed_token_write_keeps_the_old_file(
     def broken_replace(source: object, target: object) -> None:
         raise OSError("Datenträger voll")
 
-    monkeypatch.setattr(cookidoo_module.os, "replace", broken_replace)
+    monkeypatch.setattr(files_module.os, "replace", broken_replace)
 
     renewed = CookidooAuthData(access_token="a9", refresh_token="r9", expires_at=9.0)
     with pytest.raises(OSError, match="Datenträger voll"):

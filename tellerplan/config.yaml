@@ -1,5 +1,5 @@
 name: Tellerplan
-version: "0.5.0"
+version: "0.5.1"
 slug: tellerplan
 description: Kalorien zählen, Rezepte verwalten und die Woche planen
 url: https://github.com/SpurZylinder/tellerplan-ha
@@ -21,7 +21,7 @@ ports:
   8099/tcp: 8099
 ports_description:
   8099/tcp: Vollbild-App (Anmeldung über Home Assistant) und JSON-API (nur mit Token)
-backup: hot
+backup: cold
 options:
   daily_kcal_limit: 2000
   protein_goal_g: 150

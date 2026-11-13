@@ -9,15 +9,21 @@ from urllib.request import Request
 import pytest
 
 import supervisor
-from supervisor import SupervisorError, set_own_options, supervisor_token
+from supervisor import SupervisorError, get_own_options, set_own_options, supervisor_token
 
 
 class _Response:
+    def __init__(self, body: bytes = b"") -> None:
+        self.body = body
+
     def __enter__(self) -> _Response:
         return self
 
     def __exit__(self, *args: object) -> None:
         return None
+
+    def read(self) -> bytes:
+        return self.body
 
 
 def test_set_own_options_posts_options_with_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,3 +70,29 @@ def test_token_is_missing_outside_the_addon(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv(supervisor.TOKEN_ENV_VAR, raising=False)
 
     assert supervisor_token() is None
+
+
+def test_get_own_options_reads_addon_info(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: list[Request] = []
+    body = json.dumps({"result": "ok", "data": {"options": {"daily_kcal_limit": 1900}}})
+
+    def fake_urlopen(request: Request, timeout: float) -> _Response:
+        requests.append(request)
+        return _Response(body.encode())
+
+    monkeypatch.setattr(supervisor, "urlopen", fake_urlopen)
+
+    assert get_own_options("geheim") == {"daily_kcal_limit": 1900}
+    assert requests[0].full_url == "http://supervisor/addons/self/info"
+    assert requests[0].get_method() == "GET"
+    assert requests[0].data is None
+
+
+@pytest.mark.parametrize("body", [b"", b"kein json", b'{"data": {}}', b'{"data": []}'])
+def test_get_own_options_without_options_is_an_error(
+    monkeypatch: pytest.MonkeyPatch, body: bytes
+) -> None:
+    monkeypatch.setattr(supervisor, "urlopen", lambda request, timeout: _Response(body))
+
+    with pytest.raises(SupervisorError):
+        get_own_options("geheim")

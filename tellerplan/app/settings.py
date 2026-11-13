@@ -18,7 +18,8 @@ from typing import Any
 from annotated_types import Ge, Le
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from supervisor import set_own_options, supervisor_token
+from files import write_text_atomic
+from supervisor import get_own_options, set_own_options, supervisor_token
 
 OPTIONS_ENV_VAR = "TELLERPLAN_OPTIONS"
 DEFAULT_OPTIONS_PATH = Path("/data/options.json")
@@ -32,6 +33,10 @@ COOKIDOO_LOCALE_PATTERN = r"^[a-z]{2}-[A-Z]{2}$"
 COOKIDOO_TOKEN_FILE = "cookidoo_token.json"
 # Basis-URL ohne Pfad, z. B. „http://homeassistant.local:8123“; leer = automatisch
 HOMEASSISTANT_URL_PATTERN = r"^(https?://[^/\s]+)?$"
+
+
+class OptionsFileError(RuntimeError):
+    """Home Assistant hat die Optionen übernommen, die laufende App aber nicht."""
 
 
 class StandardUnit(BaseModel):
@@ -149,18 +154,31 @@ def load_settings(path: Path) -> Settings:
 def save_options(path: Path, changes: Mapping[str, Any]) -> Settings:
     """Ändert einzelne Optionen und liefert die neuen Einstellungen.
 
+    Grundlage sind die aktuellen Optionen: im Add-on die beim Supervisor, denn eine
+    Änderung in Home Assistant steht erst nach einem Neustart in options.json (sonst
+    überschriebe die Einstellseite sie mit dem alten Stand). Nur `changes` wird geändert.
+
     Im Add-on gehen alle Optionen zuerst an den Supervisor: Er prüft sie gegen das
     Schema, zeigt sie im Reiter „Konfiguration“ und schreibt sie beim nächsten Start
-    wieder nach options.json. Die Datei wird zusätzlich sofort geschrieben, damit die
-    App ohne Neustart mit den neuen Werten weiterläuft.
+    wieder nach options.json. Die Datei wird zusätzlich sofort und atomar geschrieben,
+    damit die App ohne Neustart mit den neuen Werten weiterläuft.
     """
-    options = {**_read_options(path), **changes}
-    Settings.model_validate(options)
     token = supervisor_token()
+    current = get_own_options(token) if token else _read_options(path)
+    options = {**current, **changes}
+    Settings.model_validate(options)
     if token:
         set_own_options(options, token)
-    path.write_text(json.dumps(options, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    logger.info("Optionen gespeichert: %s", ", ".join(sorted(changes)))
+    content = json.dumps(options, ensure_ascii=False, indent=2) + "\n"
+    try:
+        write_text_atomic(path, content)
+    except OSError as error:
+        logger.error("options.json nicht geschrieben: %s", error)
+        raise OptionsFileError(
+            "Home Assistant hat die Werte übernommen, die App aber noch nicht. "
+            "Sie gelten nach einem Neustart des Add-ons."
+        ) from error
+    logger.info("Optionen gespeichert: %s", ", ".join(sorted(changes)) or "keine Änderung")
     return load_settings(path)
 
 

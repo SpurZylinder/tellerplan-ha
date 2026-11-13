@@ -50,6 +50,7 @@ tellerplan-ha/
     └── app/
         ├── main.py · settings.py · db.py · migrate.py
         ├── clock.py           zentrale Uhr (Zeitzone aus TZ)
+        ├── files.py           Dateien atomar schreiben (Optionen, Tokens)
         ├── security.py        Zugriff je Port (Ingress nur vom Proxy, 8099: API mit Token)
         ├── ha_auth.py         Anmeldung über Home Assistant (OAuth mit PKCE)
         ├── web_sessions.py    Sitzungen der Vollbild-App

@@ -326,11 +326,11 @@ Konzept, nach Gewicht:
 - [x] **K1 Einkaufsliste erneut senden:** Der Knopf sendete jedes Mal alle Zutaten der nächsten 14 Tage; Bring setzte schon Gekauftes wieder auf „zu kaufen“. *Behoben:* Jeder Planeintrag merkt sich `shopping_sent_at` (Migration 0008); gesendet werden nur neue Rezepte, und erst wenn alle Artikel ankommen. „Alles erneut senden“ auf der Seite Einkaufsliste schickt alle. Bleibt: Steht ein Artikel noch ungekauft in Bring, ersetzt ein neues Rezept mit demselben Artikel dessen Mengenangabe, statt sie zu addieren.
 - [x] **K2 Vorrat trifft eingelegte Lebensmittel:** Geprüft wurde jedes Wort des BLS-Namens, daher fiel „Thunfisch in Öl“ als Vorrat weg. *Behoben:* Nur das erste Wort des Namens zählt (bei BLS das Lebensmittel selbst); offene Zeilen wie „1 TL Salz“ weiter Wort für Wort.
 - [x] **K3 Sicherung beim Start:** Kopierte nur `app.db` ohne WAL-Datei und überschrieb bei jedem Start die einzige Kopie. *Behoben:* Gesichert wird nur, wenn eine Migration ansteht, mit der Backup-Funktion von SQLite (enthält die WAL-Daten), als `app.db.<Zeitstempel>.bak`; die letzten drei bleiben.
-- [ ] **K4 HA-Sicherung „hot“:** Home Assistant kopiert `/data` bei laufender SQLite-Datenbank; die Kopie kann inkonsistent sein. Abhilfe: `backup_pre` mit Checkpoint oder `backup: cold`.
+- [x] **K4 HA-Sicherung „hot“** (behoben 0.5.1: `backup: cold`)**:** Home Assistant kopiert `/data` bei laufender SQLite-Datenbank; die Kopie kann inkonsistent sein. Abhilfe: `backup_pre` mit Checkpoint oder `backup: cold`.
 - [x] **K5 Zeitzone:** `date.today()` nutzte die Zeit des Containers. *Behoben:* Zentrale Uhr `clock.py` mit der Zeitzone aus `TZ` (setzt der Supervisor) und den Zeitzonendaten aus dem Paket `tzdata`; der Start schreibt Zeitzone und Datum ins Protokoll.
 - [x] **K6 Planportionen und „eingetragen“** (2026-11-13: kein Befund, Komfort-Idee, zum Abschluss von 0.6.0 bewerten, siehe [[Version-0.6.0]])**:** Ein Planeintrag gilt nach der ersten eingetragenen Portion als erledigt; Reste (Meal-Prep) bildet das Modell nicht ab. Nach dem Verschieben erscheint ein eingetragener Eintrag wieder als offen.
 - [ ] **K7 Doku und Umsetzung:** Das Datenmodell nennt eine historisierte Tabelle `goal`, umgesetzt sind Ziele als Optionen (alte Tage zeigen das neue Ziel). Außerdem fehlen die Tabellen `ingredient_alias`, `weight`, `import_job` noch, und die Systemübersicht zeigt `shopping` nicht.
-- [ ] **K8 Zwei Schreiber für die Optionen:** Eine Änderung in HA ohne Neustart geht verloren, wenn danach die Einstellseite speichert (letzter Schreiber gewinnt).
+- [x] **K8 Zwei Schreiber für die Optionen** (behoben 0.5.1: Grundlage sind die Optionen beim Supervisor, gespeichert wird nur Geändertes)**:** Eine Änderung in HA ohne Neustart geht verloren, wenn danach die Einstellseite speichert (letzter Schreiber gewinnt).
 - [ ] **K9 Zutat ohne Einheit = Gramm:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
 - [ ] **K10 Einheiten-Schreibweisen:** Die Einkaufsliste addiert je Einheitstext; „EL“/„el“, „g“/„kg“, „Stück“/„Stk.“ bleiben getrennt.
 - [ ] **K11 Zeiträume:** Der Plan zeigt bis heute + 14, die Einkaufsliste rechnet bis heute + 13.
@@ -344,8 +344,8 @@ Code, nach Gewicht:
 
 - [ ] **C-A Senden blockiert:** `send_to_todo_list` ruft Home Assistant nacheinander mit 10 s Timeout je Artikel auf; bei hängendem Supervisor bricht der Ingress-Proxy vorher ab.
 - [x] **C-B Kaum Logging:** *Behoben:* Protokolliert werden Start (Zeitzone, Sicherung), jede Ablehnung durch den Supervisor, jedes Senden der Einkaufsliste mit Ergebnis und gespeicherte Optionen.
-- [ ] **C-C Zwei Quellen für Optionen:** `settings.py` und `config.yaml` pflegen Optionen und Wertebereiche getrennt; kein Test prüft, ob sie übereinstimmen.
-- [ ] **C-D Optionen nicht atomar geschrieben:** Abbruch beim Schreiben beschädigt `options.json`; schlägt das Schreiben nach dem Supervisor-Aufruf fehl, weichen HA und App voneinander ab.
+- [x] **C-C Zwei Quellen für Optionen** (behoben 0.5.1: Test vergleicht `settings.py`, `config.yaml` und `options.example.json`)**:** `settings.py` und `config.yaml` pflegen Optionen und Wertebereiche getrennt; kein Test prüft, ob sie übereinstimmen.
+- [x] **C-D Optionen nicht atomar geschrieben** (behoben 0.5.1: atomar über `files.write_text_atomic`, Fehler nach dem Supervisor-Aufruf mit Meldung)**:** Abbruch beim Schreiben beschädigt `options.json`; schlägt das Schreiben nach dem Supervisor-Aufruf fehl, weichen HA und App voneinander ab.
 - [ ] **C-E Netzwerk im Fachmodul:** `modules/shopping` importiert `supervisor` direkt; das Senden sollte hereingereicht werden.
 - [x] **C-F Keine zentrale Uhr:** *Behoben mit K5:* alle Seiten nutzen `clock.today()`.
 - [ ] **C-G Testlücken:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.

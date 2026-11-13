@@ -28,6 +28,20 @@ def supervisor_token() -> str | None:
     return os.environ.get(TOKEN_ENV_VAR) or None
 
 
+def get_own_options(token: str) -> dict[str, Any]:
+    """Aktuelle Optionen dieses Add-ons, wie sie Home Assistant im Reiter „Konfiguration“ zeigt.
+
+    Sie können neuer sein als `options.json`: Eine Änderung in Home Assistant landet erst
+    beim nächsten Start in der Datei.
+    """
+    body = _request("GET", "/addons/self/info", None, token)
+    data = body.get("data") if isinstance(body, dict) else None
+    options = data.get("options") if isinstance(data, dict) else None
+    if not isinstance(options, dict):
+        raise SupervisorError("Supervisor liefert keine Optionen")
+    return options
+
+
 def set_own_options(options: dict[str, Any], token: str) -> None:
     """Speichert die Optionen dieses Add-ons, wie „Speichern“ im Reiter „Konfiguration“."""
     _post("/addons/self/options", {"options": options}, token)
@@ -39,15 +53,20 @@ def call_service(domain: str, service: str, data: dict[str, Any], token: str) ->
 
 
 def _post(path: str, payload: dict[str, Any], token: str) -> None:
+    _request("POST", path, payload, token)
+
+
+def _request(method: str, path: str, payload: dict[str, Any] | None, token: str) -> Any:
+    """Anfrage an den Supervisor; liefert die Antwort als JSON (leer → None)."""
     request = Request(
         f"{SUPERVISOR_URL}{path}",
-        data=json.dumps(payload).encode("utf-8"),
-        method="POST",
+        data=None if payload is None else json.dumps(payload).encode("utf-8"),
+        method=method,
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
     try:
-        with urlopen(request, timeout=TIMEOUT_SECONDS):
-            return
+        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+            raw = response.read()
     except HTTPError as error:
         message = _error_message(error)
         logger.warning("Supervisor lehnt %s ab (%s): %s", path, error.code, message)
@@ -55,6 +74,10 @@ def _post(path: str, payload: dict[str, Any], token: str) -> None:
     except URLError as error:
         logger.warning("Supervisor nicht erreichbar für %s: %s", path, error.reason)
         raise SupervisorError(f"Supervisor nicht erreichbar: {error.reason}") from error
+    try:
+        return json.loads(raw) if raw else None
+    except ValueError as error:
+        raise SupervisorError("Supervisor liefert keine lesbare Antwort") from error
 
 
 def _error_message(error: HTTPError) -> str:
