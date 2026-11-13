@@ -15,7 +15,7 @@ Tellerplan ist eine selbst gehostete App, die Kalorienzählen und Rezeptverwaltu
 | Portionen             | Rezept hat Standardportionen; der Plan hat eigene Portionen (Vorgabe: Standard); das Tagebuch zählt nur die gegessenen | Planung und Verzehr sind getrennte Fragen                              |
 | Historie              | Tagebucheinträge speichern einen Nährwert-Snapshot                                                      | Spätere Rezeptänderungen verändern keine vergangenen Tage              |
 | Eintragen             | Nur auf der Seite „Heute“; der Plan kennt keine Mahlzeiten                                              | Ein Ort für das, was wirklich gegessen wurde                           |
-| Cookidoo-Planung      | Link zur Rezeptseite wird gespeichert, Planung dort per Link; Abgleich mit dem Cookidoo-Kalender geplant (siehe „Wünsche vom 2026-10-28“) | Keine öffentliche Cookidoo-Schnittstelle zum Einplanen bekannt         |
+| Cookidoo-Planung      | Abgleich des Plans mit „Meine Woche“ auf Knopfdruck, mit Vorschau (seit 0.5.0, siehe [[Cookidoo-Sync]]) | Inoffizielle Bibliothek `cookidoo-api`; Netzwerk nur in `cookidoo.py`, Prüfung in [[Cookidoo-API-Architektur]] |
 
 ## Systemüberblick
 
@@ -295,7 +295,7 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 2. **Rezepte und Plan:** Rezept-Datenmodell, Rezeptliste im Ranking-Look, Rezept anlegen mit Zutaten aus den Lebensmitteln, Nährwerte pro Portion, 1–2-Wochenplan als Tagesliste
 3. **Tagebuch:** vier Mahlzeiten, Tageslimit als Halbkreis und Makro-Balken, Übernahme aus dem Plan mit gegessenen Portionen
 4. **Importe:** BLS-Import, Zeilenparser, Matching mit Alias-Lernen und Cookidoo-Sammlung am Rechner (erledigt 2026-10-25); offen: Freitext-Import, Kurzbefehl an die API
-5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health
+5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl aus Apple Health (eingeplant als 0.10.0, 0.11.0 und 0.8.0, siehe [[Versionsplan]])
 
 **Vor Stufe 4** (festgelegt am 2026-10-25)
 
@@ -318,6 +318,8 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 - [x] REWE-Produktnummer: optionales Feld `food.rewe_id` (Migration 0016), gepflegt in der Lebensmittel-Ansicht (Nummer oder Link der Produktseite, auch bei BLS); der Lebensmittel-Import übernimmt sie aus `rewe_id` oder dem Link `url`. Grundlage für die Idee, aus der Bring-Liste einen REWE-Warenkorb mit den Standardprodukten zu füllen (Abholung).
 
 **Befunde der Projektprüfung vom 2026-10-25**
+
+Alle offenen Befunde sind seit 2026-11-13 einer Version zugeordnet (meist 0.6.0); neue Befunde folgen der Regel in [[Versionsplan#Regel für Befunde]].
 
 Konzept, nach Gewicht:
 
@@ -370,15 +372,10 @@ Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
 
 **Wünsche vom 2026-10-28**
 
-Aufgenommen, noch nicht umgesetzt. Vor der Umsetzung je Punkt die offenen Fragen klären.
+Vor der Umsetzung je Punkt die offenen Fragen klären.
 
-- [ ] **Cookidoo-Kalender synchronisieren** (ausgearbeitet in [[Cookidoo-Sync]], Ziel 0.5.0)**:** Ist ein Cookidoo-Zugang hinterlegt, erscheint im Plan ein Knopf „Sync“. Er
-  1. lädt den Cookidoo-Kalender mit den Rezepten (Zeitraum wie der Plan),
-  2. vergleicht über die Cookidoo-ID (`recipe.source = cookidoo`, `source_id` wie `r753850`) mit dem Tellerplan-Plan. Liegt ein Rezept in Cookidoo an einem anderen Wochentag, wird der Tellerplan angepasst (Cookidoo gewinnt),
-  3. schreibt Rezepte mit Cookidoo-ID, die in Tellerplan an einem Tag geplant sind, an dem der Cookidoo-Kalender leer ist, in den Cookidoo-Kalender.
-
-  Schnittstelle (festgelegt am 2026-10-28): die inoffizielle Bibliothek `cookidoo-api` (Grundlage der Cookidoo-Integration in Home Assistant), die den Kalender lesen und Rezepte einplanen kann. Sie meldet sich mit E-Mail und Passwort an, nicht mit einem API-Token; die Zugangsdaten werden neue Optionen (Regel 6, Typ `password`), der Knopf erscheint, wenn sie gesetzt sind. Offene Fragen: Was passiert mit Tellerplan-Rezepten, die in Cookidoo entfernt wurden, und mit Rezepten ohne Cookidoo-ID? Die bisherige Festlegung „keine Schnittstelle zum Einplanen“ (Tabelle oben) wird damit abgelöst; Netzwerkaufrufe gehören wie bei `supervisor.py` nicht in ein Fachmodul (vgl. C-E).
-- [ ] **REWE-ID an eigenen Lebensmitteln:** Lebensmittel, die nicht aus BLS stammen, bekommen auf ihrer Seite ein aufklappbares Feld für die REWE-Artikelnummer. Offene Fragen: Wofür wird sie genutzt (Link zur Produktseite, Abgleich in `tools/rewe_fetch.py`, Erkennen beim Import)? Eigenes Feld an `food` (Migration) oder bei `source = rewe` die vorhandene Quell-ID?
+- [x] **Cookidoo-Kalender synchronisieren** (umgesetzt in 0.5.0, 2026-11-13): Knopf „⇄ Cookidoo“ im Plan mit Vorschau, Abgleich in beide Richtungen über die Cookidoo-ID, unbekannte Rezepte werden von ihrer Rezeptseite geladen. Anmeldung per OAuth, nur Tokens gespeichert (kein Passwort in den Optionen). Plan, Abgleichsregeln, Pi-Test und Sicherheitsprüfung in [[Cookidoo-Sync]], Datenströme in [[Cookidoo-API-Architektur]].
+- [x] **REWE-ID an eigenen Lebensmitteln** (umgesetzt in 0.4.14 als `food.rewe_id`, siehe „Offene Punkte“ oben): Lebensmittel, die nicht aus BLS stammen, bekommen auf ihrer Seite ein aufklappbares Feld für die REWE-Artikelnummer. Offene Fragen: Wofür wird sie genutzt (Link zur Produktseite, Abgleich in `tools/rewe_fetch.py`, Erkennen beim Import)? Eigenes Feld an `food` (Migration) oder bei `source = rewe` die vorhandene Quell-ID?
 - [ ] **Heute und Ziele je HA-Benutzer:** „Heute“ (Tagebuch) und Kalorienziele gelten je angemeldetem Home-Assistant-Benutzer; Plan, Rezepte und Lebensmittel bleiben für alle gleich. Ansätze: Über Ingress setzt Home Assistant die Kopfzeilen `X-Remote-User-Id` und `X-Remote-User-Name`, die Vollbild-App kennt den Benutzer aus der OAuth-Anmeldung. `diary_entry` bekommt eine Benutzer-ID (Migration, bestehende Einträge gehören dem bisherigen Benutzer). Die Ziele liegen bisher als Add-on-Optionen vor (Regel 6, K7); je Benutzer braucht es eine Tabelle `goal` mit Benutzer-ID, Regel 6 ist dafür anzupassen. Offene Frage: Wie wird ein Benutzer ohne Eintrag behandelt (Vorgabewerte aus den Optionen)?
 
 ## Quellen

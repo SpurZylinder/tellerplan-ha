@@ -7,13 +7,15 @@ Einstieg in die Projektdoku. Dieser Ordner ist der sichtbare Teil des Obsidian-V
 - [[Architektur]] – Ziele, Module, Datenmodell, Abläufe, Ausbaustufen
 - [[Entwicklung]] – lokal einrichten, starten, prüfen, migrieren, veröffentlichen
 - [[Datenpflege]] – Rezepte (Cookidoo) und Produkte (REWE, Open Food Facts) aufbereiten und importieren
-- [[Cookidoo-Sync]] – Plan für 0.5.0: Abgleich mit dem Cookidoo-Kalender
+- [[Versionsplan]] – nächste Versionen 0.6.0 bis 0.11.0 und die Regel für Befunde
+- [[Cookidoo-Sync]] – Abgleich mit dem Cookidoo-Kalender (0.5.0): Plan, Regeln, Tests, Sicherheitsprüfung
+- [[Cookidoo-API-Architektur]] – Aufbau und Datenströme der Bibliothek `cookidoo-api`
 - [[Obsidian]] – wie dieser Vault eingerichtet ist
 - [[Sichtbarkeit]] – warum Repo und Image öffentlich sind und wie es privat ginge
 
 ## Stand
 
-Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: erstes Release und Live-Betrieb auf dem Raspberry Pi, Feinschliff nach dem iPhone-Test, danach Stufe 4 (Importe). Reihenfolge siehe [[Architektur#Ausbaustufen und offene Punkte]].
+Stand 0.5.0 (2026-11-13): Stufen 1–3 laufen auf dem Raspberry Pi, aus Stufe 4 sind BLS, Cookidoo-Sammlung und Zuordnen fertig, dazu der Abgleich mit Cookidoo. Offen in Stufe 4: Freitext-Import und Kurzbefehl an die API. Als Nächstes: 0.6.0 (mehrere Benutzer und alle offenen Befunde), siehe [[Versionsplan]].
 
 - [x] Repo-Gerüst, Home-Assistant-Add-on-Struktur
 - [x] FastAPI-App mit zentralen Einstellungen (`settings.py`)
@@ -29,11 +31,13 @@ Stufe 1 ist fertig, Stufe 2 und 3 stehen in einer Grundversion. Als Nächstes: e
 - [x] BLS 4.0: 7.140 Lebensmittel, Suche mit Ranking und unscharfer Suche, Demo-Rezepte auf BLS-Basis
 - [x] Einkaufsliste: zwei Wochen Plan ab heute, ohne Vorratsartikel, über die HA-Integration an Bring
 - [x] Einstellseite in der App: kcal-Limit und Makro-Ziele, gespeichert in den Add-on-Optionen
-- [ ] Erstes Release `v0.1.0` (Release-Workflow lief noch nie)
-- [ ] Live-Betrieb in Home Assistant auf dem Raspberry Pi
+- [x] Erstes Release `v0.1.0`
+- [x] Live-Betrieb in Home Assistant auf dem Raspberry Pi
 - [x] Vollbild-App mit Anmeldung über Home Assistant
 - [x] Cookidoo-Sammlung: Abruf am Rechner, Zeilenparser, Import, Zuordnen mit Standardartikeln (Stufe 4)
 - [ ] Importe: Freitext, Kurzbefehl an die API (Stufe 4)
 - [x] Komfort beim Eintragen (2026-10-28): Standard-Einheiten EL/TL, kcal je Zutat, Kategorie als Auswahl, Vorfilter je Mahlzeit, Rezept von gestern als Vorschlag
 - [x] Zuordnen (2026-10-29): Vorschläge statt Neuanlage, toleranter Namensvergleich, Grundzutaten zusammenführen
-- [ ] Cookidoo-Kalender synchronisieren (Plan: [[Cookidoo-Sync]]), REWE-ID an eigenen Lebensmitteln, Heute und Ziele je HA-Benutzer (siehe [[Architektur#Wünsche vom 2026-10-28]])
+- [x] Cookidoo-Kalender synchronisieren (0.5.0, [[Cookidoo-Sync]])
+- [x] REWE-Produktnummer an Lebensmitteln (0.4.14)
+- [ ] Heute und Ziele je HA-Benutzer (siehe [[Architektur#Wünsche vom 2026-10-28]])

@@ -1,6 +1,6 @@
 # Cookidoo-Sync
 
-Plan für Version **0.5.0**: Der Tellerplan-Plan und der Kalender „Meine Woche“ in Cookidoo gleichen sich ab. Grundlage ist der Wunsch vom 2026-10-28 in [[Architektur#Wünsche vom 2026-10-28]]; Stand der Recherche 2026-10-31.
+Umgesetzt in Version **0.5.0** (2026-11-13). Der Tellerplan-Plan und der Kalender „Meine Woche“ in Cookidoo gleichen sich ab. Grundlage ist der Wunsch vom 2026-10-28 in [[Architektur#Wünsche vom 2026-10-28]]; Stand der Recherche 2026-10-31.
 
 ## Ziel
 
@@ -178,10 +178,10 @@ Erst wenn alle Punkte erledigt sind: Schritt 7 und Version 0.5.0.
 
 ### Schritt 7: Doku und Release 0.5.0
 
-- [ ] [[Architektur]]: Zeile „Cookidoo-Planung“ in der Entscheidungstabelle ablösen, Wunsch abhaken, Verweis hierher.
-- [ ] `DOCS.md`: Optionen und Hinweis auf die inoffizielle Schnittstelle.
-- [ ] [[Start]]: Punkt abhaken.
-- [ ] `version` auf 0.5.0, `git push --atomic origin main v0.5.0`, Action abwarten, dann in Home Assistant aktualisieren.
+- [x] [[Architektur]]: Zeile „Cookidoo-Planung“ in der Entscheidungstabelle ablösen, Wunsch abhaken, Verweis hierher.
+- [x] `DOCS.md`: Optionen und Hinweis auf die inoffizielle Schnittstelle (stand schon seit 0.4.x drin).
+- [x] [[Start]]: Punkt abhaken.
+- [ ] `version` auf 0.5.0 (erledigt 2026-11-13), `git push --atomic origin main v0.5.0`, Action abwarten, dann in Home Assistant aktualisieren.
 
 ## Neubewertung (2026-11-02)
 

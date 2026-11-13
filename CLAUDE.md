@@ -123,4 +123,8 @@ Lokale Konfiguration und Datenbank liegen in `dev/` (in `.gitignore`); Vorlage i
 4. **Importe:** BLS-Import (erledigt), Freitext-Import, Zeilenparser, Matching mit Alias-Lernen, Cookidoo-Sammlung am Rechner, Kurzbefehl an die API
 5. **Erweiterungen:** Chefkoch, Einfach Backen, Open-Food-Facts-Barcode, Gewicht per Kurzbefehl
 
-Aktuelle Stufe: **3**
+Stufen 1–3 laufen, Stufe 4 teilweise. Ab 0.5.0 gilt der **Versionsplan** in `docs/Versionsplan.md` (0.6.0 Mehrere Benutzer, 0.7.0 Zugriff von außen, 0.8.0 Apple Health, 0.9.0 REWE-Warenkorb, 0.10.0 Chefkoch und Einfach Backen, 0.11.0 Barcode). In Arbeit: **0.6.0**.
+
+## Befunde
+
+Jeder neue Befund (Fehler, Lücke, Risiko aus Review, Pi-Test oder Alltag) kommt in die **nächste noch nicht veröffentlichte Minor-Version** im Versionsplan. Ausnahmen nur per Entscheidung mit Datum: Er gehört fachlich zu einer späteren Version, oder er ist kein echter Befund (dann zu „Ideen und Fragen“ oder mit Begründung schließen). Vor einem Minor-Release wird für jeden offenen Befund der Version entschieden: beheben oder mit Begründung verschieben. Details in `docs/Versionsplan.md#Regel für Befunde`.
