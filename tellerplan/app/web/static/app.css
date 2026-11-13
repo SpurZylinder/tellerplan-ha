@@ -300,6 +300,8 @@ input[type="date"].input { -webkit-appearance: none; appearance: none; min-width
   border-bottom: 1px solid var(--line);
 }
 .list > li:last-child { border-bottom: 0; }
+/* Zutat, die noch nicht in die Nährwerte eingeht */
+.list > li.has-issue { background: var(--kcal-soft); border-left: 3px solid var(--kcal); padding-left: 10px; padding-right: 6px; border-radius: 6px; }
 .list a { color: var(--fg); text-decoration: none; font-weight: 600; }
 .grow { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
 

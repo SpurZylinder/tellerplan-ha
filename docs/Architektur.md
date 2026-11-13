@@ -342,6 +342,8 @@ Konzept, nach Gewicht:
 - [x] **K15 Snapshot mit vier Nährwerten** (behoben 0.5.8: Migration 0017, `Nutrients` mit Ballaststoffen, Zucker, Salz; unbekannt statt 0).
 - [x] **K18 Keine Statusmeldung nach „Einkaufsliste“** (gefunden 2026-11-13, behoben 0.5.4: Senden im Hintergrund mit Fortschritt).
 - [x] **K19 Bring wird zugemüllt** (gefunden 2026-11-13, behoben 0.5.4/0.5.5): Erneutes Klicken sendete alles doppelt; vorhandene Artikel werden jetzt ergänzt statt neu angelegt, je Rezept abgehakt. [[Version-0.6.0]], A3b.
+- [x] **K24 Rezept fälschlich unvollständig** (gefunden 2026-11-13, behoben 0.5.15: Gewürz mit Standardprodukt zählte doppelt, „10/9 Zutaten“).
+- [x] **K25 Offene Zutat hervorheben** (Wunsch 2026-11-13, umgesetzt 0.5.15: Zeile farbig hinterlegt).
 - [x] **K23 Plan springt nach dem Bearbeiten zum Tag** (gefunden 2026-11-13, behoben 0.5.8: Plan bleibt an der Stelle).
 - [x] **K22 Gesperrte Knöpfe sehen aktiv aus** (gefunden 2026-11-13, behoben 0.5.6).
 - [x] **K21 Ergänzen in Bring traf den falschen gleichnamigen Eintrag** (gefunden 2026-11-13, behoben 0.5.6: `uid` wird vor dem Update nachgeschlagen).

@@ -259,7 +259,9 @@ def summarize(recipe: Recipe) -> RecipeSummary:
         for i in required
         if (food := resolved_food(i)) is not None and (grams := effective_grams(i)) is not None
     ]
-    without_nutrients = sum(1 for i in required if has_no_nutrients(i))
+    # Je Zeile einmal zählen: Eine Grundzutat „ohne Nährwerte“ kann zugleich ein
+    # Standardprodukt haben (z. B. Pfeffer) und darf dann nicht doppelt zählen.
+    covered = sum(1 for i in required if ingredient_issue(i) is None)
     total = total_nutrients(resolved)
     per_serving = total.scaled(1 / recipe.servings) if recipe.servings else total
     issues = {i.id: issue for i in recipe.ingredients if (issue := ingredient_issue(i))}
@@ -267,7 +269,7 @@ def summarize(recipe: Recipe) -> RecipeSummary:
         recipe=recipe,
         per_serving=per_serving,
         match=MatchStatus(
-            matched=len(resolved) + without_nutrients,
+            matched=covered,
             total=len(required),
             empty=not recipe.ingredients,
         ),

@@ -130,6 +130,19 @@ def test_spices_without_nutrients_count_as_complete(session: Session) -> None:
     assert unit_gaps(session) == []
 
 
+def test_spice_with_default_product_counts_once(session: Session) -> None:
+    """Pfeffer „ohne Nährwerte“ mit Standardprodukt: 1/1 Zutaten, nicht 2/1."""
+    import_document(session, _document(("p", ["0,5 TL Pfeffer"])))
+    pepper = create_base(session, "Pfeffer", no_nutrients=True)
+    set_default_product(session, pepper, make_food(session, "Pfeffer schwarz", units={"TL": 5}))
+    link_name(session, "Pfeffer", pepper)
+
+    match = summarize(_recipe(session, "p")).match
+
+    assert (match.matched, match.total) == (1, 1)
+    assert match.complete
+
+
 def test_new_imports_use_learned_names(session: Session) -> None:
     base = create_base(session, "Milch")
     link_name(session, "Milch", base)
@@ -428,3 +441,17 @@ def test_bls_food_cannot_be_deleted(ingress_client: TestClient, session: Session
     assert ingress_client.post(f"/foods/{food.id}/delete").status_code == 403
     session.expire_all()
     assert session.get(Food, food.id) is not None
+
+
+def test_open_ingredient_is_highlighted(ingress_client: TestClient, session: Session) -> None:
+    import_document(session, _document(("h", ["200 g Sahne", "1 TL Kreuzkümmel"])))
+    sahne = create_base(session, "Sahne")
+    set_default_product(session, sahne, make_food(session, "Schlagsahne"))
+    link_name(session, "Sahne", sahne)
+    recipe = _recipe(session, "h")
+    session.commit()
+
+    page = ingress_client.get(f"/recipes/{recipe.id}").text
+
+    assert page.count('class="has-issue"') == 1
+    assert "Noch nicht zugeordnet" in page

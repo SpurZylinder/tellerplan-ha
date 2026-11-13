@@ -49,7 +49,8 @@
       <ul class="list">
         {% for line in breakdown %}
           {% set ingredient = line.ingredient %}
-          <li>
+          {% set issue = summary.issues.get(ingredient.id) %}
+          <li{% if issue %} class="has-issue"{% endif %}>
             <div class="grow">
               <a href="{{ url('ingredient_edit', recipe_id=recipe.id, ingredient_id=ingredient.id) }}">{{ line.label }}</a>{% if ingredient.is_optional %} <span class="meta">(optional)</span>{% endif %}
               {% if line.grams is not none and (ingredient.unit or "g")|lower not in ("g", "gramm") %}
@@ -59,7 +60,6 @@
                 <a class="pill d" href="{{ url('food_detail', food_id=line.food.id) }}#units"
                    title="Standardwert für alle Lebensmittel ohne eigene Angabe – beim Lebensmittel anpassen">Standard 1 {{ line.standard_unit.name }} = {{ line.standard_unit.grams|amount }} g</a>
               {% endif %}
-              {% set issue = summary.issues.get(ingredient.id) %}
               {% if issue == "no_food" %}
                 <span class="note">{{ "Grundzutat ohne Standardprodukt" if ingredient.base_ingredient else "Noch nicht zugeordnet" }}</span>
               {% elif issue == "unknown_unit" %}

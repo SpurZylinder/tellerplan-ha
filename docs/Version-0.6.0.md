@@ -31,6 +31,8 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 - [x] **K10 Einheiten-Schreibweisen** (0.5.3): neues Modul `modules/foods/units.py` mit einer Schreibweise je Einheit, genutzt von Zeilenparser und Einkaufsliste. Die Einkaufsliste rechnet kg → g und l → ml, zeigt ab 1000 wieder kg/l und fasst eigene Einheiten („Zehe“/„zehe“) ohne Groß/klein zusammen.
 - [x] **K9 Zutat ohne Einheit = Gramm** (geprüft 0.5.3): Der Zeilenparser setzt bei einer Menge immer eine Einheit („2 Eier“ → 2 Stück); Gramm ohne Einheit gilt nur noch im Tagebuch, wo man Gramm einträgt. Gefundene Lücke behoben: „gr“, „Stk“, „Pkg.“, „Esslöffel“ u. a. wurden nicht erkannt („500 gr Mehl“ → 500 Stück „gr Mehl“).
 - [x] **C-I Kleinigkeiten** (0.5.3): `add_entry` lehnt 0 oder weniger Portionen ab; `web/pages/options.py` heißt jetzt `settings_page.py` wie die Route. `ShoppingItem.optional` geschlossen, kein Befund (2026-11-13): `shopping` darf nach Regel 7 auf `recipes` zugreifen.
+- [x] **K24 Rezept fälschlich unvollständig („10/9 Zutaten“)** (neu 2026-11-13, behoben 0.5.15): Eine Grundzutat „ohne Nährwerte“ mit Standardprodukt (Pfeffer) zählte doppelt, als zugeordnet und als ohne Nährwerte. `summarize` zählt jetzt jede Pflichtzeile einmal (keine offene Frage laut `ingredient_issue`).
+- [x] **K25 Offene Zutat am Rezept hervorheben** (Wunsch 2026-11-13, umgesetzt 0.5.15): Zeilen, die noch nicht in die Nährwerte eingehen, sind in der Zutatenliste farbig hinterlegt (kcal-Farbe), zusätzlich zum Hinweis an der Zeile.
 
 ### A3: Robustheit und Aufbau
 
