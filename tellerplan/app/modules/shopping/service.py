@@ -295,6 +295,22 @@ def merge_description(existing: str, item: ShoppingItem) -> str:
     return merged.description
 
 
+def _with_uid(todo: TodoList, entry: ListItem) -> ListItem:
+    """Eintrag mit uid; ein eben angelegter hat noch keine und wird in der Liste nachgeschlagen.
+
+    Über den Namen allein träfe ein Update bei gleichnamigen Einträgen den ersten, z. B.
+    das „Oliven“ ohne Angaben statt der eben angelegten „Oliven 4 EL“.
+    """
+    if entry.uid:
+        return entry
+    candidates = [
+        found
+        for found in todo.open_items()
+        if found.name == entry.name and found.description == entry.description and found.uid
+    ]
+    return candidates[-1] if candidates else entry
+
+
 def send_shopping_list(
     session: Session,
     shopping: ShoppingList,
@@ -304,6 +320,9 @@ def send_shopping_list(
     checkpoint: Callable[[], None] | None = None,
 ) -> SendResult:
     """Sendet Rezept für Rezept; vorhandene Einträge werden erweitert, neue angelegt.
+
+    Ein Eintrag ohne Angaben (z. B. von Hand „Oliven“) bleibt unberührt; der Artikel kommt als
+    eigener Eintrag dazu, weitere Rezepte ergänzen dann diesen.
 
     Ein Rezept gilt als gesendet, sobald alle seine Artikel angekommen sind; `checkpoint`
     hält das sofort fest. Bricht etwas ab, wiederholt der nächste Lauf nur offene Rezepte.
@@ -323,13 +342,16 @@ def send_shopping_list(
             key = alias_key(item.name)
             try:
                 current = known.get(key)
-                if current is None:
+                # Ein Eintrag ohne Angaben ist offen gehalten („Oliven“ – vielleicht andere);
+                # ergänzt wird nur ein spezifischer Eintrag, sonst kommt ein eigener dazu
+                if current is None or not current.description.strip():
                     todo.add(item.name, item.description)
                     known[key] = ListItem("", item.name, item.description)
                     added += 1
                 else:
                     description = merge_description(current.description, item)
                     if description != current.description:
+                        current = _with_uid(todo, current)
                         todo.update(current.uid or current.name, description)
                     known[key] = replace(current, description=description)
                     updated += 1

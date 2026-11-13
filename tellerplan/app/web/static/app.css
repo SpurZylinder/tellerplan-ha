@@ -239,6 +239,8 @@ h3 { font-family: var(--display); font-weight: 600; font-size: 1rem; margin: 0; 
 }
 .btn.ghost { background: var(--surface); color: var(--accent); }
 .btn.small { padding: 4px 10px; font-size: .8rem; }
+/* Gesperrte Knöpfe sichtbar machen, z. B. „An Bring senden“ ohne neue Rezepte */
+.btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.danger { background: var(--surface); border-color: var(--line); color: var(--kcal); }
 .icon-btn {
   width: 30px; height: 30px;

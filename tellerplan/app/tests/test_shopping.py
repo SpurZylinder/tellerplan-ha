@@ -817,3 +817,21 @@ def test_product_without_base_ingredient_drops_package_size(
     (item,) = build_shopping_list(session, MONDAY, MONDAY, PANTRY).items
 
     assert item.name == expected
+
+
+def test_entry_without_details_is_left_alone(session: Session) -> None:
+    # Von Hand „Oliven“ ohne Angaben: vielleicht andere Oliven, also eigener Eintrag
+    target = FakeList()
+    target.items = [ListItem("u-o", "Oliven", "")]
+    olives = make_food(session, "Oliven grün", units={"EL": 10})
+    olives.shopping_name = "Oliven"
+    add_entry(session, MONDAY, make_recipe(session, "Salat", ingredients=[(olives, 4, "EL")]))
+    add_entry(session, MONDAY, make_recipe(session, "Pizza", ingredients=[(olives, 2, "EL")]))
+    shopping = build_shopping_list(session, MONDAY, MONDAY, PANTRY)
+
+    send_shopping_list(session, shopping, target, "todo.x")
+
+    assert [(item.name, item.description) for item in target.items] == [
+        ("Oliven", ""),
+        ("Oliven", "6 EL"),
+    ]
