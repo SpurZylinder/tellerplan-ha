@@ -112,7 +112,7 @@ Skript `tools/cookidoo_probe.py` (Anleitung im Kopf der Datei), Zugang und Ausga
 - [x] Rezeptliste und Rezeptseite: Platzhalter mit Kennzeichen „Platzhalter“ und Link „In Cookidoo öffnen“ (vorhandener Knopf zur Quelle); im Ranking hinten ohne Score (galt schon für Rezepte ohne zugeordnete Zutaten).
 - [x] Tests für alles (`tests/test_cookidoo_model.py`).
 - [x] Rezept nur mit „nach Bedarf“-Zeilen (Salz, Pfeffer) bleibt vollständig; unvollständig ist nur ein Rezept ganz ohne Zeilen (`MatchStatus.empty`).
-- [ ] Test auf dem Pi: Migration 0015 läuft (0.4.8), Rezepte und Plan unverändert.
+- [x] Test auf dem Pi: Migration 0015 läuft (0.4.8), Rezepte und Plan unverändert (bestätigt durch die Tests bis 0.4.14, 2026-11-13).
 
 ### Schritt 4: Abgleich als reine Logik
 
@@ -169,7 +169,7 @@ Am besten mit einem Rezept an einem Tag in der nächsten Woche, das sonst nirgen
 7. [x] In der Cookidoo-App ein Rezept entfernen → Abgleich entfernt es in Tellerplan.
 8. [x] Platzhalter: Kennzeichen im Plan und in der Rezeptliste, „In Cookidoo öffnen“ führt zum richtigen Rezept; Tagebuch zeigt bei einem gegessenen Platzhalter den Hinweis „eher zu niedrig“.
 9. [x] Vorschau öffnen, in der Cookidoo-App etwas ändern, dann „Übernehmen“ → Hinweis und neue Vorschau, nichts geschrieben.
-10. [ ] Am iPhone: Knopf, Vorschau und Meldungen gut bedienbar. (0.4.12: Abstände in der Knopfleiste des Plans, in Vorschau und Meldungen erhöht – erneut prüfen)
+10. [x] Am iPhone: Knopf, Vorschau und Meldungen gut bedienbar. (0.4.12/0.4.13: Abstände erhöht, Plan in Spalten; geprüft 2026-11-13)
 11. [x] Schritt 6b: Unbekanntes Rezept in Cookidoo einplanen → Vorschau zeigt es unter „Neue Rezepte“; nach „Übernehmen“ steht es mit Zutatenzeilen und Standardportionen der Seite im Plan, Meldung „1 neues Rezept aus Cookidoo geladen“.
 12. [x] Vorhandene Platzhalter (aus 0.4.9): Einstellungen → Importieren → „Platzhalter füllen“; Planeinträge bekommen die Standardportionen.
 13. [x] Zuordnen der neuen Zutaten; danach rechnet das Rezept, Einkaufsliste mit richtigen Mengen.
@@ -207,15 +207,19 @@ Dazu ergänzt: Löschen eines Rezepts muss Notizen hinterlassen; „Übernehmen�
 
 Die Bibliothek und ihre Abhängigkeiten laufen im Prozess des Add-ons und hätten damit Zugriff auf `/data` (Datenbank, Cookidoo-Tokens) und den `SUPERVISOR_TOKEN` (Aktionen in Home Assistant). Darum diese Prüfung, zu erledigen vor 0.5.0, parallel zum Test auf dem Pi.
 
-- [ ] **Wohin Daten gehen:** nur Vorwerk-Adressen (`*.vorwerk-digital.com`, `cookidoo.<land>`)? Baut `remote_monitoring.py` (Firebase) schon beim Import Verbindungen auf?
-- [ ] **Zugangsdaten:** Passwort und Tokens nie in Logs, Fehlermeldungen oder Dateien der Bibliothek (Tellerplan schreibt die Tokens selbst)?
-- [ ] **Anmeldung:** `state` und PKCE geprüft, Zertifikatsprüfung aktiv (kein `ssl=False`), Bedeutung von `CookieJar(unsafe=True)`, nur Weiterleitungen zu Vorwerk-Adressen (`_assert_ciam_origin`)?
-- [ ] **Antworten von Cookidoo:** nur gelesen, nie ausgeführt, nachgeladen oder als Dateipfad benutzt? Folgen der Endpunkt-Erkennung (`well_known.py`) nur Vorwerk-Adressen?
+Architektur und Datenströme: [[Cookidoo-API-Architektur]] (Ergebnisse mit Belegstellen dort in Abschnitt 7). Prüfung am 2026-11-13 gegen 0.19.0.
+
+- [x] **Wohin Daten gehen:** nur CIAM (`ciam.prod.cookidoo.vorwerk-digital.com`, `const.py:23-25`) und `cookidoo.<land>` aus der lokalen `localization.json` (`helpers.py:879-893`); das Bearer-Token geht nur an Letzteres, weil `well_known._normalize_href` den Host entdeckter Links verwirft (`well_known.py:122, 158-159`). `remote_monitoring.py` (Firebase) wird über `__init__.py:21` immer importiert, hat auf Modulebene aber nur Konstanten und Klassen: keine Verbindungen, keine Tasks; Tellerplan nutzt es nicht. Restrisiko (niedrig): `authorization_endpoint` und `token_endpoint` kommen ungeprüft aus dem OIDC-Dokument (`cookidoo.py:642-650, 528, 578`); es kommt per TLS vom festen CIAM-Host, Ausnutzung setzt eine Kompromittierung bei Vorwerk voraus.
+- [x] **Zugangsdaten:** Passwort nur im POST-Body an `CIAM_LOGIN_SRV_URL` (`cookidoo.py:652-696`), nie geloggt oder gespeichert; Tokens nie geloggt. Die Bibliothek schreibt nur mit `save_token` Dateien (Tellerplan nutzt es nicht, `app/cookidoo.py:206-209`). Hinweis: `_request_json` loggt auf DEBUG die ganze Antwort (`cookidoo.py:257-259`); Tellerplan setzt INFO (`serve.py:29`). **Logger `cookidoo_api` nie auf DEBUG stellen.**
+- [x] **Anmeldung:** PKCE S256 (`os.urandom(48)`), `state` geprüft, fehlender `state` ist ein Fehler (`cookidoo.py:676-681, 792-800`); kein `ssl=False`. Nach dem Absenden der Zugangsdaten keine automatischen Weiterleitungen, jede über `_assert_ciam_origin` auf CIAM geprüft, höchstens 10 (`cookidoo.py:665-709`). Die Authorize-Seite (`cookidoo.py:528-535`) folgt Weiterleitungen ungeprüft, trägt aber keine Zugangsdaten. `CookieJar(unsafe=True)` (`app/cookidoo.py:239`) ist für den Login-Fluss nötig und unkritisch, weil jeder Aufruf eine frische Sitzung hat.
+- [x] **Antworten von Cookidoo:** nur JSON und Regex auf dem Login-HTML (`cookidoo.py:826-839`), kein `eval`/`exec`, kein Nachladen, keine Dateipfade aus Antworten. Endpunkt-Erkennung liefert nur Pfade, Platzhalter werden geprüft (`well_known.py:126-171`).
   - [x] In Tellerplan (2026-11-02, 0.4.9): Antworten gelten als nicht vertrauenswürdig. `cookidoo.py` übernimmt nur IDs der Form `r123`, Links nur per https auf die Cookidoo-Seite des Landes (sonst aus der ID gebaut) und kürzt Namen. Alle externen Links in den Vorlagen laufen zusätzlich durch den Filter `external_url` (nur http/https). Anlass: Ein `javascript:`-Link aus einer Antwort wäre sonst als `href` im Plan gelandet; über Ingress läuft Tellerplan unter der Adresse von Home Assistant.
-  - [ ] In der Bibliothek selbst: offen.
-- [ ] **Import:** kein Code mit Nebenwirkungen beim `import`, keine Hintergrund-Aufgaben, nichts wird nachinstalliert.
-- [ ] **Abhängigkeiten:** `pip-audit` gegen die tatsächlich installierten Versionen (aiohttp, cryptography, protobuf, firebase-messaging …).
-- [ ] **Festschreiben:** alle Pakete des Images mit Version und Prüfsumme (`pip install --require-hashes`), damit `~=`-Angaben der Bibliothek nicht still neuere Versionen holen. Entscheiden, ob sich der Aufwand lohnt.
+  - [x] In der Bibliothek selbst: siehe oben; Rezept-IDs landen in URL-Pfaden (`cookidoo.py:3036-3040`), Tellerplan übergibt nur geprüfte IDs aus dem Kalender.
+- [x] **Import:** keine Nebenwirkungen (nur Konstanten, Regex, Logger; `helpers.py:71`), keine Hintergrund-Aufgaben, nichts wird nachinstalliert. Je Aufruf läuft die Endpunkt-Erkennung neu (neun Anfragen, kein Sicherheitsproblem).
+- [x] **Abhängigkeiten:** `pip-audit` am 2026-11-13 gegen alle 51 lokal installierten Pakete (aiohttp 3.14.5, cryptography 50.0.2, protobuf 7.36.2, firebase-messaging 0.4.5 …): keine bekannten Schwachstellen. Einschränkung: geprüft wurde die lokale venv, nicht das Image.
+- [x] **Festschreiben (0.4.15, entschieden 2026-11-13):** `tellerplan/app/constraints.txt` hält exakte Versionen aller Laufzeitpakete, auch der indirekten; `requirements.txt` bindet sie per `-c constraints.txt` ein (Image, CI, lokal). Die CI prüft sie mit `pip-audit`. Ohne Hashes (Pflegeaufwand). Anlass: Eine frische Auflösung zog schon sechs Pakete neuer als geprüft. Aktualisieren: [[Entwicklung#Abhängigkeiten aktualisieren]].
+- [x] **Token-Datei atomar schreiben (0.4.15):** Nachbardatei gleich mit Rechten 600, `fsync`, dann `os.replace`; bei einem Abbruch bleibt die alte Datei heil (`CookidooAccount._write`).
+- [x] **IDs und Daten aus dem Review (0.4.15):** `is_recipe_id` mit `fullmatch` (kein Zeilenende); `plan`/`unplan` prüfen jede ID; im Abgleich bleiben Rezepte und Notizen mit ungültiger Quell-ID nur in Tellerplan; ein unbrauchbares Datum im Kalender bricht den Abgleich mit Meldung ab, statt den Tag als leer zu werten. Details: [[Cookidoo-API-Architektur#7. Ergebnis der Sicherheitsprüfung]].
 
 ## Später
 

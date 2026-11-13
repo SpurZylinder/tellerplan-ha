@@ -25,7 +25,7 @@ from typing import Protocol
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from cookidoo import CalendarRecipe, CookidooError
+from cookidoo import CalendarRecipe, CookidooError, is_recipe_id
 from modules.planner.cookidoo_sync import (
     AddToCookidoo,
     AddToTellerplan,
@@ -86,19 +86,18 @@ def preview(session: Session, calendar: CookidooCalendar, first: date, last: dat
     """Liest „Meine Woche“ und rechnet aus, was sich ändern würde; schreibt nichts."""
     entries = _entries(session, first, last)
     planned = [
-        PlannedRecipe(
-            entry.id,
-            entry.day,
-            entry.recipe.source_id if entry.recipe.source == COOKIDOO_SOURCE else None,
-            entry.cookidoo_day,
-        )
+        PlannedRecipe(entry.id, entry.day, _cookidoo_id(entry.recipe), entry.cookidoo_day)
         for entry in entries
     ]
     cookidoo = [
         CalendarEntry(item.day, item.recipe_id, item.name, item.url)
         for item in calendar.read_calendar(first, last)
     ]
-    notes = [RemovalNote(note.id, note.day, note.cookidoo_id) for note in removals(session)]
+    notes = [
+        RemovalNote(note.id, note.day, note.cookidoo_id)
+        for note in removals(session)
+        if is_recipe_id(note.cookidoo_id)
+    ]
     plan = plan_sync(first, last, planned, cookidoo, notes, _known_ids(session))
     return SyncPreview(
         plan,
@@ -119,6 +118,18 @@ def apply(
     if current.fingerprint != fingerprint:
         return current
     return _execute(session, calendar, current.plan.changes)
+
+
+def _cookidoo_id(recipe: Recipe) -> str | None:
+    """Cookidoo-ID des Rezepts; None, wenn es keins aus Cookidoo ist.
+
+    Eine Quell-ID, die keine Cookidoo-Rezept-ID sein kann (z. B. aus einer von Hand
+    bearbeiteten Importdatei), bleibt nur in Tellerplan. Sonst ginge sie in eine Adresse
+    an Cookidoo, und der Abgleich bräche bei jedem Lauf an ihr ab.
+    """
+    if recipe.source != COOKIDOO_SOURCE or recipe.source_id is None:
+        return None
+    return recipe.source_id if is_recipe_id(recipe.source_id) else None
 
 
 def _entries(session: Session, first: date, last: date) -> list[PlanEntry]:

@@ -97,11 +97,20 @@ Lizenz CC BY 4.0: Das Max Rubner-Institut muss als Quelle genannt werden; die Ap
 - Kein Build-Cache: Ein Tag-Lauf kann den Cache anderer Tags nicht lesen, er griff also nie und kostete nur das Hochladen. Jedes Image entsteht frisch.
 - Alle Actions sind auf Commit-SHAs festgeschrieben, die Version steht als Kommentar dahinter. Ein Tag wie `v4` lässt sich nachträglich auf anderen Code umhängen, eine SHA nicht. Aktualisieren: `git ls-remote https://github.com/<owner>/<action> refs/tags/<version>` und SHA samt Kommentar ersetzen.
 - Rechte so knapp wie möglich: CI nur `contents: read`, Release zusätzlich `packages: write`; `checkout` ohne gespeicherte Zugangsdaten (`persist-credentials: false`).
-- Offen: Lock-Datei mit Prüfsummen und `pip-audit` (siehe [[Cookidoo-Sync#Sicherheitsprüfung der Bibliothek]]).
+- Alle Laufzeitpakete, auch die indirekten, stehen mit exakter Version in `tellerplan/app/constraints.txt` (ohne Prüfsummen); die CI prüft sie mit `pip-audit` (seit 0.4.15, siehe [[Cookidoo-Sync#Sicherheitsprüfung der Bibliothek]]).
 
 Beim ersten Release muss das Paket in GitHub unter *Packages* auf **public** gestellt werden, damit Home Assistant es ohne Login laden kann.
 
 Warum Repo und Image öffentlich sind und welche privaten Varianten es gäbe, steht in [[Sichtbarkeit]].
+
+### Abhängigkeiten aktualisieren
+
+`requirements.txt` nennt die direkten Pakete, `constraints.txt` legt alle Versionen fest; `requirements.txt` bindet sie per `-c constraints.txt` ein. Für ein Update:
+
+1. Version in `requirements.txt` ändern (bzw. bei einem indirekten Paket nur in `constraints.txt`).
+2. In einer frischen Umgebung ohne `constraints.txt` auflösen: `python -m venv /tmp/neu && /tmp/neu/bin/pip install <direkte Pakete aus requirements.txt>`, dann `pip freeze` und die Versionen in `constraints.txt` übernehmen (Kopfkommentar behalten).
+3. Lokal installieren, `pytest`, und `pip-audit -r constraints.txt --no-deps --disable-pip`.
+4. Bei einem Wechsel von `cookidoo-api` die [[Cookidoo-Sync#Sicherheitsprüfung der Bibliothek]] wiederholen.
 
 ## Add-on in Home Assistant einbinden
 

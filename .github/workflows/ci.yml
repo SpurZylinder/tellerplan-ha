@@ -25,7 +25,9 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: tellerplan/app/requirements*.txt
+          cache-dependency-path: |
+            tellerplan/app/requirements*.txt
+            tellerplan/app/constraints.txt
 
       - name: Abhängigkeiten installieren
         run: pip install -r requirements-dev.txt
@@ -37,3 +39,9 @@ jobs:
 
       - name: Tests
         run: pytest
+
+      # Bekannte Schwachstellen in genau den Versionen, die ins Image kommen
+      - name: Abhängigkeiten prüfen
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit -r constraints.txt --no-deps --disable-pip --progress-spinner off

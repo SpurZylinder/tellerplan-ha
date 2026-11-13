@@ -170,3 +170,18 @@ def test_days_outside_the_range_are_ignored_by_cookidoo(session: Session, offset
 
     assert result.applied == []
     assert _entries(session) == []
+
+
+def test_invalid_cookidoo_id_stays_in_tellerplan_only(session: Session) -> None:
+    # z. B. aus einer von Hand bearbeiteten Importdatei
+    add_entry(session, d(2), _cookidoo_recipe(session, "../planning"))
+    entry = add_entry(session, d(3), _cookidoo_recipe(session, "r1\n"))
+    entry.cookidoo_day = d(3)
+    delete_entry(session, entry)
+    calendar = FakeCalendar()
+
+    result = _sync(session, calendar)
+
+    assert result.error is None
+    assert calendar.calls == []
+    assert [(day, rid) for day, rid, _ in _entries(session)] == [(d(2), "../planning")]

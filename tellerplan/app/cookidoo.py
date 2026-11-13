@@ -25,6 +25,7 @@ synchrone Routen in einem eigenen Thread aus, dort läuft `asyncio.run`).
 import asyncio
 import json
 import logging
+import os
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -48,7 +49,7 @@ DAYS_PER_WEEK = 7
 # Nur der Besitzer darf die Tokens lesen
 TOKEN_FILE_MODE = 0o600
 # Katalog-Rezepte in Cookidoo, z. B. „r821223“
-RECIPE_ID_PATTERN = re.compile(r"^r\d{1,12}$")
+RECIPE_ID_PATTERN = re.compile(r"r\d{1,12}")
 # Wie `recipe.title`; längere Namen werden gekürzt
 MAX_NAME_LENGTH = 300
 # Eine Rezeptseite hat rund 100 KB; größere Antworten werden abgelehnt
@@ -57,6 +58,11 @@ HTTP_OK = 200
 USER_AGENT = "Mozilla/5.0 (Tellerplan, privater Rezeptimport)"
 
 logger = logging.getLogger(__name__)
+
+
+def is_recipe_id(value: str) -> bool:
+    """Hat `value` die Form einer Cookidoo-Rezept-ID? Ganz, ohne Zeilenende o. Ä."""
+    return RECIPE_ID_PATTERN.fullmatch(value) is not None
 
 
 class CookidooError(RuntimeError):
@@ -123,7 +129,7 @@ class CookidooAccount:
             recipes = []
             for monday in week_starts(first, last):
                 for day in await cookidoo.get_recipes_in_calendar_week(monday):
-                    day_date = date.fromisoformat(day.id)
+                    day_date = _calendar_day(day.id)
                     if not first <= day_date <= last:
                         continue
                     recipes += [
@@ -139,6 +145,8 @@ class CookidooAccount:
     def plan(self, day: date, recipe_ids: list[str]) -> None:
         """Plant Rezepte an einem Tag ein."""
 
+        _require_recipe_ids(recipe_ids)
+
         async def add(cookidoo: Cookidoo) -> None:
             await cookidoo.add_recipes_to_calendar(day, recipe_ids)
 
@@ -147,6 +155,8 @@ class CookidooAccount:
     def unplan(self, day: date, recipe_id: str) -> None:
         """Nimmt ein Rezept von einem Tag."""
 
+        _require_recipe_ids([recipe_id])
+
         async def remove(cookidoo: Cookidoo) -> None:
             await cookidoo.remove_recipe_from_calendar(day, recipe_id)
 
@@ -154,8 +164,7 @@ class CookidooAccount:
 
     def recipe_page(self, recipe_id: str) -> str:
         """HTML der öffentlichen Rezeptseite; Fehler als `CookidooError`."""
-        if not RECIPE_ID_PATTERN.match(recipe_id):
-            raise CookidooError(f"„{recipe_id[:20]}“ ist keine Cookidoo-Rezept-ID.")
+        _require_recipe_ids([recipe_id])
         try:
             return asyncio.run(self._fetch_page(recipe_id))
         except (CookidooException, ClientError, TimeoutError, UnicodeDecodeError) as error:
@@ -181,7 +190,7 @@ class CookidooAccount:
     def _checked(self, day: date, recipe: Any, host: str) -> CalendarRecipe | None:
         """Geprüfter Kalendereintrag; None bei einer ID, die kein Cookidoo-Rezept sein kann."""
         recipe_id = str(recipe.id)
-        if not RECIPE_ID_PATTERN.match(recipe_id):
+        if not is_recipe_id(recipe_id):
             logger.warning("Cookidoo-Eintrag mit unerwarteter ID übergangen")
             return None
         name = str(recipe.name or recipe_id).strip()[:MAX_NAME_LENGTH] or recipe_id
@@ -204,9 +213,26 @@ class CookidooAccount:
         return stored if isinstance(stored, dict) and "tokens" in stored else None
 
     def _write(self, username: str, auth_data: CookidooAuthData) -> None:
+        """Schreibt die Tokens atomar: erst vollständig in eine Nachbardatei, dann ersetzen.
+
+        Bricht das Schreiben ab (z. B. Neustart während einer Erneuerung), bleibt die alte
+        Datei heil. Das zählt, weil Cookidoo das Refresh-Token bei jeder Erneuerung tauscht.
+        Die Datei entsteht gleich mit Rechten 600, nicht erst nachträglich.
+        """
         content = json.dumps({"username": username, "tokens": vars(auth_data)})
-        self.token_path.write_text(content, encoding="utf-8")
-        self.token_path.chmod(TOKEN_FILE_MODE)
+        temporary = self.token_path.with_name(f"{self.token_path.name}.tmp")
+        temporary.unlink(missing_ok=True)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        try:
+            descriptor = os.open(temporary, flags, TOKEN_FILE_MODE)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+                file.write(content)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temporary, self.token_path)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
 
     def _tokens_renewed(self, auth_data: CookidooAuthData) -> None:
         stored = self._stored()
@@ -252,6 +278,26 @@ class CookidooAccount:
         if not options:
             raise CookidooError(f"Cookidoo kennt die Sprache „{self.locale}“ nicht.")
         return options[0]
+
+
+def _require_recipe_ids(recipe_ids: list[str]) -> None:
+    """Nur geprüfte IDs gehen in Adressen an Cookidoo; die Bibliothek setzt sie ungeprüft ein."""
+    for recipe_id in recipe_ids:
+        if not is_recipe_id(recipe_id):
+            raise CookidooError(f"„{recipe_id[:20]}“ ist keine Cookidoo-Rezept-ID.")
+
+
+def _calendar_day(value: object) -> date:
+    """Datum eines Kalendertags aus der Antwort; unbrauchbar → `CookidooError`.
+
+    Ein Tag wird nicht still übergangen: Der Abgleich hielte ihn sonst für leer und
+    löschte seine Einträge in Tellerplan.
+    """
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError as error:
+        logger.warning("Cookidoo-Kalender mit unerwartetem Datum")
+        raise CookidooError("Cookidoo hat eine unerwartete Antwort geliefert.") from error
 
 
 def week_starts(first: date, last: date) -> list[date]:

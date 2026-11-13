@@ -1,3 +1,5 @@
+# Indirekte Pakete stehen festgeschrieben in constraints.txt
+-c constraints.txt
 alembic==1.20.1
 cookidoo-api==0.19.0
 fastapi==0.162.0

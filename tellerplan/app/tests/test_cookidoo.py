@@ -1,6 +1,8 @@
 """Anbindung an Cookidoo: mit einer Attrappe der Bibliothek, ohne Netzwerk."""
 
 import json
+import os
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +19,7 @@ from cookidoo import (
     CookidooError,
     NotConnectedError,
     RecipePageMissingError,
+    is_recipe_id,
     week_starts,
 )
 from settings import Settings
@@ -32,6 +35,8 @@ class FakeCookidoo:
     # Abweichender Name und Link je ID, z. B. für manipulierte Antworten
     details: dict[str, tuple[str, str]]
     fail_requests = False
+    # Datum, das Cookidoo statt des echten Tags liefert, z. B. für kaputte Antworten
+    day_id: str | None = None
 
     def __init__(self, session: object, cfg: Any, on_auth_data_update: Any = None) -> None:
         self.cfg = cfg
@@ -60,7 +65,7 @@ class FakeCookidoo:
         monday = day - timedelta(days=day.weekday())
         return [
             SimpleNamespace(
-                id=planned.isoformat(),
+                id=self.day_id or planned.isoformat(),
                 recipes=[
                     SimpleNamespace(
                         id=rid,
@@ -93,6 +98,7 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> type[FakeCookidoo]:
     FakeCookidoo.calendar = {}
     FakeCookidoo.details = {}
     FakeCookidoo.fail_requests = False
+    FakeCookidoo.day_id = None
     monkeypatch.setattr(cookidoo_module, "Cookidoo", FakeCookidoo)
     monkeypatch.setattr(cookidoo_module, "get_localization_options", _localization)
     return FakeCookidoo
@@ -429,3 +435,80 @@ def test_recipe_page_network_error_is_a_cookidoo_error(
     with pytest.raises(CookidooError, match="nicht erreichbar") as caught:
         account.recipe_page("r1")
     assert not isinstance(caught.value, RecipePageMissingError)
+
+
+@pytest.mark.parametrize("value", ["r1", "r821223"])
+def test_recipe_ids_are_accepted(value: str) -> None:
+    assert is_recipe_id(value)
+
+
+@pytest.mark.parametrize(
+    "value", ["", "r", "r1\n", " r1", "R1", "r1/../x", "../r1", "r" + "1" * 13]
+)
+def test_other_values_are_no_recipe_ids(value: str) -> None:
+    assert not is_recipe_id(value)
+
+
+@pytest.mark.parametrize("bad", [["r1\n"], ["r1", "../planning"]])
+def test_plan_rejects_invalid_ids_before_calling_cookidoo(
+    account: CookidooAccount, fake: type[FakeCookidoo], bad: list[str]
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+
+    with pytest.raises(CookidooError, match="keine Cookidoo-Rezept-ID"):
+        account.plan(MONDAY, bad)
+    with pytest.raises(CookidooError, match="keine Cookidoo-Rezept-ID"):
+        account.unplan(MONDAY, bad[-1])
+
+    assert fake.calendar == {}
+
+
+def test_unexpected_day_in_calendar_is_an_error_not_an_empty_day(
+    account: CookidooAccount, fake: type[FakeCookidoo]
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+    fake.calendar = {MONDAY: [("r1", False)]}
+    fake.day_id = "kein Datum"
+
+    with pytest.raises(CookidooError, match="unerwartete Antwort"):
+        account.read_calendar(MONDAY, MONDAY)
+
+
+def test_failed_token_write_keeps_the_old_file(
+    account: CookidooAccount, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    account.connect("ich@example.org", PASSWORD)
+    before = account.token_path.read_text(encoding="utf-8")
+
+    def broken_replace(source: object, target: object) -> None:
+        raise OSError("Datenträger voll")
+
+    monkeypatch.setattr(cookidoo_module.os, "replace", broken_replace)
+
+    renewed = CookidooAuthData(access_token="a9", refresh_token="r9", expires_at=9.0)
+    with pytest.raises(OSError, match="Datenträger voll"):
+        account._write("Fabi", renewed)
+
+    assert account.token_path.read_text(encoding="utf-8") == before
+    assert not account.token_path.with_name(f"{account.token_path.name}.tmp").exists()
+
+
+def test_token_write_replaces_a_leftover_temporary_file(account: CookidooAccount) -> None:
+    leftover = account.token_path.with_name(f"{account.token_path.name}.tmp")
+    leftover.write_text("Rest", encoding="utf-8")
+
+    account.connect("ich@example.org", PASSWORD)
+
+    assert account.username() == "Fabi"
+    assert not leftover.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Dateirechte nur unter POSIX")
+def test_token_file_is_only_readable_by_the_owner(account: CookidooAccount) -> None:
+    old_umask = os.umask(0)
+    try:
+        account.connect("ich@example.org", PASSWORD)
+    finally:
+        os.umask(old_umask)
+
+    assert account.token_path.stat().st_mode & 0o777 == 0o600
