@@ -18,6 +18,9 @@ class DiaryEntry(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     day: Mapped[date] = mapped_column(index=True)
     meal: Mapped[str] = mapped_column(String(60))
+    # Wem der Eintrag gehört (HA-Benutzer-ID, seit Migration 0019); leer = von vor 0.5.12,
+    # noch keinem Benutzer zugeordnet. Bewusst ohne Fremdschlüssel auf app_user.
+    user_id: Mapped[str | None] = mapped_column(String(64), index=True)
 
     # Herkunft: entweder ein Rezept (mit Portionen) oder ein Lebensmittel (mit Menge)
     recipe_id: Mapped[int | None] = mapped_column(

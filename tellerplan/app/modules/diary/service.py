@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, func, or_, select, update
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from modules.diary.models import DiaryEntry
@@ -67,17 +67,36 @@ def _snapshot(entry: DiaryEntry, nutrients: Nutrients) -> None:
     entry.salt_g = nutrients.salt_g
 
 
+@dataclass(frozen=True)
+class Viewer:
+    """Wessen Tagebuch gelesen wird.
+
+    Jeder sieht nur seine eigenen Einträge. Einträge von vor 0.5.12 haben noch keinen
+    Besitzer; die sieht nur ein Verwalter (`sees_unowned`), bis er sie zuordnet.
+    """
+
+    user_id: str
+    sees_unowned: bool = False
+
+
+def _visible(viewer: Viewer) -> ColumnElement[bool]:
+    own = DiaryEntry.user_id == viewer.user_id
+    return or_(own, DiaryEntry.user_id.is_(None)) if viewer.sees_unowned else own
+
+
 def log_recipe(
     session: Session,
+    user_id: str,
     day: date,
     meal: str,
     recipe: Recipe,
     servings: float,
     plan_entry: PlanEntry | None = None,
 ) -> DiaryEntry:
-    """Trägt gegessene Portionen eines Rezepts ein."""
+    """Trägt gegessene Portionen eines Rezepts für einen Benutzer ein."""
     summary = summarize(recipe)
     entry = DiaryEntry(
+        user_id=user_id,
         day=day,
         meal=meal,
         recipe_id=recipe.id,
@@ -93,13 +112,20 @@ def log_recipe(
 
 
 def log_food(
-    session: Session, day: date, meal: str, food: Food, quantity: float, unit: str | None
+    session: Session,
+    user_id: str,
+    day: date,
+    meal: str,
+    food: Food,
+    quantity: float,
+    unit: str | None,
 ) -> DiaryEntry:
     """Trägt eine Menge eines Lebensmittels ein, z. B. 150 g Skyr oder 1 Stück Banane."""
     grams = to_grams(food, quantity, unit)
     if grams is None:
         raise UnknownUnitError(f"Für „{food.name}“ ist die Einheit „{unit}“ nicht hinterlegt.")
     entry = DiaryEntry(
+        user_id=user_id,
         day=day,
         meal=meal,
         food_id=food.id,
@@ -151,8 +177,10 @@ def change_amount(
     session.flush()
 
 
-def get_entry(session: Session, entry_id: int) -> DiaryEntry | None:
-    return session.get(DiaryEntry, entry_id)
+def get_entry(session: Session, entry_id: int, viewer: Viewer) -> DiaryEntry | None:
+    """Ein Eintrag, den der Benutzer sehen darf; fremde gibt es für ihn nicht."""
+    statement = select(DiaryEntry).where(DiaryEntry.id == entry_id, _visible(viewer))
+    return session.scalar(statement)
 
 
 def delete_entry(session: Session, entry: DiaryEntry) -> None:
@@ -160,18 +188,20 @@ def delete_entry(session: Session, entry: DiaryEntry) -> None:
     session.flush()
 
 
-def _entries_on(session: Session, day: date) -> list[DiaryEntry]:
-    statement = select(DiaryEntry).where(DiaryEntry.day == day).order_by(DiaryEntry.id)
+def _entries_on(session: Session, day: date, viewer: Viewer) -> list[DiaryEntry]:
+    statement = (
+        select(DiaryEntry).where(DiaryEntry.day == day, _visible(viewer)).order_by(DiaryEntry.id)
+    )
     return list(session.scalars(statement))
 
 
-def day_log(session: Session, day: date, meal_names: Sequence[str]) -> DayLog:
+def day_log(session: Session, day: date, meal_names: Sequence[str], viewer: Viewer) -> DayLog:
     """Alle Mahlzeiten eines Tages mit Einträgen und Summen.
 
     Einträge zu Mahlzeiten, die es in den Einstellungen nicht mehr gibt,
     erscheinen am Ende unter ihrem alten Namen.
     """
-    entries = _entries_on(session, day)
+    entries = _entries_on(session, day, viewer)
     names = list(meal_names) + sorted({e.meal for e in entries} - set(meal_names))
     meals = []
     for name in names:
@@ -186,11 +216,16 @@ def day_log(session: Session, day: date, meal_names: Sequence[str]) -> DayLog:
     )
 
 
-def recipes_eaten(session: Session, day: date, meal: str) -> list[DiaryEntry]:
+def recipes_eaten(session: Session, day: date, meal: str, viewer: Viewer) -> list[DiaryEntry]:
     """Rezepteinträge einer Mahlzeit an einem Tag, je Rezept der erste (z. B. „wie gestern“)."""
     statement = (
         select(DiaryEntry)
-        .where(DiaryEntry.day == day, DiaryEntry.meal == meal, DiaryEntry.recipe_id.is_not(None))
+        .where(
+            DiaryEntry.day == day,
+            DiaryEntry.meal == meal,
+            DiaryEntry.recipe_id.is_not(None),
+            _visible(viewer),
+        )
         .order_by(DiaryEntry.id)
     )
     first_per_recipe: dict[int | None, DiaryEntry] = {}
@@ -199,10 +234,14 @@ def recipes_eaten(session: Session, day: date, meal: str) -> list[DiaryEntry]:
     return list(first_per_recipe.values())
 
 
-def planned_for_day(session: Session, day: date) -> list[PlannedForDay]:
-    """Für den Tag geplante Rezepte, markiert, ob sie schon eingetragen wurden."""
+def planned_for_day(session: Session, day: date, viewer: Viewer) -> list[PlannedForDay]:
+    """Für den Tag geplante Rezepte, markiert, ob *dieser Benutzer* sie schon eingetragen hat.
+
+    Der Plan ist gemeinsam, das Tagebuch nicht: Hat jemand anderes gegessen, steht das
+    Rezept hier weiter zum Eintragen bereit.
+    """
     (plan_day,) = plan_days(session, day, 1)
-    logged_ids = {entry.plan_entry_id for entry in _entries_on(session, day)}
+    logged_ids = {entry.plan_entry_id for entry in _entries_on(session, day, viewer)}
     return [
         PlannedForDay(dish=dish, logged=dish.entry.id in logged_ids) for dish in plan_day.dishes
     ]
@@ -214,6 +253,7 @@ def _frequency(
     since: date,
     until: date,
     meal: str | None,
+    viewer: Viewer,
 ) -> dict[int, int]:
     """Gewicht je ID: Tage mit Eintrag im Zeitraum, Tage in derselben Mahlzeit doppelt.
 
@@ -221,7 +261,12 @@ def _frequency(
     """
     statement = (
         select(column, DiaryEntry.day, DiaryEntry.meal)
-        .where(column.is_not(None), DiaryEntry.day >= since, DiaryEntry.day <= until)
+        .where(
+            column.is_not(None),
+            DiaryEntry.day >= since,
+            DiaryEntry.day <= until,
+            _visible(viewer),
+        )
         .distinct()
     )
     weights: dict[int, dict[date, int]] = {}
@@ -232,23 +277,25 @@ def _frequency(
     return {item_id: sum(days.values()) for item_id, days in weights.items()}
 
 
-def food_frequency(session: Session, since: date, until: date, meal: str | None) -> dict[int, int]:
-    """Wie oft Lebensmittel im Zeitraum gegessen wurden (Lebensmittel-ID → Gewicht)."""
-    return _frequency(session, DiaryEntry.food_id, since, until, meal)
+def food_frequency(
+    session: Session, since: date, until: date, meal: str | None, viewer: Viewer
+) -> dict[int, int]:
+    """Wie oft der Benutzer Lebensmittel im Zeitraum gegessen hat (ID → Gewicht)."""
+    return _frequency(session, DiaryEntry.food_id, since, until, meal, viewer)
 
 
 def recipe_frequency(
-    session: Session, since: date, until: date, meal: str | None
+    session: Session, since: date, until: date, meal: str | None, viewer: Viewer
 ) -> dict[int, int]:
-    """Wie oft Rezepte im Zeitraum gegessen wurden (Rezept-ID → Gewicht)."""
-    return _frequency(session, DiaryEntry.recipe_id, since, until, meal)
+    """Wie oft der Benutzer Rezepte im Zeitraum gegessen hat (ID → Gewicht)."""
+    return _frequency(session, DiaryEntry.recipe_id, since, until, meal, viewer)
 
 
-def last_amount(session: Session, food_id: int) -> tuple[float, str] | None:
-    """Menge und Einheit, mit der das Lebensmittel zuletzt eingetragen wurde."""
+def last_amount(session: Session, food_id: int, viewer: Viewer) -> tuple[float, str] | None:
+    """Menge und Einheit, mit der der Benutzer das Lebensmittel zuletzt eingetragen hat."""
     statement = (
         select(DiaryEntry.quantity, DiaryEntry.unit)
-        .where(DiaryEntry.food_id == food_id, DiaryEntry.quantity.is_not(None))
+        .where(DiaryEntry.food_id == food_id, DiaryEntry.quantity.is_not(None), _visible(viewer))
         .order_by(DiaryEntry.day.desc(), DiaryEntry.id.desc())
         .limit(1)
     )
@@ -256,3 +303,18 @@ def last_amount(session: Session, food_id: int) -> tuple[float, str] | None:
     if row is None or row.quantity is None:
         return None
     return row.quantity, row.unit or "g"
+
+
+def count_unowned(session: Session) -> int:
+    """Einträge von vor 0.5.12, die noch keinem Benutzer gehören."""
+    statement = select(func.count()).select_from(DiaryEntry).where(DiaryEntry.user_id.is_(None))
+    return session.scalar(statement) or 0
+
+
+def assign_unowned(session: Session, user_id: str) -> int:
+    """Gibt alle Einträge ohne Besitzer einem Benutzer; liefert ihre Anzahl."""
+    result = session.execute(
+        update(DiaryEntry).where(DiaryEntry.user_id.is_(None)).values(user_id=user_id)
+    )
+    session.flush()
+    return result.rowcount or 0

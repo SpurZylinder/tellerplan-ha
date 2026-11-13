@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from factories import make_food, make_recipe
-from modules.diary.service import log_recipe
+from modules.diary.service import Viewer, log_recipe
 from modules.importers.service import import_document
 from modules.planner.models import PlanEntry
 from modules.planner.service import (
@@ -25,6 +25,10 @@ from modules.recipes.service import (
     get_recipe,
     summarize,
 )
+
+# Alle Einträge gehören dem Testbenutzer; gelesen wird sein Tagebuch
+USER = "u1"
+VIEWER = Viewer(USER)
 
 DAY = date(2026, 11, 4)
 COOKIDOO_ID = "r821223"
@@ -64,7 +68,7 @@ def test_recipe_with_ingredients_is_no_placeholder(session: Session) -> None:
 
 
 def test_eating_a_placeholder_marks_the_day_incomplete(session: Session) -> None:
-    entry = log_recipe(session, DAY, "Mittag", _placeholder(session), 1)
+    entry = log_recipe(session, USER, DAY, "Mittag", _placeholder(session), 1)
 
     assert entry.kcal == 0
     assert not entry.is_complete

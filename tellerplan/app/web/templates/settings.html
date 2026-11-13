@@ -104,6 +104,26 @@
 
   {% endif %}
 
+  {% if is_admin and (unowned_entries or diary_message) %}
+  <section class="card" id="tagebuch">
+    <h2>Bisherige Tagebucheinträge</h2>
+    {% if diary_message %}<p class="success" role="status">{{ diary_message }}</p>{% endif %}
+    {% if unowned_entries %}
+      <p>{{ unowned_entries }} Einträge stammen aus der Zeit vor den getrennten Tagebüchern und gehören noch niemandem. Bis sie zugeordnet sind, sehen nur Verwalter sie.</p>
+      <form class="form" method="post" action="{{ url('diary_owner') }}#tagebuch">
+        <label class="field">Sie gehören
+          <select class="input" name="user_id" required>
+            <option value="">– Benutzer wählen –</option>
+            {% for id, name in known_users %}<option value="{{ id }}">{{ name }}</option>{% endfor %}
+          </select>
+        </label>
+        <p class="meta">Zur Auswahl stehen alle, die Tellerplan schon geöffnet haben. Das lässt sich nicht rückgängig machen.</p>
+        <div class="form-actions"><button class="btn" type="submit">Zuordnen</button></div>
+      </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if is_admin %}
   <section class="card" id="benutzer">
     <h2>Benutzer prüfen</h2>

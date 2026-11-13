@@ -16,7 +16,9 @@ from fastapi.responses import HTMLResponse, Response
 import clock
 from cookidoo import CalendarRecipe, CookidooAccount, CookidooError
 from ha_users import Probe, core_users, oauth_current_user, remote_user_headers, supervisor_users
+from modules.diary.service import assign_unowned, count_unowned
 from modules.planner.service import PLAN_DAYS_AHEAD, plan_horizon
+from modules.users.service import known_users
 from settings import (
     TODO_ENTITY_PATTERN,
     OptionsFileError,
@@ -69,8 +71,12 @@ def _render(
     cookidoo_email: str = "",
     cookidoo_check: list[CalendarRecipe] | None = None,
     user_probes: list[Probe] | None = None,
+    diary_message: str | None = None,
 ) -> HTMLResponse:
     settings = request.app.state.settings
+    with request.app.state.session_factory() as session:
+        unowned = count_unowned(session)
+        users = [(user.id, user.name) for user in known_users(session)]
     return render(
         request,
         "settings.html",
@@ -86,7 +92,27 @@ def _render(
         cookidoo_check=cookidoo_check,
         cookidoo_check_days=PLAN_DAYS_AHEAD + 1,
         user_probes=user_probes,
+        unowned_entries=unowned,
+        known_users=users,
+        diary_message=diary_message,
     )
+
+
+@router.post("/diary-owner", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+def diary_owner(request: Request, user_id: Annotated[str, Form()] = "") -> HTMLResponse:
+    """Gibt alle Tagebucheinträge von vor 0.5.12 (ohne Besitzer) einem bekannten Benutzer."""
+    settings = request.app.state.settings
+    with request.app.state.session_factory() as session:
+        users = {user.id: user.name for user in known_users(session)}
+        if user_id not in users:
+            return _render(
+                request, _current_values(settings), diary_message="Bitte einen Benutzer wählen."
+            )
+        moved = assign_unowned(session, user_id)
+        session.commit()
+    logger.info("Tagebuch: %d Einträge ohne Besitzer zugeordnet", moved)
+    message = f"{moved} Einträge gehören jetzt {users[user_id]}."
+    return _render(request, _current_values(settings), diary_message=message)
 
 
 @router.post("/users", response_class=HTMLResponse, dependencies=[Depends(require_admin)])

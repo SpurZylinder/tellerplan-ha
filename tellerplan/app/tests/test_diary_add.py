@@ -6,8 +6,13 @@ from datetime import date, timedelta
 from fastapi.testclient import TestClient
 
 from factories import make_food, make_recipe
-from modules.diary.service import get_entry, log_food, log_recipe
+from modules.diary.service import Viewer, get_entry, log_food, log_recipe
 from modules.recipes.models import Recipe
+from web.access import LOCAL_USER
+
+# Einträge gehören dem Benutzer der Seite (lokal ohne Supervisor: LOCAL_USER)
+USER = LOCAL_USER.id
+VIEWER = Viewer(USER)
 
 DAY = date(2026, 10, 28)
 YESTERDAY = DAY - timedelta(days=1)
@@ -27,8 +32,8 @@ def _recipes(client: TestClient) -> dict[str, int]:
             recipe = make_recipe(session, title, ingredients=[(skyr, 200, "g")])
             recipe.category = category
             created[title] = recipe
-        log_recipe(session, YESTERDAY, "Mittag", created["Linsen-Dal"], 1.5)
-        log_recipe(session, YESTERDAY, "Snacks", created["Skyr-Bowl"], 1)
+        log_recipe(session, USER, YESTERDAY, "Mittag", created["Linsen-Dal"], 1.5)
+        log_recipe(session, USER, YESTERDAY, "Snacks", created["Skyr-Bowl"], 1)
         session.commit()
         return {title: recipe.id for title, recipe in created.items()}
 
@@ -122,7 +127,7 @@ def test_unit_select_offers_only_convertible_units(ingress_client: TestClient) -
 def test_entry_on_today_can_be_changed(ingress_client: TestClient) -> None:
     with ingress_client.app.state.session_factory() as session:
         roll = make_food(session, "Brötchen", kcal=250, units={"Stück": 60})
-        entry = log_food(session, DAY, "Frühstück", roll, 1, "Stück")
+        entry = log_food(session, USER, DAY, "Frühstück", roll, 1, "Stück")
         session.commit()
         entry_id = entry.id
 
@@ -135,7 +140,7 @@ def test_entry_on_today_can_be_changed(ingress_client: TestClient) -> None:
     assert response.status_code == 303
 
     with ingress_client.app.state.session_factory() as session:
-        changed = get_entry(session, entry_id)
+        changed = get_entry(session, entry_id, VIEWER)
         assert changed is not None
         assert (changed.quantity, changed.unit, changed.kcal) == (80, "g", 200)
 
@@ -143,7 +148,7 @@ def test_entry_on_today_can_be_changed(ingress_client: TestClient) -> None:
 def test_changing_an_entry_reports_invalid_amount(ingress_client: TestClient) -> None:
     with ingress_client.app.state.session_factory() as session:
         recipe = make_recipe(session, ingredients=[(make_food(session), 200, "g")])
-        entry = log_recipe(session, DAY, "Mittag", recipe, 1)
+        entry = log_recipe(session, USER, DAY, "Mittag", recipe, 1)
         session.commit()
         entry_id = entry.id
 
@@ -168,7 +173,7 @@ def _selected_unit(page: str) -> str:
 def test_last_amount_is_suggested(ingress_client: TestClient) -> None:
     with ingress_client.app.state.session_factory() as session:
         egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
-        log_food(session, YESTERDAY, "Frühstück", egg, 2, "Stück")
+        log_food(session, USER, YESTERDAY, "Frühstück", egg, 2, "Stück")
         session.commit()
         egg_id = egg.id
 
@@ -181,7 +186,7 @@ def test_last_amount_is_suggested(ingress_client: TestClient) -> None:
 def test_typed_amount_is_kept_when_food_changes(ingress_client: TestClient) -> None:
     with ingress_client.app.state.session_factory() as session:
         egg = make_food(session, "Hühnerei roh", units={"Stück": 58})
-        log_food(session, YESTERDAY, "Frühstück", egg, 2, "Stück")
+        log_food(session, USER, YESTERDAY, "Frühstück", egg, 2, "Stück")
         session.commit()
         egg_id = egg.id
 
@@ -199,7 +204,7 @@ def test_food_search_lifts_frequently_eaten(ingress_client: TestClient) -> None:
         make_food(session, "Hühnerei Eigelb roh")
         egg = make_food(session, "Hühnerei roh")
         for days_ago in (1, 2):
-            log_food(session, DAY - timedelta(days=days_ago), "Frühstück", egg, 1, "g")
+            log_food(session, USER, DAY - timedelta(days=days_ago), "Frühstück", egg, 1, "g")
         session.commit()
 
     page = ingress_client.get(f"/diary/foods?day={DAY}&meal=Frühstück&q=ei").text
@@ -213,7 +218,7 @@ def test_recipes_eaten_often_come_first(ingress_client: TestClient) -> None:
         recipe = session.get(Recipe, ids["Proteinriegel"])
         assert recipe is not None
         for days_ago in (4, 5):  # Linsen-Dal gab es gestern einmal
-            log_recipe(session, DAY - timedelta(days=days_ago), "Snacks", recipe, 1)
+            log_recipe(session, USER, DAY - timedelta(days=days_ago), "Snacks", recipe, 1)
         session.commit()
 
     page = _add_page(ingress_client, "Frühstück")

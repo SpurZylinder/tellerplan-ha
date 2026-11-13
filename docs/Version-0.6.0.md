@@ -93,7 +93,7 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 
 1. **Home Assistant ist die einzige Anmeldung.** Tellerplan hat keine eigenen Passwörter, wie bisher.
 2. **Familienmitglieder bekommen Benutzer ohne Admin-Rechte in Home Assistant**, am besten mit „Nur im lokalen Netz anmelden“. Ein Admin-Konto auf dem Handy der Familie ist nicht mehr nötig. Das ist der größte Sicherheitsgewinn: Ein verlorenes Handy oder ein geteiltes Passwort öffnet dann nicht mehr ganz Home Assistant.
-3. **Das Add-on öffnet das Panel für Nicht-Admins:** `panel_admin: false` in `config.yaml`. Ohne das sieht ein Nicht-Admin Tellerplan gar nicht.
+3. ~~**Das Add-on öffnet das Panel für Nicht-Admins:** `panel_admin: false`~~ – entfällt (2026-11-13): Nicht-Admins nutzen die Vollbild-App, das Panel bleibt nur für Admins.
 4. **Tellerplan prüft selbst, wer was darf.** Ohne eigene Freigabe hätte jeder HA-Benutzer Zugriff. Darum:
    - Option `allowed_users` (Liste von HA-Benutzernamen). Leer heißt: alle HA-Benutzer. Wer nicht auf der Liste steht, bekommt eine Seite „Kein Zugriff“.
    - Zwei Rollen, abgeleitet aus Home Assistant: **Verwalter** = Admin in Home Assistant, **Benutzer** = alle anderen. Keine eigene Rollenpflege in Tellerplan.
@@ -143,7 +143,7 @@ Wie Schritt 1 bei [[Cookidoo-Sync]]: Erst messen, dann bauen. Einstellungen beko
 - [x] Supervisor-API `GET /auth/list`: ✗ 403 – wird nicht gebraucht, darum kein zusätzliches Recht.
 - [x] Websocket `config/auth/list` mit `SUPERVISOR_TOKEN` über `ws://supervisor/core/websocket`: ✓ alle Benutzer mit `id`, `username`, `name`, `is_owner`, `is_active`, `local_only`, `system_generated`, `group_ids`. Admin = Gruppe `system-admin`. Reicht mit dem vorhandenen `homeassistant_api`.
 - [x] Vollbild-App `auth/current_user` mit dem Zugang aus der Sitzung: ✓ `id`, `name`, `is_owner`, `is_admin`.
-- [ ] Nicht-Admin sieht und öffnet das Panel mit `panel_admin: false` – in B2, zusammen mit den Rollen.
+- [x] Nicht-Admin und das Panel mit `panel_admin: false` – entfällt (2026-11-13), Nicht-Admins nutzen die Vollbild-App.
 - Befund dabei: Es gibt bereits einen Benutzer ohne Admin-Rechte („Fabian“, `system-users`). Er könnte sich heute in der Vollbild-App anmelden und hätte alle Rechte (K16, nicht nur theoretisch). Sofortmaßnahme als erster Teil von B2.
 
 **Entscheidung für B2:** Wer es ist, kommt über Ingress aus den Kopfzeilen, in der Vollbild-App aus `auth/current_user` bei der Anmeldung (ID in der Sitzung). Ob jemand Admin und aktiv ist, kommt für beide aus `config/auth/list` (kurz zwischengespeichert). Systembenutzer (`system_generated`) kommen nie herein.
@@ -169,9 +169,11 @@ Umgesetzt in 0.5.11 (das Panel bleibt noch nur für Admins sichtbar):
 - [x] Tests: `tests/test_roles.py` (Verwalter-Seiten, Freigabe, Systemkonten, Ausfall von Home Assistant, Zwischenspeicher).
 - [x] **C-L Tests erreichten das echte Home Assistant** (neu 2026-11-13, behoben 0.5.11): Die Tests der Vollbild-App nutzten `homeassistant.local` als Adresse; ein nicht ersetzter Aufruf ging so an das echte Home Assistant im Heimnetz, das sechs fehlgeschlagene Anmeldungen protokollierte (Python-urllib, `/auth/token`, mit erfundenen Tokens, harmlos). Jetzt sperrt `tests/conftest.py` alle Netzwerkzugänge der App (`no_network`), und die Tests nutzen die reservierte Endung `.test`.
 
-#### B2b: Teil 2 (0.5.12)
+**Pi-Test 0.5.11 (2026-11-13):** Anmeldung als Admin und als Benutzer (Fabian) in der Vollbild-App funktioniert; Fabian kann „Heute“ bearbeiten und den Plan sehen, aber keine Rezepte löschen. Erwartet noch gemeinsam: Tagebucheinträge erscheinen bei beiden Benutzern (B3). Als Nächstes B3 (Tagebuch je Benutzer), weil Fabian schon einträgt; `panel_admin: false` entfällt.
 
-- [ ] `panel_admin: false`, Test mit einem Benutzer ohne Admin-Rechte über Ingress (siehe „Test auf dem Pi“).
+#### B2b: Teil 2 – entfällt (Entscheidung 2026-11-13)
+
+`panel_admin` bleibt auf der Vorgabe (`true`): Das Panel in Home Assistant ist nur für Admins; alle anderen Benutzer nutzen die Vollbild-App (`http://<IP>:8099/`), in der die Rollen gelten. Das ist auch die engere Lösung: Nicht-Admins brauchen keinen Zugang zur Oberfläche von Home Assistant.
 
 Ursprünglicher Plan für B2b:
 
@@ -180,16 +182,17 @@ Ursprünglicher Plan für B2b:
 - [ ] `security.py` entfernt `X-Remote-User-*` auf Port 8099.
 - [ ] Option `allowed_users`, Seite „Kein Zugriff“.
 - [ ] Abhängigkeiten `require_admin` und `require_user` für die Routen nach der Tabelle oben. Die Oberfläche blendet aus, was nicht erlaubt ist.
-- [ ] `panel_admin: false` in `config.yaml`, mit Hinweis in `DOCS.md`.
+- [x] ~~`panel_admin: false` in `config.yaml`~~ – entfällt (2026-11-13).
 - [ ] Tests: jede Route mit Benutzer, Verwalter, nicht freigegebenem Benutzer und gefälschten Kopfzeilen auf Port 8099.
 - [ ] Schließt **K16**.
 
-#### B3: Tagebuch je Benutzer (0.5.x)
+#### B3: Tagebuch je Benutzer (0.5.12)
 
-- [ ] Migration: `diary_entry.user_id`. Bisherige Einträge haben noch keinen Besitzer. Die Einstellseite (nur Verwalter) zeigt einmalig „Bisherige Einträge gehören: [Benutzer]“. Bis dahin sieht sie nur der Verwalter. Nichts wird automatisch zugeordnet.
-- [ ] „Heute“, Verlauf, „Rezept von gestern“, Vorfilter und „aus dem Plan übernehmen“ lesen nur Einträge des aktuellen Benutzers.
-- [ ] „✓ eingetragen“ auf „Heute“ zeigt nur, ob *der aktuelle Benutzer* den Planeintrag übernommen hat, nicht ein anderer.
-- [ ] Tests: zwei Benutzer am selben Tag, keiner sieht den anderen.
+- [x] Migration 0019: `diary_entry.user_id` (HA-Benutzer-ID, Index, bewusst ohne Fremdschlüssel). Bisherige Einträge bleiben leer; Einstellungen → „Bisherige Tagebucheinträge“ (nur Verwalter, nur solange es welche gibt) gibt sie einmal einem bekannten Benutzer. Bis dahin sehen sie nur Verwalter. Umgesetzt in 0.5.12.
+- [x] „Heute“, Verlauf, „Rezept von gestern“, Häufigkeit beim Eintragen, zuletzt eingetragene Menge und „aus dem Plan übernehmen“ lesen nur Einträge des aktuellen Benutzers (`diary.service.Viewer`, Pflichtangabe jeder Leseabfrage). Fremde Einträge lassen sich weder ändern noch löschen (404).
+- [x] „✓ eingetragen“ auf „Heute“ zeigt nur, ob *der aktuelle Benutzer* den Planeintrag übernommen hat, nicht ein anderer.
+- [x] Tests: `tests/test_diary_users.py` (zwei Benutzer über Ingress, fremde Einträge, Plan gemeinsam, Zuordnung alter Einträge).
+- [ ] Test auf dem Pi (0.5.12): Admin und Fabian tragen ein, keiner sieht den anderen; alte Einträge in den Einstellungen zuordnen.
 
 #### B4: Ziele je Benutzer (0.5.x)
 
@@ -202,12 +205,12 @@ Ursprünglicher Plan für B2b:
 #### B5: API und Doku (0.5.x)
 
 - [ ] API auf Port 8099: bleibt in 0.6.0 beim einen `api_token` aus den Optionen. Sie liest heute nur (`GET /api/v1/recipes`, `/api/v1/health`) und kennt keine Benutzer. Ein Token je Benutzer wird erst nötig, wenn die API ins Tagebuch schreibt, also mit 0.8.0 (Apple Health); die Frage ist dorthin verschoben (2026-11-13).
-- [ ] `DOCS.md`: Benutzer anlegen (ohne Admin, „Nur lokal“), `panel_admin`, `allowed_users`, Rollen.
+- [x] `DOCS.md`: Benutzer anlegen (ohne Admin, „Nur lokal“), `allowed_users`, Rollen, Vollbild-App für Nicht-Admins (erledigt in 0.5.11).
 - [ ] [[Architektur]]: Datenmodell, Zugriff je Port, Regel 6 und 7.
 
 ### Test auf dem Pi
 
-1. [ ] Nicht-Admin in HA anlegen (nur lokal). Er sieht das Panel und öffnet Tellerplan über Ingress und als Vollbild-App.
+1. [x] Nicht-Admin in HA anlegen (nur lokal). Er öffnet Tellerplan als Vollbild-App (0.5.11, Fabian). Über Ingress nicht nötig (Panel nur für Admins).
 2. [ ] Er trägt auf „Heute“ ein und setzt eigene Ziele. Der Admin sieht davon nichts auf seinem „Heute“.
 3. [ ] Er sieht weder Optionen noch Cookidoo-Verbinden noch Importe. Direkter Aufruf der Adressen ergibt „Kein Zugriff“.
 4. [ ] Plan, Rezepte, Einkaufsliste und Cookidoo-Abgleich funktionieren für ihn.

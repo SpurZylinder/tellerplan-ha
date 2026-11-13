@@ -13,6 +13,7 @@ from db import get_session
 from modules.diary.models import DiaryEntry
 from modules.diary.service import (
     UnknownUnitError,
+    Viewer,
     change_amount,
     change_servings,
     day_log,
@@ -31,6 +32,7 @@ from modules.nutrition.service import Nutrients, StandardUnit, unit_choices
 from modules.planner.service import get_entry as get_plan_entry
 from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries
 from settings import Settings
+from web.access import current_user
 from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import format_amount, render
 
@@ -117,7 +119,7 @@ def _render_today(
     error: str | None = None,
 ) -> HTMLResponse:
     settings = request.app.state.settings
-    log = day_log(session, day, settings.meal_names)
+    log = day_log(session, day, settings.meal_names, _viewer(request))
     return render(
         request,
         "today.html",
@@ -125,7 +127,7 @@ def _render_today(
         log=log,
         gauge=KcalGauge(eaten=log.total.kcal, limit=settings.daily_kcal_limit),
         macros=_macro_bars(log.total, settings),
-        planned=planned_for_day(session, day),
+        planned=planned_for_day(session, day, _viewer(request)),
         planned_meal=settings.plan_default_meal,
         entry_units=_entry_units(session, [e for meal in log.meals for e in meal.entries]),
         edit_id=edit_id,
@@ -154,6 +156,12 @@ class RecipeChoices:
     filterable: bool
 
 
+def _viewer(request: Request) -> Viewer:
+    """Wessen Tagebuch: das eigene; Verwalter sehen zusätzlich Einträge ohne Besitzer."""
+    user = current_user(request)
+    return Viewer(user.id, sees_unowned=user.is_admin)
+
+
 def _frequency_since(settings: Settings, day: date) -> date:
     """Beginn des Zeitraums, in dem gezählt wird, wie oft etwas gegessen wurde."""
     return day - timedelta(days=settings.frequency_window_days)
@@ -162,6 +170,7 @@ def _frequency_since(settings: Settings, day: date) -> date:
 def _recipe_choices(
     session: Session,
     settings: Settings,
+    viewer: Viewer,
     day: date,
     meal: str | None,
     recipe_id: int | None,
@@ -171,11 +180,11 @@ def _recipe_choices(
     by_id = {summary.recipe.id: summary for summary in summaries}
     suggestions = []
     if meal in settings.suggest_yesterday_meals:
-        eaten = recipes_eaten(session, day - timedelta(days=1), meal)
+        eaten = recipes_eaten(session, day - timedelta(days=1), meal, viewer)
         suggestions = [(by_id[e.recipe_id], e.servings or 1) for e in eaten if e.recipe_id in by_id]
     suggested = {summary.recipe.id for summary, _ in suggestions}
     # Oft gegessene Rezepte zuerst, sonst alphabetisch (sorted ist stabil)
-    frequency = recipe_frequency(session, _frequency_since(settings, day), day, meal)
+    frequency = recipe_frequency(session, _frequency_since(settings, day), day, meal, viewer)
     others = sorted(
         (summary for summary in summaries if summary.recipe.id not in suggested),
         key=lambda summary: -frequency.get(summary.recipe.id, 0),
@@ -206,7 +215,7 @@ def _render_add(
     settings = request.app.state.settings
     mode = mode if mode in ADD_MODES else ADD_MODES[0]
     choices = (
-        _recipe_choices(session, settings, day, meal, recipe_id, show_all)
+        _recipe_choices(session, settings, _viewer(request), day, meal, recipe_id, show_all)
         if mode == "recipe"
         else None
     )
@@ -288,7 +297,7 @@ def diary_log_recipe(
             error=str(error),
         )
     plan_entry = get_plan_entry(session, plan_entry_id) if plan_entry_id else None
-    log_recipe(session, day, meal, recipe, amount, plan_entry)
+    log_recipe(session, current_user(request).id, day, meal, recipe, amount, plan_entry)
     session.commit()
     return _back_to_day(request, day, meal)
 
@@ -309,7 +318,7 @@ def diary_log_food(
         if food is None:
             raise FormError("Bitte ein Lebensmittel auswählen.")
         amount = required_number(quantity, "Menge")
-        log_food(session, day, meal, food, amount, clean_text(unit))
+        log_food(session, current_user(request).id, day, meal, food, amount, clean_text(unit))
     except (FormError, UnknownUnitError) as error:
         return _render_add(request, session, day=day, mode="food", meal=meal, error=str(error))
     session.commit()
@@ -327,7 +336,7 @@ def diary_foods(
     """Lebensmittelsuche beim Eintragen: oft Gegessenes (gleiche Mahlzeit) steht weiter oben."""
     day = day or clock.today()
     frequency = food_frequency(
-        session, _frequency_since(request.app.state.settings, day), day, meal
+        session, _frequency_since(request.app.state.settings, day), day, meal, _viewer(request)
     )
     foods = search_foods(session, q, frequency=frequency) if q.strip() else []
     return render(request, "foods/_picker.html", foods=foods, q=q, preselect=True, optional=False)
@@ -359,7 +368,7 @@ def diary_amount(
     marker = ""
     if not typed:
         quantity, unit = "", "g"
-        last = last_amount(session, food.id) if food is not None else None
+        last = last_amount(session, food.id, _viewer(request)) if food is not None else None
         if last is not None and last[1] in names:
             quantity, unit, marker = format_amount(last[0]), last[1], _prefill(*last)
     return render(
@@ -372,8 +381,9 @@ def diary_amount(
     )
 
 
-def _entry_or_404(session: Session, entry_id: int) -> DiaryEntry:
-    entry = get_entry(session, entry_id)
+def _entry_or_404(request: Request, session: Session, entry_id: int) -> DiaryEntry:
+    """Eigener Eintrag; ein fremder gilt als nicht vorhanden."""
+    entry = get_entry(session, entry_id, _viewer(request))
     if entry is None:
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
     return entry
@@ -389,7 +399,7 @@ def diary_change(
     unit: Annotated[str, Form()] = "",
 ) -> Response:
     """Portionen bzw. Menge eines Eintrags ändern."""
-    entry = _entry_or_404(session, entry_id)
+    entry = _entry_or_404(request, session, entry_id)
     try:
         if entry.servings is not None:
             amount = required_number(servings, "Portionen")
@@ -411,7 +421,7 @@ def diary_change(
 
 @router.post("/diary/entries/{entry_id}/delete")
 def diary_delete(request: Request, session: SessionDep, entry_id: int) -> Response:
-    entry = _entry_or_404(session, entry_id)
+    entry = _entry_or_404(request, session, entry_id)
     day, meal = entry.day, entry.meal
     delete_entry(session, entry)
     session.commit()
