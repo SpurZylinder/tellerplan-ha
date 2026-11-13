@@ -25,3 +25,8 @@ exports/
 # Editor/OS
 .DS_Store
 Thumbs.db
+
+# Abdeckung (pytest --cov)
+.coverage
+.coverage.*
+htmlcov/

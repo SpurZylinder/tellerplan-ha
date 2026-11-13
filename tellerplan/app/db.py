@@ -12,6 +12,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import ConnectionPoolEntry
 
+import clock
 from settings import Settings
 
 BACKUP_SUFFIX = ".bak"
@@ -72,7 +73,7 @@ def backup_database(database_path: Path, now: datetime | None = None) -> Path | 
     """
     if not database_path.exists():
         return None
-    stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    stamp = (now or clock.now()).strftime("%Y%m%d-%H%M%S")
     backup_path = database_path.with_name(f"{database_path.name}.{stamp}{BACKUP_SUFFIX}")
     source = sqlite3.connect(database_path)
     target = sqlite3.connect(backup_path)

@@ -15,15 +15,17 @@
       <p class="meta">{{ shopping.first|day }} – {{ shopping.last|day }} · Rezepte, die noch nicht gesendet wurden</p>
     </div>
     <form method="post" action="{{ url('shopping_send') }}">
-      <button class="btn small" type="submit"{% if not shopping.items %} disabled{% endif %}>An Bring senden</button>
+      <button class="btn small" type="submit"{% if not shopping.items or job %} disabled{% endif %}>An Bring senden</button>
     </form>
   </header>
 
-  {% if sent is not none and not sent and not failed %}
+  {% if job %}
+    {% include "plan/_shopping_job.html" %}
+  {% elif sent is not none and not sent and not failed %}
     <p class="meta" role="status">Keine neuen Rezepte im Plan, nichts gesendet.</p>
   {% elif sent is not none %}
     <p class="{{ 'error' if failed else 'success' }}" role="status">
-      {{ sent }} Artikel an {{ list_entity }} gesendet{% if failed %}, {{ failed }} fehlgeschlagen. Die Rezepte gelten noch nicht als gesendet{% endif %}.
+      {{ sent }} Artikel an {{ list_entity }} gesendet{% if failed %}, {{ failed }} nicht gesendet. Die Rezepte gelten noch nicht als gesendet; ein erneuter Klick schickt sie mit{% endif %}.
     </p>
     {{ error_message(error) }}
   {% elif status == "local" %}
@@ -81,6 +83,33 @@
         {% endfor %}
       </ul>
       <p class="meta">Welche Artikel als Vorrat gelten, steht in den <a href="{{ url('settings_page') }}">Einstellungen</a>.</p>
+    </details>
+  {% endif %}
+
+  {% if can_check and list_entity %}
+    <details class="card"{% if check %} open{% endif %}>
+      <summary><h2>Bring-Liste prüfen</h2></summary>
+      <p class="meta">Liest die Funktionen von {{ list_entity }} und ihre offenen Einträge, ändert nichts.</p>
+      <form method="post" action="{{ url('shopping_check') }}">
+        <button class="btn ghost small" type="submit">Prüfen</button>
+      </form>
+      {% if check %}
+        {% if check.error %}
+          <p class="error" role="alert">{{ check.error }}</p>
+        {% else %}
+          <p>Funktionen: {{ check.features|join(", ") or "keine gemeldet" }}{% if check.feature_flags is not none %} ({{ check.feature_flags }}){% endif %}</p>
+          <p>Offene Einträge (Beispiele):</p>
+          <ul class="list">
+            {% for item in check.open_items %}
+              <li><span>{{ item.summary }}</span>{% if item.description %}<span class="meta">{{ item.description }}</span>{% endif %}</li>
+            {% else %}
+              <li><span class="meta">keine</span></li>
+            {% endfor %}
+          </ul>
+          <p class="meta">Antwort von Home Assistant zum Kopieren:</p>
+          <textarea class="input copy-text" readonly rows="8">{{ check.raw }}</textarea>
+        {% endif %}
+      {% endif %}
     </details>
   {% endif %}
 

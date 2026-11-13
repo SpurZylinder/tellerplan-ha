@@ -84,16 +84,30 @@ def session(migrated: Settings) -> Iterator[Session]:
     engine.dispose()
 
 
+def _closing(client: TestClient) -> Iterator[TestClient]:
+    """Gibt den Client heraus und schließt danach die Datenbank-Engine der App.
+
+    Im Betrieb lebt eine Engine so lange wie der Prozess; in den Tests entsteht je Test
+    eine App, deren Verbindungen sonst offen blieben (ResourceWarning).
+    """
+    yield client
+    client.app.state.engine.dispose()
+
+
 @pytest.fixture
-def ingress_client(migrated: Settings, options_file: Path) -> TestClient:
+def ingress_client(migrated: Settings, options_file: Path) -> Iterator[TestClient]:
     """Wie der Ingress-Proxy von Home Assistant: Ingress-Port, Absender 172.30.32.2."""
-    return TestClient(
-        create_app(migrated, options_file),
-        base_url=f"http://testserver:{migrated.ingress_port}",
-        client=(INGRESS_PROXY_IP, 50000),
+    yield from _closing(
+        TestClient(
+            create_app(migrated, options_file),
+            base_url=f"http://testserver:{migrated.ingress_port}",
+            client=(INGRESS_PROXY_IP, 50000),
+        )
     )
 
 
 @pytest.fixture
-def api_client(migrated: Settings) -> TestClient:
-    return TestClient(create_app(migrated), base_url=f"http://testserver:{migrated.api_port}")
+def api_client(migrated: Settings) -> Iterator[TestClient]:
+    yield from _closing(
+        TestClient(create_app(migrated), base_url=f"http://testserver:{migrated.api_port}")
+    )

@@ -34,9 +34,27 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 
 ### A3: Robustheit und Aufbau
 
-- [ ] **C-E Netzwerk im Fachmodul:** `modules/shopping` importiert `supervisor` nicht mehr (`modules/shopping/service.py:27`). Die Seite reicht eine Sendefunktion herein, wie beim Cookidoo-Abgleich (`CookidooCalendar`).
-- [ ] **C-A Senden blockiert:** Eine Gesamtfrist für alle Artikel, kürzer als die Frist des Ingress-Proxys. Was bis dahin nicht gesendet ist, meldet die Seite als „nicht gesendet“, und `shopping_sent_at` bleibt für die betroffenen Planeinträge leer, damit der nächste Klick sie nachholt.
-- [ ] **C-G Testlücken:** Datumsgrenzen in den Seiten (Plan, Einkaufsliste, Heute um Mitternacht), aufgezeichnete echte Supervisor-Antworten als Testdaten. Coverage: `pytest-cov` nur in `requirements-dev.txt`, der Bericht läuft in der CI ohne Mindestwert (entschieden 2026-11-13).
+- [x] **C-E Netzwerk im Fachmodul** (0.5.4): `modules/shopping` kennt den Supervisor nicht mehr. Die Seite reicht `add_item(name, description)` herein (`web/pages/shopping.todo_list_sender`), Fehler kommen als `SendError` aus dem Fachmodul.
+- [x] **C-A Senden blockiert** (0.5.4): gelöst über das Senden im Hintergrund (A3b/K18) und 5 s je Artikel statt 10 s. Eine zuerst gebaute Gesamtfrist von 25 s wurde wieder entfernt: Sie hätte Teil-Sendungen erzeugt, die der nächste Klick doppelt schickt (K19).
+- [ ] **C-G Testlücken** (teilweise 0.5.4): Datumsgrenzen um Mitternacht für Plan, Heute und Einkaufsliste (`tests/test_date_boundaries.py`); `pytest --cov` in der CI ohne Mindestwert, Stand 91 %; Test-Clients schließen ihre Datenbank-Engine (vorher über 50 ResourceWarnings). Offen: echte Supervisor-Antworten als Testdaten – Vorschlag: in B1 aufzeichnen, dort wird die Supervisor-API ohnehin auf dem Pi abgefragt.
+
+- [x] **C-K Zeitstempel der Sicherung in Container-Zeit** (neu 2026-11-13, behoben 0.5.4): `db.backup_database` nutzte `datetime.now()` statt der zentralen Uhr; jetzt `clock.now()`.
+
+### A3b: Einkaufsliste an Bring (neu 2026-11-13, Befunde aus dem Alltag)
+
+- [x] **K18 Keine Statusmeldung nach „🛒 Einkaufsliste“** (0.5.4): Bestätigt am Pi (das Senden lief im Hintergrund zu Ende, die Rezepte galten danach als gesendet). Jetzt startet der Klick das Senden in einem eigenen Thread und zeigt sofort „Wird gesendet … n von m Artikel“; die Seite fragt alle 2 s nach (HTMX, `/plan/shopping/status`) und lädt am Ende mit dem Ergebnis neu.
+- [ ] **K19 Bring wird zugemüllt:** (a) behoben 0.5.4: Läuft ein Senden, startet ein weiterer Klick nichts Neues. (b) offen, 0.5.5: vorhandene Einträge in Bring erweitern statt neu anlegen (Vorschlag Punkt 2, nach der Prüfung auf dem Pi). Je Rezept senden und abhaken (Punkt 3) kommt erst mit (b), sonst gingen gleiche Artikel aus mehreren Rezepten einzeln und damit doppelt an Bring.
+- [x] **K20 Produktname statt Grundzutat** (0.5.4): Artikel = Grundzutat, sonst Einkaufsname des Lebensmittels; REWE- und Open-Food-Facts-Produkte stehen in den Details („200 g · ja! Tomatenmark“). Die Vorratsprüfung sieht auch den Namen der Grundzutat.
+
+**Vorschlag:**
+
+1. **Name (K20):** Artikel = Grundzutat; ohne Grundzutat der Einkaufsname des Lebensmittels, sonst wie bisher. Ist ein Produkt zugeordnet (nicht BLS), steht es in den Details: „Tomatenmark“ – „200 g · ja! Tomatenmark“.
+2. **Erweitern statt hinzufügen (K19b):** Vor dem Senden liest Tellerplan die offenen Einträge der Bring-Liste (`todo.get_items`). Gibt es den Artikel schon, ergänzt `todo.update_item` die Menge („300 g“ + „200 g“ → „500 g“); passt die vorhandene Angabe nicht ins Format (z. B. von Hand geändert), wird angehängt („2 Stück + 200 g“). Neue Artikel kommen per `todo.add_item`.
+3. **Je Rezept senden und abhaken (K19a):** Die Rezepte gehen nacheinander raus, jedes gilt sofort nach seinen Artikeln als gesendet. Bricht etwas ab, wiederholt der nächste Lauf höchstens ein Rezept, nicht alle.
+4. **Im Hintergrund mit Fortschritt (K18):** Der Klick startet das Senden und zeigt sofort „Wird gesendet …“; die Seite fragt alle zwei Sekunden den Stand ab (HTMX) und zeigt am Ende das Ergebnis. Ein zweiter Klick während des Sendens startet nichts Neues.
+5. **Erkundung auf dem Pi zuerst:** Liefert `todo.get_items` über den Supervisor-Proxy die Einträge der Bring-Liste (REST mit `?return_response`)? Kann `todo.update_item` bei Bring die Spezifikation ändern? Antworten dabei als Testdaten aufzeichnen (Rest von C-G).
+
+**Prüfung auf dem Pi (0.5.4):** Einkaufsliste → „Bring-Liste prüfen“ liest nur: `supported_features` der Liste und die offenen Einträge über `todo.get_items` (REST mit `?return_response`). Ergebnis und Rohantwort hier eintragen; sie werden die Testdaten für K19b (Rest von C-G).
 
 ### A4: Sicherheit
 

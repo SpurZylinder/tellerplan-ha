@@ -12,23 +12,25 @@ damit erneutes Senden Gekauftes nicht wieder auf die Liste setzt.
 import logging
 import re
 import unicodedata
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
 from sqlalchemy.orm import Session
 
 import clock
+from modules.foods.models import FoodSource
 from modules.foods.service import short_name
 from modules.foods.units import to_base_unit, to_display_unit
 from modules.planner.models import PlanEntry
 from modules.planner.service import entries_between, mark_shopping_sent
 from modules.recipes.models import RecipeIngredient
 from modules.recipes.service import resolved_food
-from supervisor import SupervisorError, call_service
 
 logger = logging.getLogger(__name__)
 
+# Quellen von Markenprodukten; deren Name kommt in die Details, nicht in den Artikelnamen
+PRODUCT_SOURCES = {FoodSource.REWE, FoodSource.OFF}
 WORD_PATTERN = re.compile(r"[^\W\d_]+")
 
 
@@ -40,14 +42,18 @@ class ShoppingItem:
     amounts: dict[str, float] = field(default_factory=dict)
     optional: bool = False
     recipes: set[str] = field(default_factory=set)
+    # Zugeordnete Markenprodukte, z. B. „ja! Tomatenmark“ beim Artikel „Tomatenmark“
+    products: set[str] = field(default_factory=set)
 
     @property
     def description(self) -> str:
-        """Mengenangabe für Bring, z. B. „550 g“, „1 Dose + 200 g“ oder „1 EL · optional“."""
+        """Angabe für Bring, z. B. „550 g“, „200 g · ja! Tomatenmark“ oder „1 EL · optional“."""
         amounts = " + ".join(
             _format_amount(quantity, unit) for unit, quantity in self.amounts.items()
         )
-        return " · ".join(part for part in (amounts, "optional" if self.optional else "") if part)
+        products = ", ".join(sorted(self.products))
+        optional = "optional" if self.optional else ""
+        return " · ".join(part for part in (amounts, products, optional) if part)
 
 
 @dataclass(frozen=True)
@@ -92,21 +98,35 @@ def is_pantry(names: Iterable[str], keywords: Sequence[str]) -> bool:
 
 
 def _item_name(ingredient: RecipeIngredient) -> str:
-    """Einkaufsname des Lebensmittels, sonst Grundzutat, sonst Zutatenname, sonst Originaltext."""
+    """Grundzutat, sonst Einkaufsname des Lebensmittels, sonst Zutatenname, sonst Originaltext.
+
+    Die Grundzutat zuerst: Bring erkennt „Tomatenmark“ und sortiert es ein,
+    „ja! Tomatenmark“ dagegen nicht (Befund K20). Das Produkt steht in den Details.
+    """
+    if ingredient.base_ingredient is not None:
+        return ingredient.base_ingredient.name
     food = resolved_food(ingredient)
     if food is not None:
         return short_name(food)
-    if ingredient.base_ingredient is not None:
-        return ingredient.base_ingredient.name
     return ingredient.name or ingredient.raw_text
+
+
+def _product(ingredient: RecipeIngredient, item_name: str) -> str | None:
+    """Name des Markenprodukts (REWE, Open Food Facts), wenn er mehr sagt als der Artikel."""
+    food = resolved_food(ingredient)
+    if food is None or food.source not in PRODUCT_SOURCES:
+        return None
+    return None if food.name.casefold() == item_name.casefold() else food.name
 
 
 def _names_for_pantry(ingredient: RecipeIngredient) -> list[str]:
     """Namen, deren erstes Wort geprüft wird; Originaltext („1 TL Salz“) Wort für Wort."""
+    base = [ingredient.base_ingredient.name] if ingredient.base_ingredient is not None else []
     food = resolved_food(ingredient)
     if food is None:
-        return [ingredient.name] if ingredient.name else ingredient.raw_text.split()
-    return [food.name, short_name(food)]
+        own = [ingredient.name] if ingredient.name else ingredient.raw_text.split()
+        return base + own
+    return [*base, food.name, short_name(food)]
 
 
 def _amount_key(item: ShoppingItem, unit: str) -> str:
@@ -117,6 +137,8 @@ def _amount_key(item: ShoppingItem, unit: str) -> str:
 def _add(
     item: ShoppingItem, ingredient: RecipeIngredient, recipe_title: str, factor: float
 ) -> None:
+    if product := _product(ingredient, item.name):
+        item.products.add(product)
     # Menge auch ohne Zuordnung, wenn der Zeilenparser sie erkannt hat („350 g Brokkoliröschen“)
     if ingredient.quantity is not None and (
         resolved_food(ingredient) is not None or ingredient.name
@@ -163,41 +185,63 @@ def build_shopping_list(
     )
 
 
+class SendError(RuntimeError):
+    """Ein Artikel kam nicht in der Liste an; die Meldung nennt den Grund."""
+
+
+# Trägt einen Artikel ein: Name und Mengenangabe („“ = keine). Fehler kommen als SendError.
+# Das Fachmodul kennt so weder Home Assistant noch Bring; die Seite reicht das Senden herein.
+AddItem = Callable[[str, str], None]
+
+
 @dataclass(frozen=True)
 class SendResult:
     sent: int
+    not_sent: int
     errors: list[str]
 
 
-def send_to_todo_list(items: Sequence[ShoppingItem], entity_id: str, token: str) -> SendResult:
-    """Trägt jeden Artikel per `todo.add_item` in eine To-do-Liste ein (z. B. Bring).
+# Meldet nach jedem Artikel, wie viele schon gesendet sind (für die Fortschrittsanzeige)
+Progress = Callable[[int], None]
 
-    Bring führt gleichnamige Artikel zusammen; erneutes Senden aktualisiert also
-    nur die Mengenangabe.
+
+def send_items(
+    items: Sequence[ShoppingItem], add_item: AddItem, on_progress: Progress | None = None
+) -> SendResult:
+    """Trägt die Artikel nacheinander ein; ein Fehler bei einem Artikel hält die anderen nicht auf.
+
+    Jeder Artikel wird neu eingetragen. Vorhandene Einträge in Bring werden (noch) nicht
+    erweitert, siehe Befund K19 in docs/Version-0.6.0.md.
     """
-    errors = []
+    sent = 0
+    errors: list[str] = []
     for item in items:
-        data = {"entity_id": entity_id, "item": item.name}
-        if item.description:
-            data["description"] = item.description
         try:
-            call_service("todo", "add_item", data, token)
-        except SupervisorError as error:
+            add_item(item.name, item.description)
+        except SendError as error:
             errors.append(f"{item.name}: {error}")
-    return SendResult(sent=len(items) - len(errors), errors=errors)
+        else:
+            sent += 1
+        if on_progress is not None:
+            on_progress(sent)
+    return SendResult(sent=sent, not_sent=len(items) - sent, errors=errors)
 
 
 def send_shopping_list(
-    session: Session, shopping: ShoppingList, entity_id: str, token: str
+    session: Session,
+    shopping: ShoppingList,
+    add_item: AddItem,
+    target: str,
+    on_progress: Progress | None = None,
 ) -> SendResult:
     """Sendet die Artikel; nur wenn alle ankommen, gelten die Planeinträge als gesendet."""
-    result = send_to_todo_list(shopping.items, entity_id, token)
+    result = send_items(shopping.items, add_item, on_progress)
     logger.info(
-        "Einkaufsliste: %d Artikel aus %d Rezepten an %s gesendet, %d fehlgeschlagen",
+        "Einkaufsliste: %d Artikel aus %d Rezepten an %s gesendet, %d nicht gesendet",
         result.sent,
         len(shopping.entries),
-        entity_id,
-        len(result.errors),
+        target,
+        result.not_sent,
     )
     for error in result.errors:
         logger.warning("Einkaufsliste: %s", error)

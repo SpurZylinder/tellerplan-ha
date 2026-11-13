@@ -104,3 +104,50 @@ def test_error_result_in_successful_response_is_an_error(monkeypatch: pytest.Mon
 
     with pytest.raises(SupervisorError, match="Optionen ungültig"):
         set_own_options({}, "geheim")
+
+
+def test_get_core_state_reads_entity(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: list[Request] = []
+    body = json.dumps({"entity_id": "todo.furth", "attributes": {"supported_features": 71}})
+
+    def fake_urlopen(request: Request, timeout: float) -> _Response:
+        requests.append(request)
+        return _Response(body.encode())
+
+    monkeypatch.setattr(supervisor, "urlopen", fake_urlopen)
+
+    state = supervisor.get_core_state("todo.furth", "geheim")
+
+    assert state["attributes"]["supported_features"] == 71
+    assert requests[0].full_url == "http://supervisor/core/api/states/todo.furth"
+    assert requests[0].get_method() == "GET"
+
+
+def test_call_service_with_response_returns_service_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests: list[Request] = []
+    answer = {"todo.furth": {"items": [{"summary": "Milch"}]}}
+    body = json.dumps({"changed_states": [], "service_response": answer})
+
+    def fake_urlopen(request: Request, timeout: float) -> _Response:
+        requests.append(request)
+        return _Response(body.encode())
+
+    monkeypatch.setattr(supervisor, "urlopen", fake_urlopen)
+
+    response = supervisor.call_service_with_response(
+        "todo", "get_items", {"entity_id": "todo.furth"}, "geheim"
+    )
+
+    assert response == answer
+    assert requests[0].full_url == (
+        "http://supervisor/core/api/services/todo/get_items?return_response"
+    )
+
+
+def test_service_without_response_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(supervisor, "urlopen", lambda request, timeout: _Response(b"[]"))
+
+    with pytest.raises(SupervisorError, match="keine Antwort"):
+        supervisor.call_service_with_response("todo", "get_items", {}, "geheim")

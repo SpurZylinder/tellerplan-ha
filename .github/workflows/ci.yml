@@ -37,8 +37,9 @@ jobs:
           ruff check .
           ruff format --check .
 
+      # Abdeckung nur als Bericht, ohne Mindestwert
       - name: Tests
-        run: pytest
+        run: pytest --cov
 
       # Bekannte Schwachstellen in genau den Versionen, die ins Image kommen
       - name: Abhängigkeiten prüfen

@@ -1,0 +1,6 @@
+<div class="card sync-card" id="shopping-job" role="status" aria-live="polite"
+     hx-get="{{ url('shopping_status') }}" hx-trigger="every {{ poll_seconds }}s" hx-swap="outerHTML">
+  <p>Wird an {{ job.target }} gesendet … {{ job.sent }}{% if job.total %} von {{ job.total }}{% endif %} Artikel</p>
+  <progress max="{{ job.total or 1 }}" value="{{ job.sent }}"></progress>
+  <p class="meta">Die Seite zeigt das Ergebnis, sobald alles gesendet ist. Ein weiterer Klick startet nichts Neues.</p>
+</div>

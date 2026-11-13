@@ -15,8 +15,17 @@ ignore = ["ANN401"]
 "migrations/versions/*" = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "clock", "db", "ha_auth", "main", "migrate", "modules", "scripts", "security", "serve", "settings", "supervisor", "web", "web_sessions", "conftest", "factories"]
+known-first-party = ["api", "clock", "cookidoo", "db", "files", "ha_auth", "main", "migrate", "modules", "scripts", "security", "serve", "settings", "supervisor", "web", "web_sessions", "conftest", "factories"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".", "tests"]
+
+# Abdeckung nur als Bericht in der CI, ohne Mindestwert (entschieden 2026-11-13)
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", ".venv/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

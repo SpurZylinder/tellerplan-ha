@@ -10,6 +10,7 @@ import logging
 import os
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 SUPERVISOR_URL = "http://supervisor"
@@ -47,20 +48,56 @@ def set_own_options(options: dict[str, Any], token: str) -> None:
     _post("/addons/self/options", {"options": options}, token)
 
 
-def call_service(domain: str, service: str, data: dict[str, Any], token: str) -> None:
+def call_service(
+    domain: str,
+    service: str,
+    data: dict[str, Any],
+    token: str,
+    timeout: float = TIMEOUT_SECONDS,
+) -> None:
     """Führt eine Home-Assistant-Aktion aus, z. B. `todo.add_item` (braucht `homeassistant_api`)."""
-    _post(f"/core/api/services/{domain}/{service}", data, token)
+    _post(f"/core/api/services/{domain}/{service}", data, token, timeout)
 
 
-def _post(path: str, payload: dict[str, Any], token: str) -> None:
-    body = _request("POST", path, payload, token)
+def get_core_state(entity_id: str, token: str, timeout: float = TIMEOUT_SECONDS) -> dict[str, Any]:
+    """Zustand einer Entität in Home Assistant, z. B. `todo.furth` (braucht `homeassistant_api`)."""
+    body = _request("GET", f"/core/api/states/{quote(entity_id)}", None, token, timeout)
+    if not isinstance(body, dict):
+        raise SupervisorError("Home Assistant liefert keinen Zustand")
+    return body
+
+
+def call_service_with_response(
+    domain: str,
+    service: str,
+    data: dict[str, Any],
+    token: str,
+    timeout: float = TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """Aktion mit Antwort, z. B. `todo.get_items`; liefert `service_response`."""
+    path = f"/core/api/services/{domain}/{service}?return_response"
+    body = _request("POST", path, data, token, timeout)
+    response = body.get("service_response") if isinstance(body, dict) else None
+    if not isinstance(response, dict):
+        raise SupervisorError("Home Assistant liefert keine Antwort der Aktion")
+    return response
+
+
+def _post(path: str, payload: dict[str, Any], token: str, timeout: float = TIMEOUT_SECONDS) -> None:
+    body = _request("POST", path, payload, token, timeout)
     if isinstance(body, dict) and body.get("result") == "error":
         message = body.get("message") or "Supervisor meldet einen Fehler"
         logger.warning("Supervisor meldet Fehler für %s: %s", path, message)
         raise SupervisorError(str(message))
 
 
-def _request(method: str, path: str, payload: dict[str, Any] | None, token: str) -> Any:
+def _request(
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None,
+    token: str,
+    timeout: float = TIMEOUT_SECONDS,
+) -> Any:
     """Anfrage an den Supervisor; liefert die Antwort als JSON (leer → None)."""
     request = Request(
         f"{SUPERVISOR_URL}{path}",
@@ -69,7 +106,7 @@ def _request(method: str, path: str, payload: dict[str, Any] | None, token: str)
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
     try:
-        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        with urlopen(request, timeout=timeout) as response:
             raw = response.read()
     except HTTPError as error:
         message = _error_message(error)

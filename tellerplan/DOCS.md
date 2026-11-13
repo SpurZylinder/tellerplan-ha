@@ -41,6 +41,8 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 
 Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“. Gespeichert werden nur die Felder, die dort geändert wurden; eine Änderung, die vorher hier im Reiter gemacht wurde, bleibt erhalten.
 
+**Einkaufsliste:** „🛒 Einkaufsliste“ im Plan sendet die Zutaten der noch nicht gesendeten Rezepte der nächsten zwei Wochen an die Bring-Liste. Das läuft im Hintergrund, die Seite zeigt den Fortschritt und am Ende das Ergebnis. Artikel heißen wie die Grundzutat („Tomatenmark“), ein zugeordnetes Markenprodukt steht in den Details. Vorhandene Einträge in Bring werden noch nicht erweitert, sondern neu angelegt.
+
 Steht beim Start eine Migration an, sichert das Add-on die Datenbank vorher als `app.db.<Zeitstempel>.bak`; die letzten drei Sicherungen bleiben erhalten.
 
 Für eine Sicherung in Home Assistant hält das Add-on kurz an (`backup: cold`), damit die Datenbank vollständig und stimmig gesichert wird. Tellerplan ist dann für ein paar Sekunden nicht erreichbar.

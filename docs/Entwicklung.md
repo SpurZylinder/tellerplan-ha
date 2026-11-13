@@ -54,9 +54,10 @@ Beide Ports bedient dieselbe App in einem Prozess (`serve.py`); die Regeln stehe
 ```bash
 ruff check . && ruff format --check .
 pytest
+pytest --cov   # mit Bericht zur Abdeckung (fehlende Zeilen je Datei)
 ```
 
-CI führt beides bei jedem Push und Pull Request aus (`.github/workflows/ci.yml`).
+CI führt beides bei jedem Push und Pull Request aus (`.github/workflows/ci.yml`), die Tests mit `--cov`. Die Abdeckung ist nur ein Bericht ohne Mindestwert (entschieden 2026-11-13); Stand 0.5.4: 91 %.
 
 ## Datenbank und Migrationen
 

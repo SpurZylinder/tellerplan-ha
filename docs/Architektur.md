@@ -338,20 +338,24 @@ Konzept, nach Gewicht:
 - [x] **K13 Browser-Cache nach Updates** (behoben 0.5.3: Inhalts-Hash `?v=` an statischen Dateien)**:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
 - [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
+- [x] **K18 Keine Statusmeldung nach „Einkaufsliste“** (gefunden 2026-11-13, behoben 0.5.4: Senden im Hintergrund mit Fortschritt).
+- [ ] **K19 Bring wird zugemüllt** (gefunden 2026-11-13): Erneutes Klicken sendete alles doppelt (behoben 0.5.4); vorhandene Artikel werden nicht erweitert (offen, 0.5.5). [[Version-0.6.0]], A3b.
+- [x] **K20 Produktname statt Grundzutat auf der Einkaufsliste** (gefunden 2026-11-13, behoben 0.5.4: Grundzutat als Name, Produkt in den Details).
 - [x] **K17 Einstellungen kommen nicht in Home Assistant an** – geschlossen 2026-11-13, kein Befund (falsch beobachtet beim Pi-Test von 0.5.1; die Einstellseite schreibt in den Reiter „Konfiguration“).
 - [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2).
 
 Code, nach Gewicht:
 
-- [ ] **C-A Senden blockiert:** `send_to_todo_list` ruft Home Assistant nacheinander mit 10 s Timeout je Artikel auf; bei hängendem Supervisor bricht der Ingress-Proxy vorher ab.
+- [x] **C-A Senden blockiert** (behoben 0.5.4: Senden im Hintergrund, 5 s je Artikel)**:** `send_to_todo_list` rief Home Assistant nacheinander mit 10 s Timeout je Artikel auf; bei hängendem Supervisor brach der Ingress-Proxy vorher ab.
 - [x] **C-B Kaum Logging:** *Behoben:* Protokolliert werden Start (Zeitzone, Sicherung), jede Ablehnung durch den Supervisor, jedes Senden der Einkaufsliste mit Ergebnis und gespeicherte Optionen.
 - [x] **C-C Zwei Quellen für Optionen** (behoben 0.5.1: Test vergleicht `settings.py`, `config.yaml` und `options.example.json`)**:** `settings.py` und `config.yaml` pflegen Optionen und Wertebereiche getrennt; kein Test prüft, ob sie übereinstimmen.
 - [x] **C-D Optionen nicht atomar geschrieben** (behoben 0.5.1: atomar über `files.write_text_atomic`, Fehler nach dem Supervisor-Aufruf mit Meldung)**:** Abbruch beim Schreiben beschädigt `options.json`; schlägt das Schreiben nach dem Supervisor-Aufruf fehl, weichen HA und App voneinander ab.
-- [ ] **C-E Netzwerk im Fachmodul:** `modules/shopping` importiert `supervisor` direkt; das Senden sollte hereingereicht werden.
+- [x] **C-E Netzwerk im Fachmodul** (behoben 0.5.4: Senden wird hereingereicht)**:** `modules/shopping` importiert `supervisor` direkt; das Senden sollte hereingereicht werden.
 - [x] **C-F Keine zentrale Uhr:** *Behoben mit K5:* alle Seiten nutzen `clock.today()`.
-- [ ] **C-G Testlücken:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.
+- [ ] **C-G Testlücken** (0.5.4 teilweise: Datumsgrenzen, Coverage-Bericht; offen: echte Supervisor-Antworten)**:** Offen: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten. Erledigt: Migration 0007 auf befüllten Daten, Sicherung mit WAL.
 - [ ] **C-H Kein CSRF-Schutz** für POST-Formulare (geringes Risiko, Ingress setzt eine HA-Sitzung voraus).
 - [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
+- [x] **C-K Zeitstempel der Sicherung in Container-Zeit** (gefunden 2026-11-13, behoben 0.5.4): `db.backup_database` nutzte `datetime.now()` statt `clock.now()`.
 - [x] **C-I Kleinigkeiten** (behoben 0.5.3, siehe [[Version-0.6.0]])**:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
 
 Vor dem Tag `v0.1.0` behoben (2026-10-25): K1, K2, K3, K5, C-B, dazu C-F.
