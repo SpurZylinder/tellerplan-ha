@@ -32,7 +32,8 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 - [x] **K9 Zutat ohne Einheit = Gramm** (geprüft 0.5.3): Der Zeilenparser setzt bei einer Menge immer eine Einheit („2 Eier“ → 2 Stück); Gramm ohne Einheit gilt nur noch im Tagebuch, wo man Gramm einträgt. Gefundene Lücke behoben: „gr“, „Stk“, „Pkg.“, „Esslöffel“ u. a. wurden nicht erkannt („500 gr Mehl“ → 500 Stück „gr Mehl“).
 - [x] **C-I Kleinigkeiten** (0.5.3): `add_entry` lehnt 0 oder weniger Portionen ab; `web/pages/options.py` heißt jetzt `settings_page.py` wie die Route. `ShoppingItem.optional` geschlossen, kein Befund (2026-11-13): `shopping` darf nach Regel 7 auf `recipes` zugreifen.
 - [x] **K24 Rezept fälschlich unvollständig („10/9 Zutaten“)** (neu 2026-11-13, behoben 0.5.15): Eine Grundzutat „ohne Nährwerte“ mit Standardprodukt (Pfeffer) zählte doppelt, als zugeordnet und als ohne Nährwerte. `summarize` zählt jetzt jede Pflichtzeile einmal (keine offene Frage laut `ingredient_issue`).
-- [x] **K25 Offene Zutat am Rezept hervorheben** (Wunsch 2026-11-13, umgesetzt 0.5.15): Zeilen, die noch nicht in die Nährwerte eingehen, sind in der Zutatenliste farbig hinterlegt (kcal-Farbe), zusätzlich zum Hinweis an der Zeile.
+- [x] **K25 Offene Zutat am Rezept hervorheben** (Wunsch 2026-11-13, umgesetzt 0.5.15): Zeilen, die noch nicht in die Nährwerte eingehen, sind in der Zutatenliste farbig hinterlegt (kcal-Farbe), zusätzlich zum Hinweis an der Zeile. K24 und K25 auf dem Pi bestätigt (2026-11-13).
+- [x] **K26 Geplantes Rezept beim Eintragen austauschbar** (neu 2026-11-13, behoben 0.5.16): „Eintragen“ an einem geplanten Rezept auf „Heute“ zeigte die ganze Rezeptauswahl. Jetzt steht das Rezept fest; wählbar sind nur Mahlzeit und gegessene Portionen. Auch der Server nimmt bei einem Planeintrag immer dessen Rezept.
 
 ### A3: Robustheit und Aufbau
 
@@ -204,7 +205,7 @@ Ursprünglicher Plan für B2b:
 - [x] Regel 6 angepasst (CLAUDE.md und [[Architektur]]): Die Optionen liefern nur noch die Vorgabeziele, die eigenen Ziele stehen in der Datenbank.
 - [x] Die Einstellseite trennt „Meine Tagesziele“ (alle) und „Optionen“ mit Vorgabezielen und Einkaufsliste (nur Verwalter).
 - [x] Tests: `tests/test_goals.py` (Vorgabe, gültig ab, gleicher Tag ersetzt, alte Tage behalten ihr Ziel, zwei Benutzer, Eingabefehler).
-- [ ] Test auf dem Pi (0.5.13): Fabian setzt eigene Ziele; Admin behält die Vorgabe; der Vortag zeigt weiter die alten Ziele.
+- [x] Test auf dem Pi (0.5.13): Fabian setzt eigene Ziele; Admin behält die Vorgabe; der Vortag zeigt weiter die alten Ziele (bestanden 2026-11-13).
 
 #### B5: API und Doku (0.5.x)
 

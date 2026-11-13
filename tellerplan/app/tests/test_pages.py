@@ -272,6 +272,9 @@ def test_log_planned_recipe_marks_it(ingress_client: TestClient) -> None:
 
     add_page = ingress_client.get(link)
     assert '<option value="Abendessen" selected>' in add_page.text
+    # Das geplante Rezept steht fest: keine Rezeptauswahl, kein Wechsel zu Lebensmitteln
+    assert "Aus dem Plan" in add_page.text
+    assert 'type="radio"' not in add_page.text and "Rezept suchen" not in add_page.text
 
     ingress_client.post(
         "/diary/recipe",
@@ -287,6 +290,50 @@ def test_log_planned_recipe_marks_it(ingress_client: TestClient) -> None:
     page = ingress_client.get("/")
     assert "✓ eingetragen" in page.text
     assert "1,5 Portionen" in page.text
+
+
+def test_planned_recipe_cannot_be_swapped(ingress_client: TestClient) -> None:
+    planned_id = _last_id(_create_recipe(ingress_client, title="Rührei"))
+    other_id = _last_id(_create_recipe(ingress_client, title="Porridge"))
+    today = date.today()
+    _plan(ingress_client, planned_id, today)
+    page = ingress_client.get("/").text
+    plan_entry_id = page.split("plan_entry_id=")[1].split("&")[0]
+
+    ingress_client.post(
+        "/diary/recipe",
+        data={
+            "day": today.isoformat(),
+            "meal": "Mittag",
+            "recipe_id": other_id,
+            "servings": "1",
+            "plan_entry_id": plan_entry_id,
+        },
+    )
+
+    page = ingress_client.get("/").text
+    assert "✓ eingetragen" in page
+    assert "Porridge" not in page
+
+
+def test_planned_entry_error_keeps_fixed_recipe(ingress_client: TestClient) -> None:
+    recipe_id = _last_id(_create_recipe(ingress_client, title="Rührei"))
+    today = date.today()
+    _plan(ingress_client, recipe_id, today)
+    plan_entry_id = ingress_client.get("/").text.split("plan_entry_id=")[1].split("&")[0]
+
+    response = ingress_client.post(
+        "/diary/recipe",
+        data={
+            "day": today.isoformat(),
+            "meal": "",
+            "servings": "1",
+            "plan_entry_id": plan_entry_id,
+        },
+    )
+
+    assert "Bitte eine Mahlzeit wählen." in response.text
+    assert "Aus dem Plan" in response.text and 'type="radio"' not in response.text
 
 
 def test_log_requires_meal(ingress_client: TestClient) -> None:

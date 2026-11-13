@@ -36,6 +36,24 @@
     <h1>Eintragen</h1>
   </header>
 
+  {% if planned %}
+    <form class="form card" method="post" action="{{ url('diary_log_recipe') }}">
+      {{ error_message(error) }}
+      <input type="hidden" name="day" value="{{ day }}">
+      <input type="hidden" name="plan_entry_id" value="{{ plan_entry_id }}">
+      <input type="hidden" name="recipe_id" value="{{ recipe_id }}">
+      <h2>{{ planned.recipe.title }}</h2>
+      <p class="meta">Aus dem Plan · {{ planned.per_serving.kcal|num }} kcal · {{ planned.per_serving.protein_g|num }} g Eiweiß pro Portion</p>
+      <div class="field-row">
+        {{ meal_select() }}
+        <label class="field">Gegessene Portionen
+          <input class="input" type="number" name="servings" value="{{ '%g' % servings }}" min="{{ step }}" step="{{ step }}"
+                 inputmode="decimal" required>
+        </label>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">Eintragen</button></div>
+    </form>
+  {% else %}
   <div class="nums" role="tablist">
     {% for key, label in (("recipe", "Rezept"), ("food", "Lebensmittel")) %}
       <a class="chip" role="tab" aria-pressed="{{ 'true' if mode == key else 'false' }}"
@@ -97,6 +115,7 @@
       </div>
       <div class="form-actions"><button class="btn" type="submit">Eintragen</button></div>
     </form>
+  {% endif %}
   {% endif %}
 
 {% endblock %}

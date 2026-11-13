@@ -30,7 +30,7 @@ from modules.diary.service import (
 from modules.foods.service import get_food, search_foods
 from modules.nutrition.service import Nutrients, StandardUnit, unit_choices
 from modules.planner.service import get_entry as get_plan_entry
-from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries
+from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries, summarize
 from modules.users.goals import Goals
 from settings import Settings
 from web.access import current_user
@@ -217,6 +217,25 @@ def _render_add(
 ) -> HTMLResponse:
     settings = request.app.state.settings
     mode = mode if mode in ADD_MODES else ADD_MODES[0]
+    plan_entry = get_plan_entry(session, plan_entry_id) if plan_entry_id else None
+    if plan_entry is not None:
+        # Geplantes Rezept: steht fest, gewählt werden nur Mahlzeit und Portionen
+        return render(
+            request,
+            "diary/add.html",
+            tab="today",
+            day=day,
+            mode="recipe",
+            meal=meal,
+            planned=summarize(plan_entry.recipe),
+            recipe_id=plan_entry.recipe_id,
+            plan_entry_id=plan_entry.id,
+            meal_names=settings.meal_names,
+            choices=None,
+            servings=1,
+            step=SERVINGS_STEP,
+            error=error,
+        )
     choices = (
         _recipe_choices(session, settings, _viewer(request), day, meal, recipe_id, show_all)
         if mode == "recipe"
@@ -243,6 +262,7 @@ def _render_add(
         selected="g",
         prefilled="",
         step=SERVINGS_STEP,
+        planned=None,
         error=error,
     )
 
@@ -280,6 +300,9 @@ def diary_log_recipe(
     servings: Annotated[str, Form()] = "",
     plan_entry_id: Annotated[int | None, Form()] = None,
 ) -> Response:
+    plan_entry = get_plan_entry(session, plan_entry_id) if plan_entry_id else None
+    if plan_entry is not None:
+        recipe_id = plan_entry.recipe_id  # Das geplante Rezept gilt, nicht ein anderes
     recipe = get_recipe(session, recipe_id) if recipe_id is not None else None
     try:
         meal = _meal_or_error(meal, request.app.state.settings)
@@ -299,7 +322,6 @@ def diary_log_recipe(
             plan_entry_id=plan_entry_id,
             error=str(error),
         )
-    plan_entry = get_plan_entry(session, plan_entry_id) if plan_entry_id else None
     log_recipe(session, current_user(request).id, day, meal, recipe, amount, plan_entry)
     session.commit()
     return _back_to_day(request, day, meal)
