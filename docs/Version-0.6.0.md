@@ -61,8 +61,8 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 
 ### A4: Sicherheit
 
-- [ ] **C-H Kein CSRF-Schutz:** Middleware für alle POST-Anfragen auf beiden Ports: Der Kopf `Origin` (ersatzweise `Referer`) muss zum eigenen Host passen, sonst 403. Das braucht keine Tokens in den Formularen und deckt HTMX mit ab. Das Sitzungs-Cookie der Vollbild-App hat schon `SameSite=Lax` (`web/pages/login.py:66`).
-- [ ] **`hassio_api` nötig?** Offener Punkt aus der Architektur: Auf dem Pi prüfen, ob `/addons/self/options` auch ohne `hassio_api: true` geht. Wenn ja, das Recht entfernen. Weniger Rechte bedeutet weniger Risiko.
+- [x] **C-H Kein CSRF-Schutz** (0.5.7): `security.SameOriginMiddleware` auf beiden Ports. Schreibende Anfragen (POST, PUT, PATCH, DELETE) der Oberfläche brauchen einen `Origin` (sonst `Referer`), dessen Host zu `Host` oder `X-Forwarded-Host` passt; sonst 403 mit Eintrag im Protokoll (Herkunft und erwarteter Host). Die API (`/api/`) ist ausgenommen (Token, keine Cookies); ohne `Origin` und `Referer` (kein Browser) wird nicht geprüft. Auf dem Pi zu bestätigen: Über Ingress setzt Home Assistant nach unserer Kenntnis `X-Forwarded-Host`.
+- [x] **`hassio_api` nötig?** (0.5.7): entfernt. Der Supervisor lässt `/addons/self/…` (u. a. `info`, `options`) für jedes Add-on zu; `hassio_api` öffnet nur die übrige Supervisor-API, die Tellerplan nicht nutzt. Auf dem Pi zu bestätigen; falls B1 (Benutzer prüfen) das Recht braucht, dort mit Begründung neu entscheiden.
 - [ ] **K16 Jeder HA-Benutzer darf alles:** wird mit Teil B behoben (Rollen), steht hier nur zur Vollständigkeit.
 
 ### A5: Datenmodell

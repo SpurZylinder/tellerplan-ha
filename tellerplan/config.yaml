@@ -1,5 +1,5 @@
 name: Tellerplan
-version: "0.5.6"
+version: "0.5.7"
 slug: tellerplan
 description: Kalorien zählen, Rezepte verwalten und die Woche planen
 url: https://github.com/SpurZylinder/tellerplan-ha
@@ -13,8 +13,8 @@ ingress: true
 ingress_port: 8000
 panel_icon: mdi:silverware-fork-knife
 panel_title: Tellerplan
-# Supervisor-API: Die Einstellseite speichert die eigenen Optionen (siehe docs/Architektur.md)
-hassio_api: true
+# Kein hassio_api: Die eigenen Optionen (/addons/self/info, /addons/self/options) darf jedes
+# Add-on auch ohne lesen und speichern (siehe docs/Architektur.md, entfernt in 0.5.7)
 # Home-Assistant-API: Die Einkaufsliste ruft todo.add_item für die Bring-Liste auf
 homeassistant_api: true
 ports:

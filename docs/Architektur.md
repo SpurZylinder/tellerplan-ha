@@ -264,12 +264,12 @@ tellerplan-ha/
 
 | Option | Öffnet den Zugang zu … | Wofür Tellerplan das braucht |
 | --- | --- | --- |
-| `hassio_api: true` | Supervisor-API (`http://supervisor/…`): Verwaltung von Apps, Backups und System | Die Einstellseite speichert über `POST /addons/self/options`, genau wie „Speichern“ im Reiter „Konfiguration“ |
+| ~~`hassio_api: true`~~ (entfernt in 0.5.7) | Supervisor-API (`http://supervisor/…`): Verwaltung von Apps, Backups und System | Nicht nötig: Die eigenen Optionen (`GET /addons/self/info`, `POST /addons/self/options`) darf jedes Add-on auch ohne diesen Schalter lesen und speichern |
 | `homeassistant_api: true` | Home-Assistant-API (`http://supervisor/core/api/…`): Entitäten und Aktionen | Die Einkaufsliste ruft `todo.add_item` für die Bring-Liste auf |
 
-Ist ein Schalter gesetzt, gibt der Supervisor dem Container beim Start einen Schlüssel als Umgebungsvariable `SUPERVISOR_TOKEN` mit. Tellerplan schickt ihn bei jeder Anfrage mit, und der Supervisor prüft, ob der Zugang laut `config.yaml` erlaubt ist. Ein Passwort oder ein selbst angelegter Token ist nicht nötig.
+Der Supervisor gibt jedem Add-on beim Start einen Schlüssel als Umgebungsvariable `SUPERVISOR_TOKEN` mit. Tellerplan schickt ihn bei jeder Anfrage mit, und der Supervisor prüft, ob der Zugang laut `config.yaml` erlaubt ist. Ein Passwort oder ein selbst angelegter Token ist nicht nötig.
 
-Wie viel das Add-on in der Supervisor-API darf, legt `hassio_role` fest. Ohne Angabe gilt `default`: Informationen lesen und die **eigenen** Optionen ändern, aber keine anderen Apps steuern und keine Backups anlegen. Das reicht für Tellerplan. `homeassistant_api` erlaubt dagegen grundsätzlich jede Aktion in Home Assistant; Tellerplan nutzt nur `todo.add_item`. Jeder der beiden Schalter senkt die Sicherheitsbewertung, die Home Assistant beim Add-on anzeigt. Das ist so vorgesehen.
+Wie viel das Add-on in der Supervisor-API darf, legt `hassio_role` fest. Ohne Angabe gilt `default`: Informationen lesen und die **eigenen** Optionen ändern, aber keine anderen Apps steuern und keine Backups anlegen. Das reicht für Tellerplan. `homeassistant_api` erlaubt dagegen grundsätzlich jede Aktion in Home Assistant; Tellerplan nutzt nur `todo.add_item`. Jeder Schalter senkt die Sicherheitsbewertung, die Home Assistant beim Add-on anzeigt; seit 0.5.7 ist nur noch `homeassistant_api` gesetzt.
 
 ## Vollbild-App
 
@@ -312,7 +312,7 @@ Fünf Stufen, jede einzeln nutzbar. Die Reihenfolge wurde am 2026-10-24 umgestel
 
 - [x] Wie kommt die Einkaufsliste zu Bring? Über die Bring-Integration von Home Assistant mit `todo.add_item`, am 2026-10-25 von Hand getestet: Artikel und Spezifikation kommen in Bring an. Das Teilen-Menü ist damit nicht nötig.
 - [ ] Kontrollseite vor dem Senden an Bring? Eine Seite mit allen Zutaten zum Abhaken: Vorratsartikel sind nicht angehakt, alle anderen schon; Mengen lassen sich anpassen, erst „Bestätigen“ schickt die Liste an Bring. Vorerst nicht umsetzen, sondern im Alltag prüfen, ob die direkte Übergabe reicht.
-- [ ] Braucht die Einstellseite `hassio_api` wirklich? Laut Supervisor-Quellcode sind Aufrufe an `/addons/self/…` womöglich auch ohne erreichbar. Beim ersten Test im Add-on prüfen und den Schalter entfernen, falls er unnötig ist.
+- [x] Braucht die Einstellseite `hassio_api` wirklich? Nein, entfernt in 0.5.7: `/addons/self/…` ist für jedes Add-on erreichbar. Auf dem Pi zu bestätigen (Einstellseite speichern); sonst wieder setzen. Siehe [[Version-0.6.0]], A4.
 - [x] Vorratsliste: Stichwörter als Option `pantry_keywords` in `options.json` (z. B. „salz“ trifft alle Salz-Einträge aus BLS), einstellbar in HA und auf der Einstellseite. Kein Kennzeichen am Lebensmittel.
 - [x] Artikelnamen: neues optionales Feld „Einkaufsname“ an `food` (z. B. „Hähnchenbrust“), gepflegt in der Lebensmittel-Ansicht, Migration 0006. Ohne Eintrag wird der Name aus dem BLS-Namen abgeleitet.
 - [x] REWE-Produktnummer: optionales Feld `food.rewe_id` (Migration 0016), gepflegt in der Lebensmittel-Ansicht (Nummer oder Link der Produktseite, auch bei BLS); der Lebensmittel-Import übernimmt sie aus `rewe_id` oder dem Link `url`. Grundlage für die Idee, aus der Bring-Liste einen REWE-Warenkorb mit den Standardprodukten zu füllen (Abholung).
@@ -355,7 +355,7 @@ Code, nach Gewicht:
 - [x] **C-E Netzwerk im Fachmodul** (behoben 0.5.4: Senden wird hereingereicht)**:** `modules/shopping` importiert `supervisor` direkt; das Senden sollte hereingereicht werden.
 - [x] **C-F Keine zentrale Uhr:** *Behoben mit K5:* alle Seiten nutzen `clock.today()`.
 - [x] **C-G Testlücken** (behoben 0.5.4/0.5.5: Datumsgrenzen, Coverage-Bericht, aufgezeichnete Antwort von `todo.get_items`).
-- [ ] **C-H Kein CSRF-Schutz** für POST-Formulare (geringes Risiko, Ingress setzt eine HA-Sitzung voraus).
+- [x] **C-H Kein CSRF-Schutz** (behoben 0.5.7: `security.SameOriginMiddleware` prüft `Origin`/`Referer` bei schreibenden Anfragen der Oberfläche).
 - [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
 - [x] **C-K Zeitstempel der Sicherung in Container-Zeit** (gefunden 2026-11-13, behoben 0.5.4): `db.backup_database` nutzte `datetime.now()` statt `clock.now()`.
 - [x] **C-I Kleinigkeiten** (behoben 0.5.3, siehe [[Version-0.6.0]])**:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
