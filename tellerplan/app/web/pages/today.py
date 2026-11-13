@@ -31,9 +31,11 @@ from modules.foods.service import get_food, search_foods
 from modules.nutrition.service import Nutrients, StandardUnit, unit_choices
 from modules.planner.service import get_entry as get_plan_entry
 from modules.recipes.service import RecipeSummary, get_recipe, recipe_summaries
+from modules.users.goals import Goals
 from settings import Settings
 from web.access import current_user
 from web.forms import FormError, clean_text, redirect_to, required_number
+from web.goals import user_goals
 from web.templating import format_amount, render
 
 router = APIRouter()
@@ -76,11 +78,11 @@ class MacroBar:
         return min(FULL_PERCENT, self.value / self.goal * FULL_PERCENT) if self.goal else 0
 
 
-def _macro_bars(total: Nutrients, settings: Settings) -> list[MacroBar]:
+def _macro_bars(total: Nutrients, goals: Goals) -> list[MacroBar]:
     return [
-        MacroBar("Eiweiß", "p", total.protein_g, settings.protein_goal_g),
-        MacroBar("Fett", "d", total.fat_g, settings.fat_goal_g),
-        MacroBar("Kohlenhydrate", "d", total.carbs_g, settings.carbs_goal_g),
+        MacroBar("Eiweiß", "p", total.protein_g, goals.protein_g),
+        MacroBar("Fett", "d", total.fat_g, goals.fat_g),
+        MacroBar("Kohlenhydrate", "d", total.carbs_g, goals.carbs_g),
     ]
 
 
@@ -120,13 +122,14 @@ def _render_today(
 ) -> HTMLResponse:
     settings = request.app.state.settings
     log = day_log(session, day, settings.meal_names, _viewer(request))
+    goals = user_goals(request, session, day).goals
     return render(
         request,
         "today.html",
         tab="today",
         log=log,
-        gauge=KcalGauge(eaten=log.total.kcal, limit=settings.daily_kcal_limit),
-        macros=_macro_bars(log.total, settings),
+        gauge=KcalGauge(eaten=log.total.kcal, limit=goals.kcal),
+        macros=_macro_bars(log.total, goals),
         planned=planned_for_day(session, day, _viewer(request)),
         planned_meal=settings.plan_default_meal,
         entry_units=_entry_units(session, [e for meal in log.meals for e in meal.entries]),

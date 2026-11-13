@@ -192,15 +192,16 @@ Ursprünglicher Plan für B2b:
 - [x] „Heute“, Verlauf, „Rezept von gestern“, Häufigkeit beim Eintragen, zuletzt eingetragene Menge und „aus dem Plan übernehmen“ lesen nur Einträge des aktuellen Benutzers (`diary.service.Viewer`, Pflichtangabe jeder Leseabfrage). Fremde Einträge lassen sich weder ändern noch löschen (404).
 - [x] „✓ eingetragen“ auf „Heute“ zeigt nur, ob *der aktuelle Benutzer* den Planeintrag übernommen hat, nicht ein anderer.
 - [x] Tests: `tests/test_diary_users.py` (zwei Benutzer über Ingress, fremde Einträge, Plan gemeinsam, Zuordnung alter Einträge).
-- [ ] Test auf dem Pi (0.5.12): Admin und Fabian tragen ein, keiner sieht den anderen; alte Einträge in den Einstellungen zuordnen.
+- [x] Test auf dem Pi (0.5.12): Admin und Fabian tragen ein, keiner sieht den anderen; alte Einträge in den Einstellungen zugeordnet (bestätigt 2026-11-13).
 
-#### B4: Ziele je Benutzer (0.5.x)
+#### B4: Ziele je Benutzer (0.5.13)
 
-- [ ] Tabelle `goal` (Benutzer, gültig ab, kcal, Eiweiß, Fett, KH). Für einen Tag gilt das Ziel mit dem letzten „gültig ab“ bis zu diesem Tag. Alte Tage laufen damit gegen das damalige Ziel.
-- [ ] Ohne eigenes Ziel gelten die Vorgabewerte aus den Optionen (entschieden 2026-11-13). Erst wenn der Benutzer etwas ändert, entsteht ein eigener Eintrag in `goal`.
-- [ ] Regel 6 anpassen (CLAUDE.md und [[Architektur]]): Die Optionen liefern nur noch die Vorgabeziele. Die eigenen Ziele stehen in der Datenbank. Gepflegt werden sie auf der Einstellseite, jeder Benutzer seine eigenen.
-- [ ] Die Einstellseite trennt „Meine Ziele“ (alle) und „Optionen“ (nur Verwalter).
-- [ ] Tests: Zieländerung wirkt ab dem Tag, alte Tage bleiben.
+- [x] Tabelle `goal` (Benutzer, gültig ab, kcal, Eiweiß, Fett, KH; Migration 0020, eindeutig je Benutzer und Tag). Für einen Tag gilt das Ziel mit dem letzten „gültig ab“ bis zu diesem Tag (`modules.users.goals.goals_for`). Alte Tage laufen damit gegen das damalige Ziel.
+- [x] Ohne eigenes Ziel gelten die Vorgabewerte aus den Optionen (entschieden 2026-11-13). Erst wenn der Benutzer speichert, entsteht ein eigener Eintrag in `goal`, gültig ab heute; eine zweite Änderung am selben Tag ersetzt die erste.
+- [x] Regel 6 angepasst (CLAUDE.md und [[Architektur]]): Die Optionen liefern nur noch die Vorgabeziele, die eigenen Ziele stehen in der Datenbank.
+- [x] Die Einstellseite trennt „Meine Tagesziele“ (alle) und „Optionen“ mit Vorgabezielen und Einkaufsliste (nur Verwalter).
+- [x] Tests: `tests/test_goals.py` (Vorgabe, gültig ab, gleicher Tag ersetzt, alte Tage behalten ihr Ziel, zwei Benutzer, Eingabefehler).
+- [ ] Test auf dem Pi (0.5.13): Fabian setzt eigene Ziele; Admin behält die Vorgabe; der Vortag zeigt weiter die alten Ziele.
 
 #### B5: API und Doku (0.5.x)
 

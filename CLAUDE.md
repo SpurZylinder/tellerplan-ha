@@ -16,7 +16,7 @@ Die vollständige Architektur steht in `docs/Architektur.md`. Lies sie vor jeder
 3. **Nur `modules/nutrition` rechnet Nährwerte.** Alle anderen Module fragen es.
 4. **`diary_entry` speichert einen Nährwert-Snapshot.** Spätere Rezeptänderungen dürfen vergangene Tage nicht verändern.
 5. **Portionen:** Rezept = Standardportionen; `plan_entry` = Rezept an einem Tag mit geplanten Portionen (Vorgabe: Standardportionen; keine Mahlzeit); `diary_entry` = gegessene Portionen. Nur das Tagebuch zählt für die Tageswerte, eingetragen wird nur auf „Heute“.
-6. **Zentrale Parameter:** Alle konfigurierbaren Werte (kcal-Limit, Makro-Ziele, Mahlzeitnamen, API-Token, DB-Pfad) kommen ausschließlich über `app/settings.py` aus `options.json`. Keine verstreuten Konstanten oder Magic Numbers im Code.
+6. **Zentrale Parameter:** Alle konfigurierbaren Werte (Vorgabeziele für kcal und Makros, Mahlzeitnamen, API-Token, DB-Pfad) kommen ausschließlich über `app/settings.py` aus `options.json`. Einzige Ausnahme: die eigenen Tagesziele je Benutzer stehen in der Datenbank (`goal`, `modules/users/goals.py`); ohne eigene gelten die Vorgabeziele. Keine verstreuten Konstanten oder Magic Numbers im Code.
 7. **Ein Repo, eine App, eine Datenbank.** Modulgrenzen einhalten, keine Querimporte an der Abhängigkeitsrichtung vorbei:
    `foods` ← `nutrition` ← `recipes` ← `importers`, `recipes` ← `planner`, (`recipes`, `planner`) ← `shopping`, (`nutrition`, `recipes`, `planner`, `users`) ← `diary`
 
@@ -62,7 +62,7 @@ tellerplan-ha/
         ├── api/v1/            JSON-API (UI, Kurzbefehle, Skripte)
         ├── web/               templates/ · static/
         ├── data/              bls_4_0.csv (aus BLS 4.0, CC BY 4.0, Quelle nennen)
-        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte, 0011 Grundzutaten, 0012 Barcode und Packung, 0013 Rezeptkategorien, 0014 toleranter Namensschlüssel, 0015 Cookidoo-Abgleich, 0016 REWE-Produktnummer, 0017 sieben Nährwerte im Tagebuch, 0018 Benutzer, 0019 Tagebuch je Benutzer
+        ├── migrations/        0005 spielt BLS ein, 0006 Einkaufsname, 0007 Portionen im Plan, 0008 Einkaufsliste gesendet, 0009 Sitzungen, 0010 Zuordnung und Vergleichswerte, 0011 Grundzutaten, 0012 Barcode und Packung, 0013 Rezeptkategorien, 0014 toleranter Namensschlüssel, 0015 Cookidoo-Abgleich, 0016 REWE-Produktnummer, 0017 sieben Nährwerte im Tagebuch, 0018 Benutzer, 0019 Tagebuch je Benutzer, 0020 Ziele je Benutzer
         ├── scripts/           seed_demo.py · import_bls.py (später)
         └── tests/
 ```

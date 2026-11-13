@@ -1,6 +1,8 @@
-"""Seite „Einstellungen“: Tagesziele, Einkaufsliste, Cookidoo, Einstieg zu den Lebensmitteln.
+"""Seite „Einstellungen“: eigene Tagesziele, Optionen, Cookidoo, Einstieg zu den Lebensmitteln.
 
-Die Werte bleiben Add-on-Optionen (options.json); die Seite schreibt sie nur zurück.
+Eigene Tagesziele hat jeder Benutzer in der Datenbank (`modules.users.goals`). Die
+Optionen (Vorgabeziele, Einkaufsliste) bleiben Add-on-Optionen (options.json); die
+Seite schreibt sie nur zurück, und nur Verwalter dürfen das.
 Die Cookidoo-Verbindung ist keine Option: Sie besteht aus Tokens in einer Datei neben
 der Datenbank, E-Mail und Passwort werden nur für die Anmeldung weitergereicht.
 """
@@ -18,6 +20,7 @@ from cookidoo import CalendarRecipe, CookidooAccount, CookidooError
 from ha_users import Probe, core_users, oauth_current_user, remote_user_headers, supervisor_users
 from modules.diary.service import assign_unowned, count_unowned
 from modules.planner.service import PLAN_DAYS_AHEAD, plan_horizon
+from modules.users.goals import Goals, set_goals
 from modules.users.service import known_users
 from settings import (
     TODO_ENTITY_PATTERN,
@@ -27,8 +30,9 @@ from settings import (
     save_options,
 )
 from supervisor import SupervisorError, supervisor_token
-from web.access import is_standalone, require_admin, server_url
+from web.access import current_user, is_standalone, require_admin, server_url
 from web.forms import FormError, clean_text, redirect_to, required_number
+from web.goals import user_goals
 from web.templating import render
 
 logger = logging.getLogger(__name__)
@@ -37,7 +41,9 @@ router = APIRouter(prefix="/settings")
 
 @dataclass(frozen=True)
 class GoalField:
+    # Name der Option (Vorgabe) und des Feldes in `Goals` (eigene Ziele)
     name: str
+    goal_attr: str
     label: str
     unit: str
 
@@ -51,10 +57,10 @@ class GoalField:
 
 
 GOAL_FIELDS = (
-    GoalField("daily_kcal_limit", "Tageslimit", "kcal"),
-    GoalField("protein_goal_g", "Eiweiß", "g"),
-    GoalField("fat_goal_g", "Fett", "g"),
-    GoalField("carbs_goal_g", "Kohlenhydrate", "g"),
+    GoalField("daily_kcal_limit", "kcal", "Tageslimit", "kcal"),
+    GoalField("protein_goal_g", "protein_g", "Eiweiß", "g"),
+    GoalField("fat_goal_g", "fat_g", "Fett", "g"),
+    GoalField("carbs_goal_g", "carbs_g", "Kohlenhydrate", "g"),
 )
 
 
@@ -72,11 +78,17 @@ def _render(
     cookidoo_check: list[CalendarRecipe] | None = None,
     user_probes: list[Probe] | None = None,
     diary_message: str | None = None,
+    goal_texts: dict[str, str] | None = None,
+    goal_error: str | None = None,
+    goals_saved: bool = False,
 ) -> HTMLResponse:
     settings = request.app.state.settings
     with request.app.state.session_factory() as session:
         unowned = count_unowned(session)
         users = [(user.id, user.name) for user in known_users(session)]
+        mine = user_goals(request, session, clock.today())
+    if goal_texts is None:
+        goal_texts = {f.goal_attr: str(getattr(mine.goals, f.goal_attr)) for f in GOAL_FIELDS}
     return render(
         request,
         "settings.html",
@@ -95,6 +107,10 @@ def _render(
         unowned_entries=unowned,
         known_users=users,
         diary_message=diary_message,
+        goal_values=goal_texts,
+        own_goals=mine.own,
+        goal_error=goal_error,
+        goals_saved=goals_saved,
     )
 
 
@@ -181,8 +197,30 @@ def _changed(settings: Settings, submitted: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("", response_class=HTMLResponse)
-def settings_page(request: Request, saved: bool = False) -> HTMLResponse:
-    return _render(request, _current_values(request.app.state.settings), saved=saved)
+def settings_page(request: Request, saved: bool = False, goals_saved: bool = False) -> HTMLResponse:
+    values = _current_values(request.app.state.settings)
+    return _render(request, values, saved=saved, goals_saved=goals_saved)
+
+
+@router.post("/goals", response_model=None)
+def goals_save(
+    request: Request,
+    kcal: Annotated[str, Form()] = "",
+    protein_g: Annotated[str, Form()] = "",
+    fat_g: Annotated[str, Form()] = "",
+    carbs_g: Annotated[str, Form()] = "",
+) -> Response:
+    """Eigene Tagesziele des Benutzers; gelten ab heute, vergangene Tage bleiben."""
+    texts = {"kcal": kcal, "protein_g": protein_g, "fat_g": fat_g, "carbs_g": carbs_g}
+    try:
+        parsed = {f.goal_attr: _parse_goal(f, texts[f.goal_attr]) for f in GOAL_FIELDS}
+    except FormError as error:
+        values = _current_values(request.app.state.settings)
+        return _render(request, values, goal_texts=texts, goal_error=str(error))
+    with request.app.state.session_factory() as session:
+        set_goals(session, current_user(request).id, clock.today(), Goals(**parsed))
+        session.commit()
+    return redirect_to(request, "settings_page", query={"goals_saved": "1"}, anchor="#ziele")
 
 
 @router.post("", response_model=None, dependencies=[Depends(require_admin)])

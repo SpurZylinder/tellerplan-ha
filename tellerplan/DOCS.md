@@ -22,8 +22,8 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 
 | Option | Bedeutung |
 | --- | --- |
-| `daily_kcal_limit` | Tageslimit in kcal |
-| `protein_goal_g`, `fat_goal_g`, `carbs_goal_g` | Makro-Ziele in Gramm pro Tag |
+| `daily_kcal_limit` | Vorgabe-Tageslimit in kcal (für Benutzer ohne eigene Ziele) |
+| `protein_goal_g`, `fat_goal_g`, `carbs_goal_g` | Vorgabe-Makroziele in Gramm pro Tag (für Benutzer ohne eigene Ziele) |
 | `meal_names` | Namen der Mahlzeiten im Tagebuch |
 | `plan_default_meal` | Vorausgewählte Mahlzeit, wenn ein geplantes Rezept eingetragen wird (muss in `meal_names` stehen) |
 | `suggest_yesterday_meals` | Mahlzeiten, bei denen beim Eintragen das Rezept vom Vortag (gleiche Mahlzeit) oben steht und vorausgewählt ist, z. B. `Mittag`, `Snacks` |
@@ -43,6 +43,8 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“. Gespeichert werden nur die Felder, die dort geändert wurden; eine Änderung, die vorher hier im Reiter gemacht wurde, bleibt erhalten.
 
 **Benutzer und Rollen:** Tellerplan kennt keine eigenen Passwörter, es nutzt die Benutzer von Home Assistant. Admins sind **Verwalter**: Sie ändern Optionen, verbinden Cookidoo, importieren und löschen Rezepte und Lebensmittel. Alle anderen sind **Benutzer**: Heute, Plan, Rezepte, Lebensmittel, Zuordnen, Einkaufsliste und Abgleich mit Cookidoo. Die Option `allowed_users` (Benutzernamen) beschränkt, wer überhaupt hereinkommt; leer heißt alle. Systemkonten und deaktivierte Benutzer kommen nie herein. Für Familienmitglieder genügen Benutzer ohne Admin-Rechte, am besten mit „Nur im lokalen Netz anmelden“; sie nutzen die Vollbild-App. Das Panel in der Seitenleiste von Home Assistant sehen nur Admins.
+
+**Ziele je Benutzer:** Unter Einstellungen → „Meine Tagesziele“ legt jeder seine eigenen Ziele fest. Sie gelten ab dem Tag der Änderung; vergangene Tage behalten ihre damaligen Ziele. Wer nichts speichert, hat die Vorgabeziele aus den Optionen.
 
 **Tagebuch je Benutzer:** Jeder sieht auf „Heute“ nur, was er selbst eingetragen hat; Plan, Rezepte und Einkaufsliste sind gemeinsam. Einträge aus der Zeit davor gehören noch niemandem: Ein Verwalter ordnet sie unter Einstellungen → „Bisherige Tagebucheinträge“ einmal einem Benutzer zu.
 

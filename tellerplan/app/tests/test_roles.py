@@ -92,7 +92,7 @@ def test_member_sees_no_admin_controls(member: TestClient) -> None:
     settings = member.get("/settings").text
 
     assert "settings_save" not in settings and 'action="/settings"' not in settings
-    assert "Tagesziele legen bisher die Verwalter" in settings
+    assert "Meine Tagesziele" in settings and "Vorgabeziele" not in settings
     assert "Cookidoo" not in settings
     assert "Benutzer prüfen" not in settings
     assert "Importieren" not in settings
