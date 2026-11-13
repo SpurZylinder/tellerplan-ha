@@ -350,6 +350,8 @@ a.chip { text-decoration: none; display: inline-block; }
   min-height: calc(100dvh - var(--page-top) - var(--page-bottom));
   grid-template-rows: auto 1fr;
 }
+/* Mit Meldung (z. B. nach dem Cookidoo-Abgleich) bleibt sie so hoch wie ihr Text */
+.wrap:has(> .sync-card):has(> .plan-columns) { grid-template-rows: auto auto 1fr; }
 .plan-columns .plan-day { scroll-snap-align: start; min-height: 200px; }
 .plan-day {
   background: var(--surface);
