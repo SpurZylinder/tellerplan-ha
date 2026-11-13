@@ -1,6 +1,6 @@
 # Versionsplan
 
-Festgelegt am 2026-11-13 nach Release 0.5.0 (Abgleich mit Cookidoo, siehe [[Cookidoo-Sync]]). Jede Version bekommt vor der Umsetzung eine eigene Planungsnotiz nach dem Muster von [[Cookidoo-Sync]] (Recherche, Entscheidungen, Schritte mit Tests, Test auf dem Pi). Zwischenstände erscheinen als Patch-Versionen (`0.6.x`); die Minor-Version wird erst gesetzt, wenn der Test auf dem Pi vollständig abgeschlossen ist.
+Festgelegt am 2026-11-13 nach Release 0.5.0 (Abgleich mit Cookidoo, siehe [[Cookidoo-Sync]]). Jede Version bekommt vor der Umsetzung eine eigene Planungsnotiz nach dem Muster von [[Cookidoo-Sync]] (Recherche, Entscheidungen, Schritte mit Tests, Test auf dem Pi). Zwischenstände erscheinen als Patch-Versionen der laufenden Version (auf dem Weg zu 0.6.0 also `0.5.x`); die nächste Minor-Version wird erst gesetzt, wenn der Test auf dem Pi vollständig abgeschlossen ist.
 
 | Version | Ziel | Hängt ab von |
 | --- | --- | --- |
@@ -25,6 +25,8 @@ Befunde sind Fehler, Lücken und Risiken aus Reviews, Tests auf dem Pi und dem A
 
 ## 0.6.0 – Mehrere Benutzer
 
+Ausgearbeitet in [[Version-0.6.0]] (2026-11-13): zuerst die Befunde, dann Benutzer und Rollen. Nutzung auch mit HA-Benutzern ohne Admin-Rechte.
+
 **Ziel:** Mehrere Personen im Haushalt nutzen Tellerplan über ihren eigenen Home-Assistant-Benutzer. „Heute“ (Tagebuch) und die Ziele (kcal-Limit, Eiweiß, Fett, KH) gelten je Benutzer; Lebensmittel, Rezepte, Plan und Einkaufsliste bleiben gemeinsam.
 
 **Ansatz** (aus [[Architektur#Wünsche vom 2026-10-28]], vor der Umsetzung zu prüfen):
@@ -37,7 +39,7 @@ Befunde sind Fehler, Lücken und Risiken aus Reviews, Tests auf dem Pi und dem A
 **Offene Fragen**
 
 - Gilt ein Benutzer ohne eigene Ziele mit den Vorgabewerten aus den Optionen, oder muss er sie beim ersten Besuch festlegen?
-- Wem gehört ein Eintrag über die API auf Port 8099 (Kurzbefehl)? Ein Token je Benutzer oder Benutzer als Parameter?
+- ~~Wem gehört ein Eintrag über die API?~~ Verschoben nach 0.8.0 (2026-11-13): Die API liest in 0.6.0 nur.
 - Soll man fremde Tage sehen können (z. B. Haushalt gesamt) oder streng getrennt?
 - Gehören „Rezept von gestern“, Vorfilter je Mahlzeit und „aus dem Plan übernehmen“ zum Benutzer? (vermutlich ja, sie lesen das Tagebuch)
 
@@ -46,7 +48,7 @@ Befunde sind Fehler, Lücken und Risiken aus Reviews, Tests auf dem Pi und dem A
 | Befund | Kurz | Bezug zu 0.6.0 |
 | --- | --- | --- |
 | K4 | HA-Sicherung kopiert die laufende SQLite-Datenbank | Datensicherheit; vor der Migration für Benutzer erledigen |
-| K6 | Planeintrag gilt nach der ersten gegessenen Portion als erledigt, keine Reste | Mit mehreren Essern verschärft: Wer hat was gegessen? |
+| K6 | Planeintrag gilt nach der ersten gegessenen Portion als erledigt, keine Reste | Entschieden 2026-11-13: kein Befund, Komfort-Idee; zum Abschluss von 0.6.0 bewerten |
 | K7 | Datenmodell-Doku weicht ab (`goal`, `weight`, `import_job`, `shopping` fehlt in der Übersicht) | `goal` wird jetzt gebaut; Rest der Doku nachziehen, `ingredient_alias` gibt es inzwischen |
 | K8 | Zwei Schreiber für die Optionen (HA und Einstellseite) | Entfällt weitgehend, wenn Ziele in die Datenbank wandern |
 | K9 | Zutat ohne Einheit zählt als Gramm | Prüfen, ob der Zeilenparser das inzwischen abdeckt; sonst beheben |
@@ -60,9 +62,11 @@ Befunde sind Fehler, Lücken und Risiken aus Reviews, Tests auf dem Pi und dem A
 | C-E | `modules/shopping` importiert `supervisor` direkt | – |
 | C-G | Testlücken: Datumsgrenzen in den Seiten, Coverage, echte Supervisor-Antworten | – |
 | C-I | Kleinigkeiten (0 Portionen, `ShoppingItem.optional`, `options.py` vs. `/settings`) | – |
+| C-H | Kein CSRF-Schutz für POST-Formulare | Mit mehreren Benutzern und Rollen wichtiger |
+| K16 | Vollbild-App: Jeder HA-Benutzer darf nach der Anmeldung alles, auch Optionen und Cookidoo-Zugang (neu, 2026-11-13) | Wird mit den Rollen behoben |
 | – | Braucht die Einstellseite `hassio_api`? | Beim Umbau der Einstellseite klären |
 
-Fachlich in eine spätere Version gelegt (Entscheidung 2026-11-13, Regel 2): **K14** (Port 8099 nur HTTP) und **C-H** (kein CSRF-Schutz) → 0.7.0, weil beide erst mit Zugriff von außen ins Gewicht fallen und dort ohnehin gelöst werden müssen.
+Fachlich in eine spätere Version gelegt (Entscheidung 2026-11-13, Regel 2): **K14** (Port 8099 nur HTTP) → 0.7.0, weil es erst mit Zugriff von außen ins Gewicht fällt und dort ohnehin gelöst werden muss.
 
 ## 0.7.0 – Zugriff von außerhalb
 
@@ -76,7 +80,7 @@ Fachlich in eine spätere Version gelegt (Entscheidung 2026-11-13, Regel 2): **K
 | VPN (Tailscale-Add-on oder Router) | Nichts offen im Internet; alles wie zu Hause | App auf jedem Gerät, VPN muss laufen (auch für Kurzbefehle) |
 | Reverse Proxy mit eigener Domain und Zertifikat | Direkt erreichbar, auch für Kurzbefehle | Offen im Internet: Härtung nötig (Anmeldung, Begrenzung von Versuchen, Updates) |
 
-**Befunde:** K14 (HTTPS für Port 8099), C-H (CSRF-Schutz für POST-Formulare).
+**Befunde:** K14 (HTTPS für Port 8099).
 
 **Offene Fragen:** Welcher Weg? Reicht die Anmeldung über Home Assistant für die Vollbild-App von außen? Wie lange gelten Sitzungen unterwegs?
 
@@ -88,7 +92,7 @@ Fachlich in eine spätere Version gelegt (Entscheidung 2026-11-13, Regel 2): **K
 
 - Gewicht: Kurzbefehl liest das letzte Gewicht aus Health und schickt es an die API (Tabelle `weight`, schon im Datenmodell vorgesehen).
 - Nährwerte: Kurzbefehl holt die Tageswerte aus dem Tagebuch und schreibt sie als „Nahrungsenergie“, Eiweiß usw. nach Health. Doppelte Einträge bei mehrfachem Lauf vermeiden.
-- Automatisch über eine Automation in der Kurzbefehle-App (z. B. abends), je Benutzer mit eigenem Token (Frage aus 0.6.0).
+- Automatisch über eine Automation in der Kurzbefehle-App (z. B. abends), je Benutzer mit eigenem Token: Die API bekommt hier Tokens je Benutzer (Tabelle, nur als Hash gespeichert, in den Einstellungen erzeugen und widerrufen), weil sie erstmals ins Tagebuch schreibt (aus 0.6.0 verschoben, 2026-11-13).
 
 **Offene Fragen:** Wohin zeigt das Gewicht in Tellerplan (Verlauf, Einfluss auf Ziele)? Welche Nährwerte gehen nach Health?
 

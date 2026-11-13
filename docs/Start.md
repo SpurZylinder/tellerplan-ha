@@ -7,6 +7,7 @@ Einstieg in die Projektdoku. Dieser Ordner ist der sichtbare Teil des Obsidian-V
 - [[Architektur]] – Ziele, Module, Datenmodell, Abläufe, Ausbaustufen
 - [[Entwicklung]] – lokal einrichten, starten, prüfen, migrieren, veröffentlichen
 - [[Datenpflege]] – Rezepte (Cookidoo) und Produkte (REWE, Open Food Facts) aufbereiten und importieren
+- [[Version-0.6.0]] – Plan für 0.6.0: Befunde, dann mehrere Benutzer und Rollen
 - [[Versionsplan]] – nächste Versionen 0.6.0 bis 0.11.0 und die Regel für Befunde
 - [[Cookidoo-Sync]] – Abgleich mit dem Cookidoo-Kalender (0.5.0): Plan, Regeln, Tests, Sicherheitsprüfung
 - [[Cookidoo-API-Architektur]] – Aufbau und Datenströme der Bibliothek `cookidoo-api`

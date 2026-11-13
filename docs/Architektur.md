@@ -328,7 +328,7 @@ Konzept, nach Gewicht:
 - [x] **K3 Sicherung beim Start:** Kopierte nur `app.db` ohne WAL-Datei und überschrieb bei jedem Start die einzige Kopie. *Behoben:* Gesichert wird nur, wenn eine Migration ansteht, mit der Backup-Funktion von SQLite (enthält die WAL-Daten), als `app.db.<Zeitstempel>.bak`; die letzten drei bleiben.
 - [ ] **K4 HA-Sicherung „hot“:** Home Assistant kopiert `/data` bei laufender SQLite-Datenbank; die Kopie kann inkonsistent sein. Abhilfe: `backup_pre` mit Checkpoint oder `backup: cold`.
 - [x] **K5 Zeitzone:** `date.today()` nutzte die Zeit des Containers. *Behoben:* Zentrale Uhr `clock.py` mit der Zeitzone aus `TZ` (setzt der Supervisor) und den Zeitzonendaten aus dem Paket `tzdata`; der Start schreibt Zeitzone und Datum ins Protokoll.
-- [ ] **K6 Planportionen und „eingetragen“:** Ein Planeintrag gilt nach der ersten eingetragenen Portion als erledigt; Reste (Meal-Prep) bildet das Modell nicht ab. Nach dem Verschieben erscheint ein eingetragener Eintrag wieder als offen.
+- [x] **K6 Planportionen und „eingetragen“** (2026-11-13: kein Befund, Komfort-Idee, zum Abschluss von 0.6.0 bewerten, siehe [[Version-0.6.0]])**:** Ein Planeintrag gilt nach der ersten eingetragenen Portion als erledigt; Reste (Meal-Prep) bildet das Modell nicht ab. Nach dem Verschieben erscheint ein eingetragener Eintrag wieder als offen.
 - [ ] **K7 Doku und Umsetzung:** Das Datenmodell nennt eine historisierte Tabelle `goal`, umgesetzt sind Ziele als Optionen (alte Tage zeigen das neue Ziel). Außerdem fehlen die Tabellen `ingredient_alias`, `weight`, `import_job` noch, und die Systemübersicht zeigt `shopping` nicht.
 - [ ] **K8 Zwei Schreiber für die Optionen:** Eine Änderung in HA ohne Neustart geht verloren, wenn danach die Einstellseite speichert (letzter Schreiber gewinnt).
 - [ ] **K9 Zutat ohne Einheit = Gramm:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
@@ -338,6 +338,7 @@ Konzept, nach Gewicht:
 - [ ] **K13 Browser-Cache nach Updates:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
 - [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
+- [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2).
 
 Code, nach Gewicht:
 
