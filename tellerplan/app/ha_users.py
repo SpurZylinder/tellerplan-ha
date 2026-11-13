@@ -144,3 +144,29 @@ def oauth_current_user(server_url: str, client_id: str, refresh_token: str) -> P
     role = "Admin" if user.get("is_admin") else "kein Admin"
     summary = f"{user.get('name', '?')} (id {user.get('id', '?')}), {role}"
     return Probe(label, True, summary, _raw(user))
+
+
+@dataclass(frozen=True)
+class HaUser:
+    """Ein Benutzer von Home Assistant, wie ihn `auth/current_user` liefert."""
+
+    id: str
+    name: str
+    is_admin: bool
+
+
+def session_user(server_url: str, client_id: str, refresh_token: str) -> HaUser:
+    """Wer hinter einer Sitzung der Vollbild-App steht.
+
+    Wirft `LoginRejected`, wenn Home Assistant den Zugang entzogen hat, und
+    `HomeAssistantUnavailable`, wenn es nicht erreichbar ist oder nicht verständlich antwortet.
+    """
+    token = access_token(server_url, client_id, refresh_token)
+    websocket = server_url.replace("http", "ws", 1) + "/api/websocket"
+    try:
+        user = _run_websocket(websocket, token, {"type": "auth/current_user"})
+    except (_WebsocketError, ClientError, TimeoutError, ValueError) as error:
+        raise HomeAssistantUnavailable(f"Benutzer nicht abfragbar: {error}") from error
+    if not isinstance(user, dict) or not user.get("id"):
+        raise HomeAssistantUnavailable("Home Assistant liefert keinen Benutzer.")
+    return HaUser(str(user["id"]), str(user.get("name") or ""), bool(user.get("is_admin")))

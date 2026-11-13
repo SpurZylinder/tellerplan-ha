@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 import web.access as access
 import web.pages.login as login
 from ha_auth import ADDON_INTERNAL_URL, HomeAssistantUnavailable, LoginRejected
+from ha_users import HaUser
 from main import create_app
 from settings import Settings
 from supervisor import TOKEN_ENV_VAR
@@ -18,6 +19,8 @@ from web_sessions import CHECK_INTERVAL, WebSession
 
 APP_URL = "http://homeassistant.local:8099"
 Exchanges = list[tuple[str, str, str, str]]
+ADMIN = HaUser("a1", "SpurZylinder", is_admin=True)
+MEMBER = HaUser("b2", "Fabian", is_admin=False)
 
 
 @pytest.fixture
@@ -35,6 +38,8 @@ def exchanged(monkeypatch: pytest.MonkeyPatch) -> Exchanges:
         return "refresh-1"
 
     monkeypatch.setattr(login, "exchange_code", fake_exchange)
+    monkeypatch.setattr(login, "session_user", lambda *args: ADMIN)
+    monkeypatch.setattr(access, "session_user", lambda *args: ADMIN)
     return calls
 
 
@@ -134,7 +139,7 @@ def test_revoked_access_ends_the_session(
 
     _sign_in(standalone)
     _age_sessions(session)
-    monkeypatch.setattr(access, "check_refresh_token", rejected)
+    monkeypatch.setattr(access, "session_user", rejected)
 
     assert standalone.get("/").status_code == 303
     session.expire_all()
@@ -150,7 +155,7 @@ def test_unreachable_home_assistant_keeps_the_session(
 
     _sign_in(standalone)
     _age_sessions(session)
-    monkeypatch.setattr(access, "check_refresh_token", unreachable)
+    monkeypatch.setattr(access, "session_user", unreachable)
 
     assert standalone.get("/").status_code == 200
 
@@ -199,3 +204,56 @@ def test_local_ingress_port_is_open_without_supervisor(
     local = TestClient(create_app(migrated), base_url=f"http://localhost:{migrated.ingress_port}")
 
     assert local.get("/").status_code == 200
+
+
+@pytest.mark.usefixtures("exchanged")
+def test_non_admin_gets_no_session_and_access_is_revoked(
+    monkeypatch: pytest.MonkeyPatch, standalone: TestClient, session: Session
+) -> None:
+    # K16, Sofortmaßnahme: Vollbild-App vorerst nur für Admins
+    revoked: list[str] = []
+    monkeypatch.setattr(login, "session_user", lambda *args: MEMBER)
+    monkeypatch.setattr(login, "revoke", lambda server_url, token: revoked.append(token))
+
+    start = standalone.get("/auth/login")
+    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
+    response = standalone.get(f"/auth/callback?code=abc&state={state}")
+
+    assert response.status_code == 403
+    assert "Kein Zugriff" in response.text
+    assert revoked == ["refresh-1"]
+    assert session.scalars(select(WebSession)).all() == []
+    assert standalone.get("/").status_code == 303
+
+
+@pytest.mark.usefixtures("exchanged")
+def test_unknown_user_at_login_gets_no_session(
+    monkeypatch: pytest.MonkeyPatch, standalone: TestClient, session: Session
+) -> None:
+    def unreachable(*args: str) -> HaUser:
+        raise HomeAssistantUnavailable("weg")
+
+    revoked: list[str] = []
+    monkeypatch.setattr(login, "session_user", unreachable)
+    monkeypatch.setattr(login, "revoke", lambda server_url, token: revoked.append(token))
+
+    start = standalone.get("/auth/login")
+    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
+    response = standalone.get(f"/auth/callback?code=abc&state={state}")
+
+    assert response.status_code == 502
+    assert revoked == ["refresh-1"]
+    assert session.scalars(select(WebSession)).all() == []
+
+
+@pytest.mark.usefixtures("exchanged")
+def test_lost_admin_role_ends_the_session(
+    monkeypatch: pytest.MonkeyPatch, standalone: TestClient, session: Session
+) -> None:
+    _sign_in(standalone)
+    _age_sessions(session)
+    monkeypatch.setattr(access, "session_user", lambda *args: MEMBER)
+
+    assert standalone.get("/").status_code == 303
+    session.expire_all()
+    assert session.scalars(select(WebSession)).all() == []

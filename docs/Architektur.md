@@ -346,7 +346,7 @@ Konzept, nach Gewicht:
 - [x] **K21 Ergänzen in Bring traf den falschen gleichnamigen Eintrag** (gefunden 2026-11-13, behoben 0.5.6: `uid` wird vor dem Update nachgeschlagen).
 - [x] **K20 Produktname statt Grundzutat auf der Einkaufsliste** (gefunden 2026-11-13, behoben 0.5.4: Grundzutat als Name, Produkt in den Details).
 - [x] **K17 Einstellungen kommen nicht in Home Assistant an** – geschlossen 2026-11-13, kein Befund (falsch beobachtet beim Pi-Test von 0.5.1; die Einstellseite schreibt in den Reiter „Konfiguration“).
-- [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2).
+- [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2). Sofortmaßnahme in 0.5.10: Die Vollbild-App lässt vorerst nur Admins herein.
 
 Code, nach Gewicht:
 

@@ -193,3 +193,33 @@ def test_access_token_from_refresh_token(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(ha_auth, "_post", lambda url, form: {})
     with pytest.raises(LoginRejected):
         ha_auth.access_token("http://ha", "client", "refresh")
+
+
+def test_session_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ha_users, "access_token", lambda server, client, refresh: "zugang")
+    monkeypatch.setattr(
+        ha_users, "_run_websocket", lambda *args: {"id": "b2", "name": "Fabian", "is_admin": False}
+    )
+
+    user = ha_users.session_user("http://homeassistant:8123", "client", "refresh")
+
+    assert user == ha_users.HaUser("b2", "Fabian", is_admin=False)
+
+
+def test_session_user_without_answer_counts_as_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ha_auth import HomeAssistantUnavailable
+
+    def refuse(*args: Any) -> Any:
+        raise ha_users._WebsocketError("Verbindung ohne Antwort beendet")
+
+    monkeypatch.setattr(ha_users, "access_token", lambda server, client, refresh: "zugang")
+    monkeypatch.setattr(ha_users, "_run_websocket", refuse)
+
+    with pytest.raises(HomeAssistantUnavailable):
+        ha_users.session_user("http://ha", "c", "r")
+
+    monkeypatch.setattr(ha_users, "_run_websocket", lambda *args: {"name": "ohne id"})
+    with pytest.raises(HomeAssistantUnavailable):
+        ha_users.session_user("http://ha", "c", "r")

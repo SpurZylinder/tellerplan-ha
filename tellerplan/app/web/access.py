@@ -16,8 +16,8 @@ from ha_auth import (
     ADDON_INTERNAL_URL,
     HomeAssistantUnavailable,
     LoginRejected,
-    check_refresh_token,
 )
+from ha_users import session_user
 from settings import Settings
 from supervisor import supervisor_token
 from web_sessions import WebSession, delete_session, find_session, mark_checked, needs_check
@@ -57,9 +57,13 @@ def server_url(request: Request) -> str:
 
 
 def _still_valid(request: Request, session: Session, web_session: WebSession) -> bool:
-    """Fragt bei Home Assistant nach; ist es nicht erreichbar, gilt die Sitzung weiter."""
+    """Fragt bei Home Assistant nach; ist es nicht erreichbar, gilt die Sitzung weiter.
+
+    Vorerst darf nur, wer in Home Assistant Admin ist (Befund K16, Sofortmaßnahme bis zu
+    den Rollen in 0.6.0): Wird einem Benutzer das Admin-Recht entzogen, endet die Sitzung.
+    """
     try:
-        check_refresh_token(server_url(request), web_session.client_id, web_session.refresh_token)
+        user = session_user(server_url(request), web_session.client_id, web_session.refresh_token)
     except LoginRejected:
         logger.info("Zugang in Home Assistant entzogen, Sitzung beendet")
         delete_session(session, web_session)
@@ -67,6 +71,11 @@ def _still_valid(request: Request, session: Session, web_session: WebSession) ->
         return False
     except HomeAssistantUnavailable:
         return True
+    if not user.is_admin:
+        logger.info("Vollbild-App: Benutzer ist kein Admin (mehr), Sitzung beendet")
+        delete_session(session, web_session)
+        session.commit()
+        return False
     mark_checked(session, web_session)
     session.commit()
     return True

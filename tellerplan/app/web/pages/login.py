@@ -21,6 +21,7 @@ from ha_auth import (
     new_state,
     revoke,
 )
+from ha_users import session_user
 from web.access import SESSION_COOKIE, browser_url, client_id, is_standalone, server_url
 from web.forms import redirect_to
 from web.templating import path_for, render
@@ -90,6 +91,29 @@ def login_callback(
     except (LoginRejected, HomeAssistantUnavailable) as error:
         logger.warning("Anmeldung über Home Assistant fehlgeschlagen: %s", error)
         return _message(request, "Anmeldung fehlgeschlagen", str(error), status_code=502)
+
+    # Vorerst nur Admins (Befund K16): Rollen für alle anderen kommen mit 0.6.0
+    try:
+        user = session_user(server_url(request), client_id(request), refresh_token)
+    except (LoginRejected, HomeAssistantUnavailable) as error:
+        logger.warning("Anmeldung: Benutzer nicht prüfbar: %s", error)
+        revoke(server_url(request), refresh_token)
+        return _message(
+            request,
+            "Anmeldung nicht möglich",
+            "Home Assistant hat nicht verraten, wer angemeldet ist. Bitte später erneut versuchen.",
+            status_code=502,
+        )
+    if not user.is_admin:
+        logger.info("Vollbild-App: Anmeldung abgelehnt, Benutzer ist kein Admin")
+        revoke(server_url(request), refresh_token)
+        return _message(
+            request,
+            "Kein Zugriff",
+            "Die Vollbild-App ist vorerst nur für Admins in Home Assistant. "
+            "Eigene Bereiche für alle Benutzer kommen mit Tellerplan 0.6.0.",
+            status_code=403,
+        )
 
     token = create_session(session, refresh_token, client_id(request))
     session.commit()

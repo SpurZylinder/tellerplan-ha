@@ -80,7 +80,11 @@ def exchange_code(server_url: str, client_id: str, code: str, verifier: str) -> 
 
 
 def access_token(server_url: str, client_id: str, refresh_token: str) -> str:
-    """Kurzlebiger Zugang aus dem Refresh-Token, z. B. für die Websocket-API."""
+    """Kurzlebiger Zugang aus dem Refresh-Token, z. B. für die Websocket-API.
+
+    Prüft zugleich, ob der Zugang noch gilt: `LoginRejected`, wenn Home Assistant ihn
+    entzogen hat, `HomeAssistantUnavailable`, wenn es nicht erreichbar ist.
+    """
     body = _post_token(
         server_url,
         {"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": client_id},
@@ -89,14 +93,6 @@ def access_token(server_url: str, client_id: str, refresh_token: str) -> str:
     if not isinstance(token, str) or not token:
         raise LoginRejected("Home Assistant hat keinen Zugang geliefert.")
     return token
-
-
-def check_refresh_token(server_url: str, client_id: str, refresh_token: str) -> None:
-    """Prüft, ob der Zugang noch gilt; wirft LoginRejected, wenn nicht."""
-    _post_token(
-        server_url,
-        {"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": client_id},
-    )
 
 
 def revoke(server_url: str, refresh_token: str) -> None:

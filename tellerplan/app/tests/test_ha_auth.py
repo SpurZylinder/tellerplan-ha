@@ -15,7 +15,7 @@ import ha_auth
 from ha_auth import (
     HomeAssistantUnavailable,
     LoginRejected,
-    check_refresh_token,
+    access_token,
     exchange_code,
     new_pkce,
     revoke,
@@ -93,7 +93,7 @@ def test_invalid_grant_means_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     _fail(monkeypatch, HTTPError(HA, 400, "Bad Request", None, io.BytesIO(b"{}")))
 
     with pytest.raises(LoginRejected):
-        check_refresh_token(HA, CLIENT, "r")
+        access_token(HA, CLIENT, "r")
 
 
 @pytest.mark.parametrize(
@@ -108,7 +108,7 @@ def test_other_failures_mean_unavailable(monkeypatch: pytest.MonkeyPatch, error:
     _fail(monkeypatch, error)
 
     with pytest.raises(HomeAssistantUnavailable):
-        check_refresh_token(HA, CLIENT, "r")
+        access_token(HA, CLIENT, "r")
 
 
 def test_revoke_posts_token_and_never_raises(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -137,13 +137,25 @@ Wie Schritt 1 bei [[Cookidoo-Sync]]: Erst messen, dann bauen. Einstellungen beko
 
 `panel_admin` bleibt in 0.5.9 auf der Vorgabe (`true`): Mit `false` sähen Nicht-Admins Tellerplan schon jetzt mit allen Rechten (K16). Die Punkte zu Nicht-Admins unten werden darum in B2 geprüft, zusammen mit den Rollen.
 
-- [ ] Kommen die Kopfzeilen `X-Remote-User-*` über Ingress an, für Admin und Nicht-Admin? (Für den Nicht-Admin vorher `panel_admin: false` setzen.)
-- [ ] Sieht und öffnet ein Nicht-Admin das Panel mit `panel_admin: false`? Geht Ingress für ihn ohne Fehler?
-- [ ] Wie erfährt Tellerplan über Ingress, ob jemand Admin ist? Kandidaten, zu prüfen in dieser Reihenfolge: Benutzerliste der Supervisor-API, Websocket `config/auth/list` über den Supervisor-Proxy mit `SUPERVISOR_TOKEN`. Welche Rechte (`hassio_role`, `homeassistant_api`) braucht das?
-- [ ] Liefert `auth/current_user` mit dem Access-Token der Vollbild-App `id`, `name` und `is_admin`?
-- [ ] Ergebnisse hier eintragen und danach das Rollenmodell bestätigen oder anpassen.
+**Ergebnis auf dem Pi (0.5.9, 2026-11-13):**
 
-#### B2: Benutzer und Rollen (0.5.x)
+- [x] Kopfzeilen über Ingress: ✓ `X-Remote-User-Id` (HA-Benutzer-ID), `-Name` (Benutzername), `-Display-Name`.
+- [x] Supervisor-API `GET /auth/list`: ✗ 403 – wird nicht gebraucht, darum kein zusätzliches Recht.
+- [x] Websocket `config/auth/list` mit `SUPERVISOR_TOKEN` über `ws://supervisor/core/websocket`: ✓ alle Benutzer mit `id`, `username`, `name`, `is_owner`, `is_active`, `local_only`, `system_generated`, `group_ids`. Admin = Gruppe `system-admin`. Reicht mit dem vorhandenen `homeassistant_api`.
+- [x] Vollbild-App `auth/current_user` mit dem Zugang aus der Sitzung: ✓ `id`, `name`, `is_owner`, `is_admin`.
+- [ ] Nicht-Admin sieht und öffnet das Panel mit `panel_admin: false` – in B2, zusammen mit den Rollen.
+- Befund dabei: Es gibt bereits einen Benutzer ohne Admin-Rechte („Fabian“, `system-users`). Er könnte sich heute in der Vollbild-App anmelden und hätte alle Rechte (K16, nicht nur theoretisch). Sofortmaßnahme als erster Teil von B2.
+
+**Entscheidung für B2:** Wer es ist, kommt über Ingress aus den Kopfzeilen, in der Vollbild-App aus `auth/current_user` bei der Anmeldung (ID in der Sitzung). Ob jemand Admin und aktiv ist, kommt für beide aus `config/auth/list` (kurz zwischengespeichert). Systembenutzer (`system_generated`) kommen nie herein.
+
+#### B2a: Sofortmaßnahme K16 (0.5.10)
+
+- [x] Vollbild-App vorerst nur für Admins: Nach dem Einlösen des Codes fragt Tellerplan `auth/current_user` ab (`ha_users.session_user`). Wer kein Admin ist, bekommt „Kein Zugriff“ (403), und der eben erteilte Zugang wird in Home Assistant wieder entzogen. Ist der Benutzer nicht abfragbar, gibt es keine Sitzung (502).
+- [x] Die Prüfung der Sitzung alle 30 Minuten fragt auch die Rolle ab: kein Admin mehr → Sitzung beendet. Home Assistant nicht erreichbar → bestehende Sitzung gilt weiter (wie bisher). Bestehende Sitzungen werden damit spätestens 30 Minuten nach dem Update geprüft.
+- [x] `ha_auth.check_refresh_token` entfällt; `access_token` prüft den Zugang mit.
+- [ ] Test auf dem Pi: Admin meldet sich in der Vollbild-App an (wie bisher); „Fabian“ bekommt „Kein Zugriff“ und erscheint in Home Assistant nicht mehr unter den angemeldeten Geräten.
+
+#### B2b: Benutzer und Rollen (0.5.x)
 
 - [ ] Modul `users` (neu, unterhalb von `diary` in der Abhängigkeitsrichtung; Regel 7 um `users` ergänzen): Tabelle `app_user` (HA-Benutzer-ID, Name, zuletzt gesehen), `CurrentUser(id, name, is_admin)`.
 - [ ] `web/access.py` ermittelt den Benutzer je Anfrage: Ingress aus den Kopfzeilen, Vollbild-App aus der Sitzung (`web_session.user_id`, Migration). Die Rolle wird kurz zwischengespeichert, damit nicht jede Anfrage bei Home Assistant nachfragt.

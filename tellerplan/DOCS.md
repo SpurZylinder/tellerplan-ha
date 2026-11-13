@@ -5,7 +5,7 @@ Kalorien zählen, Rezepte verwalten und die Woche planen – direkt in Home Assi
 ## Zugang
 
 - **Oberfläche in Home Assistant:** über die Seitenleiste (Ingress), ohne eigenes Login.
-- **Vollbild-App:** `http://<IP von Home Assistant>:8099/`, z. B. `http://192.168.178.20:8099/`. Die Anmeldung läuft über Home Assistant: Wer sich dort anmelden kann, kommt auch in Tellerplan. In den Einstellungen von Tellerplan lässt sich das Gerät wieder abmelden; das entzieht den Zugang auch in Home Assistant.
+- **Vollbild-App:** `http://<IP von Home Assistant>:8099/`, z. B. `http://192.168.178.20:8099/`. Die Anmeldung läuft über Home Assistant. Vorerst kommen nur Admins von Home Assistant herein; andere Benutzer sehen „Kein Zugriff“, eigene Bereiche für sie kommen mit 0.6.0. Wird einem Benutzer das Admin-Recht entzogen, endet seine Sitzung spätestens nach 30 Minuten. In den Einstellungen von Tellerplan lässt sich das Gerät wieder abmelden; das entzieht den Zugang auch in Home Assistant.
 - **API:** ebenfalls Port 8099, aber unter `/api/…` und nur mit `Authorization: Bearer <api_token>`. Ohne gesetzten Token ist die API gesperrt.
 
 ### Vollbild-App auf dem iPhone
