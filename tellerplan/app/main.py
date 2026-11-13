@@ -15,8 +15,8 @@ from modules.nutrition.service import set_standard_units
 from security import PortAccessMiddleware, SameOriginMiddleware
 from settings import Settings, get_settings, options_path
 from web import router as web_router
-from web.access import LoginRequired
-from web.templating import path_for
+from web.access import LoginRequired, NoAccess, is_standalone
+from web.templating import path_for, render
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -43,7 +43,20 @@ def create_app(settings: Settings | None = None, options_file: Path | None = Non
     app.include_router(api_v1_router, prefix="/api/v1")
     app.include_router(web_router)
     app.add_exception_handler(LoginRequired, _to_login)
+    app.add_exception_handler(NoAccess, _no_access)
     return app
+
+
+def _no_access(request: Request, error: Exception) -> Response:
+    """Kein Zugriff: eigene Seite ohne Tab-Leiste; HTMX-Anfragen bekommen nur den Status."""
+    reason = error.reason if isinstance(error, NoAccess) else ""
+    if request.headers.get("HX-Request"):
+        return Response(reason, status_code=403)
+    response: Response = render(
+        request, "auth/no_access.html", reason=reason, standalone=is_standalone(request)
+    )
+    response.status_code = 403
+    return response
 
 
 def _to_login(request: Request, _error: Exception) -> Response:

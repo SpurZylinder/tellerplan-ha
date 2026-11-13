@@ -22,7 +22,7 @@ from ha_auth import (
 )
 
 HA = "http://homeassistant:8123"
-CLIENT = "http://homeassistant.local:8099/"
+CLIENT = "http://tellerplan.test:8099/"
 
 
 class _Response:

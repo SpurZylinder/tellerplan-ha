@@ -7,7 +7,14 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+import cookidoo as cookidoo_module
+import ha_auth as ha_auth_module
+import ha_users as ha_users_module
+import supervisor as supervisor_module
+import web.access as web_access
 from db import create_db_engine, create_session_factory
+from ha_auth import HomeAssistantUnavailable
+from ha_users import HaAccount
 from main import create_app
 from migrate import upgrade_to_head
 from modules.nutrition.service import set_standard_units
@@ -35,6 +42,7 @@ TEST_OPTIONS = {
     "bring_list_entity": "todo.einkauf",
     "cookidoo_locale": "de-DE",
     "api_token": "test-token",
+    "allowed_users": [],
     "homeassistant_url": "",
     "database_path": "app.db",
 }
@@ -94,14 +102,74 @@ def _closing(client: TestClient) -> Iterator[TestClient]:
     client.app.state.engine.dispose()
 
 
+class NetworkInTest(RuntimeError):
+    """Ein Test hat versucht, echtes Netzwerk zu nutzen."""
+
+
+def _no_network(*args: object, **kwargs: object) -> object:
+    raise NetworkInTest(
+        "Tests dürfen kein echtes Netzwerk nutzen (Home Assistant, Supervisor, Cookidoo); "
+        "bitte die Aufrufe im Test durch eine Attrappe ersetzen."
+    )
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sperrt alle Netzwerkzugänge der App; Tests, die sie brauchen, ersetzen sie selbst.
+
+    Anlass (2026-11-13): Tests der Vollbild-App erreichten über `homeassistant.local` das
+    echte Home Assistant im Heimnetz, das sie als fehlgeschlagene Anmeldungen protokollierte.
+    """
+    monkeypatch.setattr(ha_auth_module, "urlopen", _no_network)
+    monkeypatch.setattr(supervisor_module, "urlopen", _no_network)
+    monkeypatch.setattr(ha_users_module, "_run_websocket", _no_network)
+    monkeypatch.setattr(cookidoo_module, "Cookidoo", _no_network)
+
+
+# Konten wie in Home Assistant; die Test-Clients sind über Ingress als ADMIN_ID angemeldet
+ADMIN_ID = "admin-id"
+MEMBER_ID = "member-id"
+ACCOUNTS = {
+    ADMIN_ID: HaAccount(ADMIN_ID, "spurzylinder", "SpurZylinder", True, True, False),
+    MEMBER_ID: HaAccount(MEMBER_ID, "fabian", "Fabian", False, True, False),
+    # Angemeldete in den Tests der Vollbild-App (test_login.py)
+    "a1": HaAccount("a1", "spurzylinder", "SpurZylinder", True, True, False),
+    "b2": HaAccount("b2", "fabian", "Fabian", False, True, False),
+    "sys": HaAccount("sys", "", "Supervisor", True, True, True),
+    "gone": HaAccount("gone", "alt", "Alt", False, False, False),
+}
+INGRESS_HEADERS = {"x-remote-user-id": ADMIN_ID, "x-remote-user-name": "spurzylinder"}
+
+
+class FakeDirectory:
+    """Benutzerliste von Home Assistant ohne Netzwerk."""
+
+    def __init__(self) -> None:
+        self.accounts = dict(ACCOUNTS)
+        self.unavailable = False
+
+    def find(self, token: str, user_id: str) -> HaAccount | None:
+        if self.unavailable:
+            raise HomeAssistantUnavailable("weg")
+        return self.accounts.get(user_id)
+
+
+@pytest.fixture(autouse=True)
+def accounts(monkeypatch: pytest.MonkeyPatch) -> FakeDirectory:
+    fake = FakeDirectory()
+    monkeypatch.setattr(web_access, "directory", fake)
+    return fake
+
+
 @pytest.fixture
 def ingress_client(migrated: Settings, options_file: Path) -> Iterator[TestClient]:
-    """Wie der Ingress-Proxy von Home Assistant: Ingress-Port, Absender 172.30.32.2."""
+    """Wie der Ingress-Proxy von Home Assistant: Ingress-Port, Absender 172.30.32.2, Admin."""
     yield from _closing(
         TestClient(
             create_app(migrated, options_file),
             base_url=f"http://testserver:{migrated.ingress_port}",
             client=(INGRESS_PROXY_IP, 50000),
+            headers=INGRESS_HEADERS,
         )
     )
 

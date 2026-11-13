@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, Response
 
 import clock
@@ -25,7 +25,7 @@ from settings import (
     save_options,
 )
 from supervisor import SupervisorError, supervisor_token
-from web.access import is_standalone, server_url
+from web.access import is_standalone, require_admin, server_url
 from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
@@ -89,7 +89,7 @@ def _render(
     )
 
 
-@router.post("/users", response_class=HTMLResponse)
+@router.post("/users", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def users_check(request: Request) -> HTMLResponse:
     """Erkundung B1: Wie erfährt Tellerplan, wer die Seite öffnet und wer Admin ist? Nur lesend."""
     probes: list[Probe] = []
@@ -159,7 +159,7 @@ def settings_page(request: Request, saved: bool = False) -> HTMLResponse:
     return _render(request, _current_values(request.app.state.settings), saved=saved)
 
 
-@router.post("", response_model=None)
+@router.post("", response_model=None, dependencies=[Depends(require_admin)])
 def settings_save(
     request: Request,
     daily_kcal_limit: Annotated[str, Form()] = "",
@@ -193,7 +193,7 @@ def settings_save(
     return redirect_to(request, "settings_page", query={"saved": "1"})
 
 
-@router.post("/cookidoo", response_model=None)
+@router.post("/cookidoo", response_model=None, dependencies=[Depends(require_admin)])
 def cookidoo_connect(
     request: Request,
     email: Annotated[str, Form()] = "",
@@ -215,7 +215,7 @@ def cookidoo_connect(
     return redirect_to(request, "settings_page", anchor="#cookidoo")
 
 
-@router.post("/cookidoo/check", response_class=HTMLResponse)
+@router.post("/cookidoo/check", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def cookidoo_check(request: Request) -> HTMLResponse:
     """Liest die nächsten Tage aus „Meine Woche“, ohne etwas zu ändern."""
     settings = request.app.state.settings
@@ -228,7 +228,7 @@ def cookidoo_check(request: Request) -> HTMLResponse:
     return _render(request, values, cookidoo_check=recipes)
 
 
-@router.post("/cookidoo/disconnect", response_model=None)
+@router.post("/cookidoo/disconnect", response_model=None, dependencies=[Depends(require_admin)])
 def cookidoo_disconnect(request: Request) -> Response:
     cookidoo_account(request.app.state.settings).disconnect()
     return redirect_to(request, "settings_page", anchor="#cookidoo")

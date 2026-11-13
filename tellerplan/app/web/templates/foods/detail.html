@@ -13,7 +13,7 @@
       {{ food_source(food) }}
       {% if food.source != "bls" %}
         <a class="btn ghost small" href="{{ url('food_edit', food_id=food.id) }}">Bearbeiten</a>
-        <a class="btn danger small" href="{{ url('food_delete_confirm', food_id=food.id) }}">Löschen</a>
+        {% if is_admin %}<a class="btn danger small" href="{{ url('food_delete_confirm', food_id=food.id) }}">Löschen</a>{% endif %}
       {% endif %}
     </div>
   </header>

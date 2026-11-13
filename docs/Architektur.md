@@ -346,7 +346,7 @@ Konzept, nach Gewicht:
 - [x] **K21 Ergänzen in Bring traf den falschen gleichnamigen Eintrag** (gefunden 2026-11-13, behoben 0.5.6: `uid` wird vor dem Update nachgeschlagen).
 - [x] **K20 Produktname statt Grundzutat auf der Einkaufsliste** (gefunden 2026-11-13, behoben 0.5.4: Grundzutat als Name, Produkt in den Details).
 - [x] **K17 Einstellungen kommen nicht in Home Assistant an** – geschlossen 2026-11-13, kein Befund (falsch beobachtet beim Pi-Test von 0.5.1; die Einstellseite schreibt in den Reiter „Konfiguration“).
-- [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2). Sofortmaßnahme in 0.5.10: Die Vollbild-App lässt vorerst nur Admins herein.
+- [ ] **K16 Jeder HA-Benutzer darf alles** (gefunden 2026-11-13): Die Vollbild-App prüft nur, ob jemand bei Home Assistant angemeldet ist, nicht wer und mit welcher Rolle. Jeder HA-Benutzer, auch ohne Admin-Rechte, kann so die Add-on-Optionen schreiben und den Cookidoo-Zugang verbinden oder trennen. Eingeplant in 0.6.0 ([[Version-0.6.0]], B2). Sofortmaßnahme in 0.5.10 (nur Admins), seit 0.5.11 Rollen: Verwalter-Seiten nur für Admins, alle anderen mit den Rechten eines Benutzers.
 
 Code, nach Gewicht:
 
@@ -359,6 +359,7 @@ Code, nach Gewicht:
 - [x] **C-G Testlücken** (behoben 0.5.4/0.5.5: Datumsgrenzen, Coverage-Bericht, aufgezeichnete Antwort von `todo.get_items`).
 - [x] **C-H Kein CSRF-Schutz** (behoben 0.5.7: `security.SameOriginMiddleware` prüft `Origin`/`Referer` bei schreibenden Anfragen der Oberfläche).
 - [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
+- [x] **C-L Tests erreichten das echte Home Assistant** (gefunden 2026-11-13, behoben 0.5.11: Netzsperre in allen Tests, Testadressen mit `.test`).
 - [x] **C-K Zeitstempel der Sicherung in Container-Zeit** (gefunden 2026-11-13, behoben 0.5.4): `db.backup_database` nutzte `datetime.now()` statt `clock.now()`.
 - [x] **C-I Kleinigkeiten** (behoben 0.5.3, siehe [[Version-0.6.0]])**:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
 

@@ -14,6 +14,8 @@ Kopieren. Fehler werden angezeigt, nie geworfen: Die Seite soll alle vier Ergebn
 
 import asyncio
 import json
+import threading
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -170,3 +172,82 @@ def session_user(server_url: str, client_id: str, refresh_token: str) -> HaUser:
     if not isinstance(user, dict) or not user.get("id"):
         raise HomeAssistantUnavailable("Home Assistant liefert keinen Benutzer.")
     return HaUser(str(user["id"]), str(user.get("name") or ""), bool(user.get("is_admin")))
+
+
+@dataclass(frozen=True)
+class HaAccount:
+    """Ein Konto in Home Assistant, wie es `config/auth/list` liefert."""
+
+    id: str
+    username: str
+    name: str
+    is_admin: bool
+    is_active: bool
+    system_generated: bool
+
+
+def _account(raw: dict[str, Any]) -> HaAccount:
+    return HaAccount(
+        id=str(raw.get("id") or ""),
+        username=str(raw.get("username") or ""),
+        name=str(raw.get("name") or raw.get("username") or ""),
+        is_admin=ADMIN_GROUP in (raw.get("group_ids") or []),
+        is_active=bool(raw.get("is_active", True)),
+        system_generated=bool(raw.get("system_generated")),
+    )
+
+
+def list_accounts(token: str) -> list[HaAccount]:
+    """Alle Konten von Home Assistant; `HomeAssistantUnavailable`, wenn das nicht klappt."""
+    try:
+        users = _run_websocket(CORE_WEBSOCKET_URL, token, {"type": "config/auth/list"})
+    except (_WebsocketError, ClientError, TimeoutError, ValueError) as error:
+        raise HomeAssistantUnavailable(f"Benutzerliste nicht abrufbar: {error}") from error
+    if not isinstance(users, list):
+        raise HomeAssistantUnavailable("Home Assistant liefert keine Benutzerliste.")
+    return [_account(user) for user in users if isinstance(user, dict) and user.get("id")]
+
+
+class AccountDirectory:
+    """Konten aus Home Assistant, kurz zwischengespeichert.
+
+    Rollen ändern sich selten; die Liste wird höchstens alle `ttl` Sekunden neu geholt.
+    Ist Home Assistant kurz nicht erreichbar (z. B. Neustart), gilt der letzte Stand noch
+    `stale_ttl` Sekunden, damit niemand ausgesperrt wird. Danach gilt: kein Zugriff.
+    """
+
+    def __init__(self, ttl: float = 60.0, stale_ttl: float = 3600.0) -> None:
+        self.ttl = ttl
+        self.stale_ttl = stale_ttl
+        self._accounts: dict[str, HaAccount] = {}
+        self._loaded_at: float | None = None
+        self._lock = threading.Lock()
+
+    def find(self, token: str, user_id: str) -> HaAccount | None:
+        """Konto zur Benutzer-ID; None, wenn es das Konto nicht gibt."""
+        return self._current(token).get(user_id)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._accounts = {}
+            self._loaded_at = None
+
+    def _current(self, token: str) -> dict[str, HaAccount]:
+        with self._lock:
+            now = time.monotonic()
+            age = None if self._loaded_at is None else now - self._loaded_at
+            if age is not None and age < self.ttl:
+                return self._accounts
+            try:
+                accounts = list_accounts(token)
+            except HomeAssistantUnavailable:
+                if age is not None and age < self.stale_ttl:
+                    return self._accounts
+                raise
+            self._accounts = {account.id: account for account in accounts}
+            self._loaded_at = now
+            return self._accounts
+
+
+# Ein Verzeichnis für die ganze App (die Konten sind für alle Anfragen dieselben)
+directory = AccountDirectory()

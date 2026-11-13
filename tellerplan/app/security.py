@@ -28,6 +28,8 @@ INGRESS_PATH_HEADER = "x-ingress-path"
 FORWARDED_HOST_HEADER = "x-forwarded-host"
 # Methoden, die etwas ändern; nur sie brauchen den Schutz vor fremden Seiten
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# Kopfzeilen, mit denen Home Assistant über Ingress den Benutzer nennt
+REMOTE_USER_PREFIX = b"x-remote-user-"
 # Absender aller Ingress-Anfragen im internen Netz von Home Assistant
 INGRESS_PROXY_IP = "172.30.32.2"
 
@@ -43,6 +45,7 @@ class PortAccessMiddleware:
             return
 
         if _server_port(scope) == self.settings.api_port:
+            _drop_remote_user_headers(scope)
             rejection = self._reject_api_request(scope)
         else:
             rejection = _reject_foreign_ingress(scope)
@@ -124,6 +127,19 @@ def _reject_foreign_ingress(scope: Scope) -> PlainTextResponse | None:
     if client is not None and client[0] == INGRESS_PROXY_IP:
         return None
     return PlainTextResponse("Nur über Home Assistant erreichbar", status_code=403)
+
+
+def _drop_remote_user_headers(scope: Scope) -> None:
+    """Auf dem Port der Vollbild-App kommt niemand über den Ingress-Proxy.
+
+    Die Kopfzeilen `X-Remote-User-*` könnte dort jeder im Heimnetz selbst setzen und sich
+    so als anderer Benutzer ausgeben; sie werden entfernt, bevor die App sie sieht.
+    """
+    scope["headers"] = [
+        (name, value)
+        for name, value in scope.get("headers", [])
+        if not name.lower().startswith(REMOTE_USER_PREFIX)
+    ]
 
 
 def _server_port(scope: Scope) -> int | None:

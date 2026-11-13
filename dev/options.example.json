@@ -83,6 +83,7 @@
   ],
   "bring_list_entity": "",
   "api_token": "lokal-geheim",
+  "allowed_users": [],
   "cookidoo_locale": "de-DE",
   "homeassistant_url": "",
   "database_path": "app.db"

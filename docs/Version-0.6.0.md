@@ -153,9 +153,27 @@ Wie Schritt 1 bei [[Cookidoo-Sync]]: Erst messen, dann bauen. Einstellungen beko
 - [x] Vollbild-App vorerst nur für Admins: Nach dem Einlösen des Codes fragt Tellerplan `auth/current_user` ab (`ha_users.session_user`). Wer kein Admin ist, bekommt „Kein Zugriff“ (403), und der eben erteilte Zugang wird in Home Assistant wieder entzogen. Ist der Benutzer nicht abfragbar, gibt es keine Sitzung (502).
 - [x] Die Prüfung der Sitzung alle 30 Minuten fragt auch die Rolle ab: kein Admin mehr → Sitzung beendet. Home Assistant nicht erreichbar → bestehende Sitzung gilt weiter (wie bisher). Bestehende Sitzungen werden damit spätestens 30 Minuten nach dem Update geprüft.
 - [x] `ha_auth.check_refresh_token` entfällt; `access_token` prüft den Zugang mit.
-- [ ] Test auf dem Pi: Admin meldet sich in der Vollbild-App an (wie bisher); „Fabian“ bekommt „Kein Zugriff“ und erscheint in Home Assistant nicht mehr unter den angemeldeten Geräten.
+- [x] Test auf dem Pi (2026-11-13): Admin meldet sich in der Vollbild-App an wie bisher; ein Benutzer ohne Admin-Rechte bekommt die Seite „Kein Zugriff“ von Tellerplan (ohne Tab-Leiste, mit „Mit Home Assistant anmelden“ für ein anderes Konto).
 
-#### B2b: Benutzer und Rollen (0.5.x)
+#### B2b: Benutzer und Rollen (0.5.11, Teil 1)
+
+Umgesetzt in 0.5.11 (das Panel bleibt noch nur für Admins sichtbar):
+
+- [x] Modul `modules/users` mit Tabelle `app_user` (HA-Benutzer-ID, Name, zuerst/zuletzt gesehen), Migration 0018; Regel 7: `users` ← `diary`.
+- [x] `web/access.py`: `require_user` ermittelt je Anfrage den Benutzer (`CurrentUser`): über Ingress aus `X-Remote-User-*`, in der Vollbild-App aus der Sitzung (`web_session.user_id`, Name, Admin-Recht; Migration 0018; ältere Sitzungen melden neu an). Im Add-on prüft er das Konto in der Benutzerliste von Home Assistant (`ha_users.directory`, `config/auth/list`, 60 s zwischengespeichert, bei Ausfall bis 1 h der letzte Stand): unbekannt, deaktiviert oder Systemkonto → „Kein Zugriff“; sonst Rolle aus der Gruppe `system-admin`. Lokal ohne Supervisor: ein lokaler Verwalter.
+- [x] Option `allowed_users` (HA-Benutzernamen; leer = alle echten Benutzer).
+- [x] `require_admin` an allen Verwalter-Seiten: Optionen speichern, Cookidoo verbinden/prüfen/trennen, „Benutzer prüfen“, „Bring-Liste prüfen“, alle Importe, Rezepte und Lebensmittel löschen, Grundzutaten zusammenführen (Vorschlag, weil unumkehrbar).
+- [x] Oberfläche: Benutzer sehen die Tagesziele nur lesend, keine Cookidoo-Verbindung, keine Importe, keine Lösch- und Zusammenführen-Knöpfe; „Angemeldet als … · Verwalter/Benutzer“ in den Einstellungen. „Kein Zugriff“ als eigene Seite ohne Tab-Leiste.
+- [x] Die Vollbild-App lässt jetzt auch Nicht-Admins herein, mit den Rechten eines Benutzers (löst die Sperre aus B2a ab).
+- [x] `X-Remote-User-*` werden auf Port 8099 entfernt (`security._drop_remote_user_headers`).
+- [x] Tests: `tests/test_roles.py` (Verwalter-Seiten, Freigabe, Systemkonten, Ausfall von Home Assistant, Zwischenspeicher).
+- [x] **C-L Tests erreichten das echte Home Assistant** (neu 2026-11-13, behoben 0.5.11): Die Tests der Vollbild-App nutzten `homeassistant.local` als Adresse; ein nicht ersetzter Aufruf ging so an das echte Home Assistant im Heimnetz, das sechs fehlgeschlagene Anmeldungen protokollierte (Python-urllib, `/auth/token`, mit erfundenen Tokens, harmlos). Jetzt sperrt `tests/conftest.py` alle Netzwerkzugänge der App (`no_network`), und die Tests nutzen die reservierte Endung `.test`.
+
+#### B2b: Teil 2 (0.5.12)
+
+- [ ] `panel_admin: false`, Test mit einem Benutzer ohne Admin-Rechte über Ingress (siehe „Test auf dem Pi“).
+
+Ursprünglicher Plan für B2b:
 
 - [ ] Modul `users` (neu, unterhalb von `diary` in der Abhängigkeitsrichtung; Regel 7 um `users` ergänzen): Tabelle `app_user` (HA-Benutzer-ID, Name, zuletzt gesehen), `CurrentUser(id, name, is_admin)`.
 - [ ] `web/access.py` ermittelt den Benutzer je Anfrage: Ingress aus den Kopfzeilen, Vollbild-App aus der Sitzung (`web_session.user_id`, Migration). Die Rolle wird kurz zwischengespeichert, damit nicht jede Anfrage bei Home Assistant nachfragt.

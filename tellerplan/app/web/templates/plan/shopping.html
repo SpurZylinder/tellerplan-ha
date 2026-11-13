@@ -91,7 +91,7 @@
     </details>
   {% endif %}
 
-  {% if can_check and list_entity %}
+  {% if can_check and list_entity and is_admin %}
     <details class="card"{% if check %} open{% endif %}>
       <summary><h2>Bring-Liste prüfen</h2></summary>
       <p class="meta">Liest die Funktionen von {{ list_entity }} und ihre offenen Einträge, ändert nichts.</p>

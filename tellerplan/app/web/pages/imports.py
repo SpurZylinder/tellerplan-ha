@@ -24,13 +24,15 @@ from modules.foods.importer import (
 )
 from modules.importers.service import ImportFormatError, ImportResult, import_document
 from modules.recipes.service import list_placeholders
+from web.access import require_admin
 from web.cookidoo_fill import FillResult, adopt_servings, fill_placeholders
 from web.pages.settings_page import cookidoo_account
 from web.templating import render
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/settings/import")
+# Importe ändern viele Daten auf einmal: nur für Verwalter
+router = APIRouter(prefix="/settings/import", dependencies=[Depends(require_admin)])
 SessionDep = Annotated[Session, Depends(get_session)]
 
 # Großzügig für einige Tausend Rezepte; schützt vor versehentlich gewählten großen Dateien.

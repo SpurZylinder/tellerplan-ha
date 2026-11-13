@@ -17,7 +17,7 @@ from settings import Settings
 from supervisor import TOKEN_ENV_VAR
 from web_sessions import CHECK_INTERVAL, WebSession
 
-APP_URL = "http://homeassistant.local:8099"
+APP_URL = "http://tellerplan.test:8099"
 Exchanges = list[tuple[str, str, str, str]]
 ADMIN = HaUser("a1", "SpurZylinder", is_admin=True)
 MEMBER = HaUser("b2", "Fabian", is_admin=False)
@@ -82,7 +82,7 @@ def test_login_redirects_to_home_assistant(standalone: TestClient) -> None:
     target = urlsplit(response.headers["location"])
     query = parse_qs(target.query)
     assert f"{target.scheme}://{target.netloc}{target.path}" == (
-        "http://homeassistant.local:8123/auth/authorize"
+        "http://tellerplan.test:8123/auth/authorize"
     )
     assert query["client_id"] == [f"{APP_URL}/"]
     assert query["redirect_uri"] == [f"{APP_URL}/auth/callback"]
@@ -113,7 +113,7 @@ def test_login_flow_opens_the_app(standalone: TestClient, exchanged: Exchanges) 
     _sign_in(standalone)
 
     server_url, client_id, code, verifier = exchanged[0]
-    assert server_url == "http://homeassistant.local:8123"
+    assert server_url == "http://tellerplan.test:8123"
     assert (client_id, code) == (f"{APP_URL}/", "abc")
     assert len(verifier) > 40
     assert standalone.get("/").status_code == 200
@@ -207,23 +207,24 @@ def test_local_ingress_port_is_open_without_supervisor(
 
 
 @pytest.mark.usefixtures("exchanged")
-def test_non_admin_gets_no_session_and_access_is_revoked(
+def test_member_signs_in_with_user_rights(
     monkeypatch: pytest.MonkeyPatch, standalone: TestClient, session: Session
 ) -> None:
-    # K16, Sofortmaßnahme: Vollbild-App vorerst nur für Admins
-    revoked: list[str] = []
+    # B2b: Wer kein Admin ist, kommt herein, aber nur mit den Rechten eines Benutzers
     monkeypatch.setattr(login, "session_user", lambda *args: MEMBER)
-    monkeypatch.setattr(login, "revoke", lambda server_url, token: revoked.append(token))
 
-    start = standalone.get("/auth/login")
-    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
-    response = standalone.get(f"/auth/callback?code=abc&state={state}")
+    _sign_in(standalone)
 
-    assert response.status_code == 403
-    assert "Kein Zugriff" in response.text
-    assert revoked == ["refresh-1"]
-    assert session.scalars(select(WebSession)).all() == []
-    assert standalone.get("/").status_code == 303
+    (web_session,) = session.scalars(select(WebSession)).all()
+    assert (web_session.user_id, web_session.user_name, web_session.is_admin) == (
+        "b2",
+        "Fabian",
+        False,
+    )
+    assert standalone.get("/plan").status_code == 200
+    denied = standalone.post("/settings/users")
+    assert denied.status_code == 403
+    assert "nur Verwalter" in denied.text
 
 
 @pytest.mark.usefixtures("exchanged")
@@ -253,6 +254,19 @@ def test_lost_admin_role_ends_the_session(
     _sign_in(standalone)
     _age_sessions(session)
     monkeypatch.setattr(access, "session_user", lambda *args: MEMBER)
+
+    assert standalone.get("/").status_code == 303
+    session.expire_all()
+    assert session.scalars(select(WebSession)).all() == []
+
+
+@pytest.mark.usefixtures("exchanged")
+def test_session_from_before_users_signs_in_again(standalone: TestClient, session: Session) -> None:
+    # Sitzungen von vor 0.5.11 wissen nicht, wer angemeldet ist
+    _sign_in(standalone)
+    for web_session in session.scalars(select(WebSession)):
+        web_session.user_id = None
+    session.commit()
 
     assert standalone.get("/").status_code == 303
     session.expire_all()

@@ -43,7 +43,7 @@
     </div>
   </form>
 
-  {% if recipe %}
+  {% if recipe and is_admin %}
     <form method="post" action="{{ url('recipe_delete', recipe_id=recipe.id) }}"
           onsubmit="return confirm('Rezept wirklich löschen? Planeinträge damit werden ebenfalls entfernt.')">
       <button class="btn danger small" type="submit">Rezept löschen</button>

@@ -9,6 +9,7 @@
     <h1>Einstellungen</h1>
   </header>
 
+  {% if is_admin %}
   <form class="form card" method="post" action="{{ url('settings_save') }}">
     {{ error_message(error) }}
     {% if saved %}<p class="success" role="status">Gespeichert.</p>{% endif %}
@@ -42,7 +43,17 @@
       <button class="btn" type="submit">Speichern</button>
     </div>
   </form>
+  {% else %}
+  <section class="card">
+    <h2>Tagesziele</h2>
+    <p>
+      {% for field in fields %}{{ field.label }} {{ values[field.name] }} {{ field.unit }}{{ " · " if not loop.last }}{% endfor %}
+    </p>
+    <p class="meta">Die Tagesziele legen bisher die Verwalter für alle fest. Eigene Ziele je Benutzer kommen mit Tellerplan 0.6.0.</p>
+  </section>
+  {% endif %}
 
+  {% if is_admin %}
   <section class="card" id="cookidoo">
     <h2>Cookidoo</h2>
     {{ error_message(cookidoo_error) }}
@@ -91,6 +102,9 @@
     <p class="meta">Cookidoo bietet keine offizielle Schnittstelle; Tellerplan nutzt die Bibliothek der Home-Assistant-Integration. Ändert Vorwerk etwas, kann der Abgleich zeitweise ausfallen.</p>
   </section>
 
+  {% endif %}
+
+  {% if is_admin %}
   <section class="card" id="benutzer">
     <h2>Benutzer prüfen</h2>
     <p class="meta">Erkundung für mehrere Benutzer (0.6.0): Wie erfährt Tellerplan, wer die Seite öffnet und wer Admin ist? Liest nur, ändert nichts.</p>
@@ -117,6 +131,8 @@
     {% endif %}
   </section>
 
+  {% endif %}
+
   <section class="card">
     <h2>Daten</h2>
     <ul class="list">
@@ -127,6 +143,7 @@
         </div>
         <span class="meta">→</span>
       </li>
+      {% if is_admin %}
       <li>
         <div class="grow">
           <a href="{{ url('import_page') }}">Importieren</a>
@@ -134,10 +151,12 @@
         </div>
         <span class="meta">→</span>
       </li>
+      {% endif %}
     </ul>
   </section>
 
-  <p class="meta">Mahlzeitnamen und API-Token stehen nur in Home Assistant unter Apps → Tellerplan → Konfiguration.</p>
+  {% if is_admin %}<p class="meta">Mahlzeitnamen, API-Token und freigegebene Benutzer stehen nur in Home Assistant unter Apps → Tellerplan → Konfiguration.</p>{% endif %}
+  {% if user %}<p class="meta">Angemeldet als {{ user.name }} · {{ "Verwalter" if is_admin else "Benutzer" }}</p>{% endif %}
 
   {% if signed_in %}
     <section class="card">

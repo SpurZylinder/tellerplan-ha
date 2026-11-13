@@ -28,13 +28,25 @@ class WebSession(Base):
     client_id: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime]
     checked_at: Mapped[datetime]
+    # Wer angemeldet ist (seit Migration 0018); ältere Sitzungen ohne Benutzer melden neu an.
+    # Name und Admin-Recht werden bei jeder Prüfung (alle 30 Minuten) aktualisiert.
+    user_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    user_name: Mapped[str] = mapped_column(String(200), default="")
+    is_admin: Mapped[bool] = mapped_column(default=False)
 
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def create_session(session: Session, refresh_token: str, client_id: str) -> str:
+def create_session(
+    session: Session,
+    refresh_token: str,
+    client_id: str,
+    user_id: str,
+    user_name: str,
+    is_admin: bool,
+) -> str:
     """Legt eine Sitzung an und gibt den Wert für das Cookie zurück."""
     token = secrets.token_urlsafe(32)
     now = clock.now()
@@ -45,6 +57,9 @@ def create_session(session: Session, refresh_token: str, client_id: str) -> str:
             client_id=client_id,
             created_at=now,
             checked_at=now,
+            user_id=user_id,
+            user_name=user_name,
+            is_admin=is_admin,
         )
     )
     session.flush()

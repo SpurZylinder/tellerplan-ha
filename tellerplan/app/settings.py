@@ -84,6 +84,8 @@ class Settings(BaseModel):
     # Cookidoo-Kalender „Meine Woche“; die Anmeldung selbst steht nicht in den Optionen
     cookidoo_locale: str = Field(pattern=COOKIDOO_LOCALE_PATTERN)
     api_token: str
+    # Home-Assistant-Benutzernamen, die Tellerplan öffnen dürfen; leer = alle (außer Systemkonten)
+    allowed_users: list[str] = Field(default_factory=list)
     # Adresse von Home Assistant aus Sicht des iPhones, z. B. http://homeassistant.local:8123;
     # leer = gleicher Host wie Tellerplan, Port 8123
     homeassistant_url: str = Field(pattern=HOMEASSISTANT_URL_PATTERN)

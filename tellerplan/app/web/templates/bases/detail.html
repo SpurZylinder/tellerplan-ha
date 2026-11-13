@@ -62,6 +62,7 @@
     <div class="form-actions"><button class="btn ghost small" type="submit">Speichern</button></div>
   </form>
 
+  {% if is_admin %}
   <section class="card" id="merge">
     <h2>Zusammenführen</h2>
     <p class="meta">Meint eine andere Grundzutat dasselbe, lässt du „{{ base.name }}“ darin aufgehen: Namen, Rezeptzeilen und Produkte wandern mit, es gilt das Standardprodukt der anderen.</p>
@@ -89,4 +90,5 @@
       <div class="form-actions"><button class="btn ghost small" type="submit">Zusammenführen</button></div>
     </form>
   </section>
+  {% endif %}
 {% endblock %}

@@ -35,6 +35,7 @@ from modules.recipes.matching import (
     unit_gaps,
 )
 from modules.recipes.models import BaseIngredient
+from web.access import require_admin
 from web.forms import FormError, clean_text, redirect_to, required_number
 from web.templating import render
 
@@ -204,7 +205,7 @@ def base_detail(
     )
 
 
-@router.post("/bases/{base_id}/merge", response_model=None)
+@router.post("/bases/{base_id}/merge", response_model=None, dependencies=[Depends(require_admin)])
 def base_merge(
     request: Request,
     session: SessionDep,

@@ -5,7 +5,7 @@ Kalorien zählen, Rezepte verwalten und die Woche planen – direkt in Home Assi
 ## Zugang
 
 - **Oberfläche in Home Assistant:** über die Seitenleiste (Ingress), ohne eigenes Login.
-- **Vollbild-App:** `http://<IP von Home Assistant>:8099/`, z. B. `http://192.168.178.20:8099/`. Die Anmeldung läuft über Home Assistant. Vorerst kommen nur Admins von Home Assistant herein; andere Benutzer sehen „Kein Zugriff“, eigene Bereiche für sie kommen mit 0.6.0. Wird einem Benutzer das Admin-Recht entzogen, endet seine Sitzung spätestens nach 30 Minuten. In den Einstellungen von Tellerplan lässt sich das Gerät wieder abmelden; das entzieht den Zugang auch in Home Assistant.
+- **Vollbild-App:** `http://<IP von Home Assistant>:8099/`, z. B. `http://192.168.178.20:8099/`. Die Anmeldung läuft über Home Assistant. Admins von Home Assistant sind in Tellerplan Verwalter, alle anderen Benutzer (siehe „Benutzer und Rollen“). In den Einstellungen von Tellerplan lässt sich das Gerät wieder abmelden; das entzieht den Zugang auch in Home Assistant.
 - **API:** ebenfalls Port 8099, aber unter `/api/…` und nur mit `Authorization: Bearer <api_token>`. Ohne gesetzten Token ist die API gesperrt.
 
 ### Vollbild-App auf dem iPhone
@@ -37,9 +37,12 @@ Erreicht das iPhone Home Assistant unter einer anderen Adresse als Tellerplan (a
 | `cookidoo_locale` | Sprache und Land von Cookidoo für den Abgleich mit „Meine Woche“, z. B. `de-DE` (cookidoo.de), `de-AT`, `de-CH`; Vorgabe `de-DE` |
 | `homeassistant_url` | Adresse von Home Assistant aus Sicht des iPhones, z. B. `http://homeassistant.local:8123`; leer = gleicher Host wie Tellerplan, Port 8123 |
 | `api_token` | Token für Kurzbefehle und Skripte |
+| `allowed_users` | Home-Assistant-Benutzernamen, die Tellerplan nutzen dürfen; leer = alle (außer Systemkonten) |
 | `database_path` | Pfad der SQLite-Datenbank (Standard `/data/app.db`, Teil der HA-Backups) |
 
 Tageslimit, Makro-Ziele, Bring-Liste und Vorrat lassen sich auch in Tellerplan ändern: auf „Heute“ oben rechts das Zahnrad. Die Werte landen in denselben Optionen und erscheinen auch hier im Reiter „Konfiguration“. Gespeichert werden nur die Felder, die dort geändert wurden; eine Änderung, die vorher hier im Reiter gemacht wurde, bleibt erhalten.
+
+**Benutzer und Rollen:** Tellerplan kennt keine eigenen Passwörter, es nutzt die Benutzer von Home Assistant. Admins sind **Verwalter**: Sie ändern Optionen, verbinden Cookidoo, importieren und löschen Rezepte und Lebensmittel. Alle anderen sind **Benutzer**: Heute, Plan, Rezepte, Lebensmittel, Zuordnen, Einkaufsliste und Abgleich mit Cookidoo. Die Option `allowed_users` (Benutzernamen) beschränkt, wer überhaupt hereinkommt; leer heißt alle. Systemkonten und deaktivierte Benutzer kommen nie herein. Für Familienmitglieder genügen Benutzer ohne Admin-Rechte, am besten mit „Nur im lokalen Netz anmelden“.
 
 **Einkaufsliste:** „🛒 Einkaufsliste“ im Plan sendet die Zutaten der noch nicht gesendeten Rezepte der nächsten zwei Wochen an die Bring-Liste. Das läuft im Hintergrund, die Seite zeigt den Fortschritt und am Ende das Ergebnis. Artikel heißen wie die Grundzutat („Tomatenmark“), ein zugeordnetes Markenprodukt steht in den Details. Steht ein Artikel schon mit Angaben offen in Bring, wird er ergänzt („200 g“ + „300 g“ → „500 g“) statt doppelt angelegt; hast du die Angabe in Bring von Hand geändert, wird die neue Menge angehängt. Ein Eintrag ohne Angaben (z. B. von Hand „Oliven“) bleibt, wie er ist; der Artikel aus dem Rezept kommt als eigener Eintrag dazu. Jedes Rezept gilt als gesendet, sobald seine Artikel angekommen sind.
 

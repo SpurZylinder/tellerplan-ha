@@ -39,6 +39,7 @@ from modules.recipes.service import (
     update_line,
     update_recipe,
 )
+from web.access import require_admin
 from web.forms import (
     COMMON_UNITS,
     FormError,
@@ -216,7 +217,7 @@ async def recipe_update(request: Request, session: SessionDep, recipe_id: int) -
     return redirect_to(request, "recipe_detail", recipe_id=recipe.id)
 
 
-@router.post("/{recipe_id}/delete")
+@router.post("/{recipe_id}/delete", dependencies=[Depends(require_admin)])
 def recipe_delete(request: Request, session: SessionDep, recipe_id: int) -> Response:
     recipe = _recipe_or_404(session, recipe_id)
     # Planeinträge über den Plan löschen, damit Cookidoo-Notizen entstehen

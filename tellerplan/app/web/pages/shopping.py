@@ -41,6 +41,7 @@ from supervisor import (
     get_core_state,
     supervisor_token,
 )
+from web.access import require_admin
 from web.forms import redirect_to
 from web.templating import render
 
@@ -263,7 +264,7 @@ def check_bring_list(entity_id: str, token: str) -> BringCheck:
     )
 
 
-@router.post("/check", response_class=HTMLResponse)
+@router.post("/check", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def shopping_check(request: Request, session: SessionDep) -> HTMLResponse:
     token = supervisor_token()
     entity_id = request.app.state.settings.bring_list_entity

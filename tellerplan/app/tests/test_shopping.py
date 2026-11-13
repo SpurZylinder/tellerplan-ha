@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 import clock
 import web.pages.shopping as shopping_page
+from conftest import INGRESS_HEADERS
 from factories import make_food, make_recipe
 from main import create_app
 from modules.foods.models import FoodSource
@@ -490,6 +491,7 @@ def test_send_without_list_asks_for_settings(
         create_app(settings, options_file),
         base_url=f"http://testserver:{settings.ingress_port}",
         client=(INGRESS_PROXY_IP, 50000),
+        headers=INGRESS_HEADERS,
     )
 
     response = client.post("/plan/shopping")

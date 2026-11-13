@@ -1,5 +1,5 @@
 name: Tellerplan
-version: "0.5.10"
+version: "0.5.11"
 slug: tellerplan
 description: Kalorien zählen, Rezepte verwalten und die Woche planen
 url: https://github.com/SpurZylinder/tellerplan-ha
@@ -87,6 +87,7 @@ options:
   cookidoo_locale: de-DE
   homeassistant_url: ""
   api_token: ""
+  allowed_users: []
   database_path: /data/app.db
 schema:
   daily_kcal_limit: int(500,10000)
@@ -114,4 +115,6 @@ schema:
   cookidoo_locale: match(^[a-z]{2}-[A-Z]{2}$)
   homeassistant_url: match(^(https?://[^/\s]+)?$)
   api_token: password
+  allowed_users:
+    - str
   database_path: str

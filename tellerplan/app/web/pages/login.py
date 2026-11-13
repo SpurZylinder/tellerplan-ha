@@ -92,7 +92,7 @@ def login_callback(
         logger.warning("Anmeldung über Home Assistant fehlgeschlagen: %s", error)
         return _message(request, "Anmeldung fehlgeschlagen", str(error), status_code=502)
 
-    # Vorerst nur Admins (Befund K16): Rollen für alle anderen kommen mit 0.6.0
+    # Wer sich angemeldet hat, gehört in die Sitzung; ob er hereindarf, prüft require_user
     try:
         user = session_user(server_url(request), client_id(request), refresh_token)
     except (LoginRejected, HomeAssistantUnavailable) as error:
@@ -104,18 +104,9 @@ def login_callback(
             "Home Assistant hat nicht verraten, wer angemeldet ist. Bitte später erneut versuchen.",
             status_code=502,
         )
-    if not user.is_admin:
-        logger.info("Vollbild-App: Anmeldung abgelehnt, Benutzer ist kein Admin")
-        revoke(server_url(request), refresh_token)
-        return _message(
-            request,
-            "Kein Zugriff",
-            "Die Vollbild-App ist vorerst nur für Admins in Home Assistant. "
-            "Eigene Bereiche für alle Benutzer kommen mit Tellerplan 0.6.0.",
-            status_code=403,
-        )
-
-    token = create_session(session, refresh_token, client_id(request))
+    token = create_session(
+        session, refresh_token, client_id(request), user.id, user.name, user.is_admin
+    )
     session.commit()
     logger.info("Vollbild-App angemeldet über %s", client_id(request))
     response = redirect_to(request, "today_page")

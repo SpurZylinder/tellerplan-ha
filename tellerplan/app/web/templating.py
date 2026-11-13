@@ -101,6 +101,10 @@ templates.env.filters["external_url"] = external_url
 def render(request: Request, template: str, tab: str | None = None, **context: Any) -> Any:
     """Rendert eine Seite; `tab` markiert den aktiven Eintrag der Tab-Leiste."""
     signed_in = getattr(request.state, "web_session", None) is not None
+    user = getattr(request.state, "user", None)
+    is_admin = bool(user is not None and user.is_admin)
     return templates.TemplateResponse(
-        request, template, {"tab": tab, "signed_in": signed_in, **context}
+        request,
+        template,
+        {"tab": tab, "signed_in": signed_in, "user": user, "is_admin": is_admin, **context},
     )

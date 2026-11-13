@@ -24,6 +24,7 @@ from modules.foods.service import (
 )
 from modules.nutrition.service import standard_units, uses_standard_unit
 from modules.recipes.matching import food_usage
+from web.access import require_admin
 from web.forms import FormError, clean_text, parse_number, redirect_to, required_number
 from web.templating import render
 
@@ -200,14 +201,14 @@ async def food_update(request: Request, session: SessionDep, food_id: int) -> Re
     return redirect_to(request, "food_detail", food_id=food.id)
 
 
-@router.get("/{food_id}/delete", response_class=HTMLResponse)
+@router.get("/{food_id}/delete", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def food_delete_confirm(request: Request, session: SessionDep, food_id: int) -> HTMLResponse:
     """Rückfrage mit allem, was das Löschen in Rezepten ändert."""
     food = _editable_food_or_error(session, food_id)
     return render(request, "foods/delete.html", food=food, usage=food_usage(session, food))
 
 
-@router.post("/{food_id}/delete", response_model=None)
+@router.post("/{food_id}/delete", response_model=None, dependencies=[Depends(require_admin)])
 def food_delete(request: Request, session: SessionDep, food_id: int) -> Response:
     delete_food(session, _editable_food_or_error(session, food_id))
     session.commit()
