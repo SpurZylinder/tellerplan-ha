@@ -360,6 +360,7 @@ Code, nach Gewicht:
 - [x] **C-G Testlücken** (behoben 0.5.4/0.5.5: Datumsgrenzen, Coverage-Bericht, aufgezeichnete Antwort von `todo.get_items`).
 - [x] **C-H Kein CSRF-Schutz** (behoben 0.5.7: `security.SameOriginMiddleware` prüft `Origin`/`Referer` bei schreibenden Anfragen der Oberfläche).
 - [x] **C-J INFO-Meldungen fehlen im Protokoll** (gefunden 2026-11-13, behoben 0.5.2): Die Migration beim Start setzte über `alembic.ini` den Root-Logger auf WARNING.
+- [x] **C-M Lücke in `opentelemetry-api` 1.45.1** (gefunden 2026-11-13 durch `pip-audit` in der CI, behoben 0.5.14: Pin auf 1.45.2).
 - [x] **C-L Tests erreichten das echte Home Assistant** (gefunden 2026-11-13, behoben 0.5.11: Netzsperre in allen Tests, Testadressen mit `.test`).
 - [x] **C-K Zeitstempel der Sicherung in Container-Zeit** (gefunden 2026-11-13, behoben 0.5.4): `db.backup_database` nutzte `datetime.now()` statt `clock.now()`.
 - [x] **C-I Kleinigkeiten** (behoben 0.5.3, siehe [[Version-0.6.0]])**:** `add_entry` fällt bei 0 Portionen still auf den Standard zurück; `ShoppingItem.optional` hängt indirekt an `recipes`; Modul `options.py` vs. Route `/settings`. Erledigt: `supervisor` und `clock` in `known-first-party`.
