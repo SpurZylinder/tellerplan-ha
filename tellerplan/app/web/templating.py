@@ -9,7 +9,7 @@ lädt sie neu, statt die alte aus dem Cache zu nehmen.
 """
 
 import hashlib
-from datetime import date, timedelta
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -90,17 +90,12 @@ def format_day(value: date) -> str:
     return f"{WEEKDAYS[value.weekday()]} {value:%d.%m.}"
 
 
-def _add_days(value: date, days: int) -> date:
-    return value + timedelta(days=days)
-
-
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.globals["url"] = _url
 templates.env.filters["num"] = _format_number
 templates.env.filters["day"] = format_day
 templates.env.filters["amount"] = format_amount
 templates.env.filters["external_url"] = external_url
-templates.env.filters["add_days"] = _add_days
 
 
 def render(request: Request, template: str, tab: str | None = None, **context: Any) -> Any:

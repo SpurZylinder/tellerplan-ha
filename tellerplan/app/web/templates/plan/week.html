@@ -71,8 +71,9 @@
                     </form>
                   {% endif %}
                   <form class="plan-move" method="post" action="{{ url('plan_move', entry_id=entry.id) }}">
-                    <input class="input" type="date" name="day" aria-label="Neuer Tag"
-                           value="{{ today if plan_day.day < today else plan_day.day|add_days(1) }}" required>
+                    {# Vorbelegt mit dem eigenen Tag: Jeder andere gewählte Tag verschiebt sofort (plan.js) #}
+                    <input class="input" type="date" name="day" aria-label="Verschieben auf"
+                           value="{{ plan_day.day }}" required>
                     <button class="btn ghost small" type="submit">Verschieben</button>
                   </form>
                   <form method="post" action="{{ url('plan_delete', entry_id=entry.id) }}">

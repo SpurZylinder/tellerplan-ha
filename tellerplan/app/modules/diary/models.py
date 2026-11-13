@@ -40,6 +40,10 @@ class DiaryEntry(Base):
     protein_g: Mapped[float]
     fat_g: Mapped[float]
     carbs_g: Mapped[float]
+    # Seit Migration 0017; leer = unbekannt (ältere Einträge, Lebensmittel ohne Angabe)
+    fiber_g: Mapped[float | None]
+    sugar_g: Mapped[float | None]
+    salt_g: Mapped[float | None]
     is_complete: Mapped[bool] = mapped_column(default=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

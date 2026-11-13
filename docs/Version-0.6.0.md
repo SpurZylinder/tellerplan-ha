@@ -65,11 +65,19 @@ Beschreibung der Befunde in [[Architektur#Ausbaustufen und offene Punkte]]. Hier
 - [x] **`hassio_api` nötig?** (0.5.7): entfernt. Der Supervisor lässt `/addons/self/…` (u. a. `info`, `options`) für jedes Add-on zu; `hassio_api` öffnet nur die übrige Supervisor-API, die Tellerplan nicht nutzt. Auf dem Pi zu bestätigen; falls B1 (Benutzer prüfen) das Recht braucht, dort mit Begründung neu entscheiden.
 - [ ] **K16 Jeder HA-Benutzer darf alles:** wird mit Teil B behoben (Rollen), steht hier nur zur Vollständigkeit.
 
+**Pi-Test 0.5.7 (2026-11-13), bestanden:** Einstellungen speichern ohne `hassio_api` („Optionen an Home Assistant übergeben und bestätigt“, Wert im Reiter „Konfiguration“); Änderung in HA ohne Neustart bleibt beim Speichern in Tellerplan erhalten (K8); nach Neustart gelten die Werte aus HA; Bring sendet weiter (`homeassistant_api`); alle Formulare über Ingress gehen durch, keine Ablehnung durch den Herkunftsschutz (C-H). Statische Dateien kommen mit `?v=` und nach dem Neustart als `304 Not Modified` (K13). Offen: ein Formular in der Vollbild-App (Port 8099).
+
 ### A5: Datenmodell
 
-- [ ] **K15 Snapshot mit vier Nährwerten:** Migration: `diary_entry` bekommt Ballaststoffe, Zucker und Salz. Neue Einträge speichern alle sieben Werte. Alte Einträge bleiben leer und zeigen „–“. Wird vor B3 erledigt, damit die Tabelle nur einmal umgebaut wird.
+- [x] **K15 Snapshot mit vier Nährwerten** (0.5.8): Migration 0017 ergänzt `diary_entry` um Ballaststoffe, Zucker, Salz. `Nutrients` rechnet sie mit; fehlt ein Wert am Lebensmittel, ist er unbekannt (`None`) und eine Summe damit auch, statt still 0 zu zählen. Alte Einträge bleiben leer. Angezeigt werden die drei Werte noch nicht.
 - [x] **K6 Reste und mehrere Esser:** Entschieden 2026-11-13: Eine Erledigt-Logik über gegessene Portionen ist nicht nötig; der Plan muss Mahlzeiten nicht als gegessen markieren. Kein Befund mehr, sondern eine Komfort-Idee, die **zum Abschluss von 0.6.0** neu bewertet wird (siehe unten). Was bleibt, gehört zu B3: Das vorhandene „✓ eingetragen“ auf „Heute“ gilt je Benutzer.
-- [ ] **K7 Doku und Umsetzung:** Datenmodell in [[Architektur]] nachziehen: `ingredient_alias` gibt es, `goal` kommt mit B4, `weight` mit 0.8.0, `import_job` streichen oder als Idee markieren, `shopping` in die Systemübersicht.
+- [x] **K7 Doku und Umsetzung** (0.5.8): Datenmodell und Systemübersicht in [[Architektur]] nachgezogen (`shopping`, sieben Nährwerte im Snapshot, `goal` und `weight` als geplant, `import_job` als Idee).
+
+### A6: Plan (Befund und Wunsch vom 2026-11-13)
+
+- [x] **K23 Plan springt nach dem Bearbeiten zum Tag** (0.5.8): Nach Verschieben, Löschen oder „Auf heute“ leitete die Seite auf `#day-…` weiter. Jetzt ohne Sprungziel; `plan.js` merkt sich beim Abschicken die Scrollposition (waagerecht und senkrecht, `sessionStorage`, 60 s) und stellt sie wieder her. Nach „+ Einplanen“ springt der Plan weiter zum neuen Tag.
+- [x] **Datum wählen verschiebt sofort** (Wunsch, 0.5.8): Das Datumsfeld eines Planeintrags zeigt seinen eigenen Tag; ein anderer im Kalender gewählter Tag verschiebt sofort, der Knopf „Verschieben“ ist ausgeblendet (ohne JavaScript bleibt er). Wer das Datum tippt, verschiebt erst beim Verlassen des Felds.
+- [ ] Test am iPhone: Verschieben über den Kalender, Ansicht bleibt an der Stelle (Spalten und Liste).
 
 ## Teil B: Mehrere Benutzer
 

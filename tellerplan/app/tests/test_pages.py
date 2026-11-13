@@ -139,6 +139,9 @@ def test_plan_move_and_delete(ingress_client: TestClient) -> None:
 
     page = ingress_client.get("/plan").text
     assert "Auf heute" in page
+    # Wunsch: Das Datumsfeld zeigt den eigenen Tag; jeder andere gewählte Tag verschiebt sofort
+    move_field = page.split('aria-label="Verschieben auf"')[1].split(">")[0]
+    assert f'value="{yesterday.isoformat()}"' in move_field
     entry_id = _entry_ids(page)[0]
 
     moved = ingress_client.post(
@@ -146,7 +149,8 @@ def test_plan_move_and_delete(ingress_client: TestClient) -> None:
         data={"day": date.today().isoformat()},
         follow_redirects=False,
     )
-    assert moved.headers["location"].endswith(f"#day-{date.today().isoformat()}")
+    # K23: kein Sprung zum Tag; plan.js stellt die Scrollposition wieder her
+    assert moved.headers["location"].endswith("/plan")
     assert "Auf heute" not in ingress_client.get("/plan").text
 
     ingress_client.post(f"/plan/entries/{entry_id}/delete")

@@ -47,7 +47,13 @@ class PlannedForDay:
 def entry_nutrients(entry: DiaryEntry) -> Nutrients:
     """Nährwerte aus dem Snapshot des Eintrags."""
     return Nutrients(
-        kcal=entry.kcal, protein_g=entry.protein_g, fat_g=entry.fat_g, carbs_g=entry.carbs_g
+        kcal=entry.kcal,
+        protein_g=entry.protein_g,
+        fat_g=entry.fat_g,
+        carbs_g=entry.carbs_g,
+        fiber_g=entry.fiber_g,
+        sugar_g=entry.sugar_g,
+        salt_g=entry.salt_g,
     )
 
 
@@ -56,6 +62,9 @@ def _snapshot(entry: DiaryEntry, nutrients: Nutrients) -> None:
     entry.protein_g = nutrients.protein_g
     entry.fat_g = nutrients.fat_g
     entry.carbs_g = nutrients.carbs_g
+    entry.fiber_g = nutrients.fiber_g
+    entry.sugar_g = nutrients.sugar_g
+    entry.salt_g = nutrients.salt_g
 
 
 def log_recipe(

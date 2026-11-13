@@ -98,3 +98,26 @@ def test_containers_count_as_one_package(session: Session) -> None:
     assert to_grams(tomatoes, 1, "Dose") == 240  # eigene Angabe geht vor
     assert to_grams(plain, 1, "Dose") is None  # ohne Packungsgröße weiter fragen
     assert to_grams(coconut, 1, "Prise") is None
+
+
+def test_fiber_sugar_and_salt_are_calculated(session: Session) -> None:
+    oats = make_food(session, "Haferflocken", kcal=370)
+    oats.fiber_g, oats.sugar_g, oats.salt_g = 10.0, 1.0, 0.02
+
+    nutrients = nutrients_for(oats, 50)
+
+    assert (nutrients.fiber_g, nutrients.sugar_g, nutrients.salt_g) == (5.0, 0.5, 0.01)
+
+
+def test_missing_value_makes_the_total_unknown_not_zero(session: Session) -> None:
+    # K15: Kennt eine Zutat keinen Zucker, ist die Summe unbekannt statt zu niedrig
+    oats = make_food(session, "Haferflocken")
+    oats.sugar_g = 1.0
+    own = make_food(session, "Eigenes Müsli")  # ohne Zucker-Angabe
+
+    total = total_nutrients([(oats, 100), (own, 100)])
+
+    assert total.sugar_g is None
+    assert total_nutrients([(oats, 100)]).sugar_g == 1.0
+    assert (Nutrients(sugar_g=None) + Nutrients(sugar_g=2.0)).sugar_g is None
+    assert Nutrients(sugar_g=None).scaled(2).sugar_g is None

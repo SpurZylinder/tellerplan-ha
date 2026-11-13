@@ -69,8 +69,16 @@ def _entry_or_404(session: Session, entry_id: int) -> PlanEntry:
 
 
 def _back_to_plan(request: Request, day: date) -> Response:
-    """Zurück zum Plan, direkt zum betroffenen Tag gescrollt."""
+    """Zurück zum Plan, direkt zum betroffenen Tag gescrollt (z. B. nach „+ Einplanen“)."""
     return redirect_to(request, "plan_page", anchor=f"#day-{day.isoformat()}")
+
+
+def _back_to_same_place(request: Request) -> Response:
+    """Zurück zum Plan ohne Sprungziel: `plan.js` stellt die Scrollposition wieder her.
+
+    Wer im Plan verschiebt oder löscht, bleibt an der Stelle, an der er war (Befund K23).
+    """
+    return redirect_to(request, "plan_page")
 
 
 @router.get("", response_class=HTMLResponse)
@@ -183,18 +191,16 @@ def plan_move(
     entry_id: int,
     day: Annotated[date, Form()],
 ) -> Response:
-    entry = move_entry(session, _entry_or_404(session, entry_id), day)
+    move_entry(session, _entry_or_404(session, entry_id), day)
     session.commit()
-    return _back_to_plan(request, entry.day)
+    return _back_to_same_place(request)
 
 
 @router.post("/entries/{entry_id}/delete")
 def plan_delete(request: Request, session: SessionDep, entry_id: int) -> Response:
-    entry = _entry_or_404(session, entry_id)
-    day = entry.day
-    delete_entry(session, entry)
+    delete_entry(session, _entry_or_404(session, entry_id))
     session.commit()
-    return _back_to_plan(request, day)
+    return _back_to_same_place(request)
 
 
 # --- Abgleich mit „Meine Woche“ ---------------------------------------------------------

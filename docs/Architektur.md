@@ -38,6 +38,7 @@ Drei Zugänge, ein Add-on auf dem Home-Assistant-Pi, eine Datenbank; das Tagebuc
 │  ┌─────▼─┐ ┌─────────┐ ┌─▼───────┐ ┌───▼──────┐ ┌───────▼─┐ ┌─────────▼┐  │
 │  │ foods │ │nutrition│ │ recipes │ │importers │ │ planner │ │ diary ★  │  │
 │  └───────┘ └─────────┘ └─────────┘ └──────────┘ └─────────┘ └──────────┘  │
+│  shopping: Einkaufsliste aus planner + recipes, an Bring (über web)       │
 │  ┌──────────────────────────────────────────────────────────────────────┐ │
 │  │ SQLite · /data/app.db · SQLAlchemy + Alembic · in HA-Backups         │ │
 │  └──────────────────────────────────────────────────────────────────────┘ │
@@ -48,7 +49,7 @@ Die Oberfläche läuft auf zwei Wegen: über Ingress im Rahmen von Home Assistan
 
 ## Module und Verantwortlichkeiten
 
-Sechs Fachmodule mit klaren Grenzen; nur `nutrition` rechnet Nährwerte, alle anderen fragen es.
+Sieben Fachmodule (dazu `diary`, siehe Regel 7 in `CLAUDE.md`) mit klaren Grenzen; nur `nutrition` rechnet Nährwerte, alle anderen fragen es. Netzwerkaufrufe (Supervisor, Cookidoo) liegen außerhalb der Fachmodule und werden hereingereicht.
 
 | Modul | Verantwortung | Nutzt |
 | --- | --- | --- |
@@ -76,10 +77,10 @@ Nährwerte existieren nur an `food`, alles andere verweist darauf oder hält ein
 | `ingredient_alias` | Schlüssel des Zutatennamens (z. B. „frische milch“) → Grundzutat | Beim Zuordnen gelernt, bei jedem Import sofort angewendet. Der Schlüssel ignoriert Groß/klein, ß/ss, Bindestrich/Leerzeichen und die Mehrzahl des letzten Wortes (seit Migration 0014) |
 | `recipe_reference` | recipe_id, kcal, Eiweiß, Fett, KH pro Portion laut Quelle | Nur Vergleichswert zum Erkennen falscher Zuordnungen, nie gerechnet (Regel 1 und 2) |
 | `plan_entry` | Datum, recipe_id, Portionen | Ohne Mahlzeit; Portionen beim Einplanen wählbar, Vorgabe sind die Standardportionen des Rezepts (Migration 0007) |
-| `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge + Einheit + Gramm bzw. gegessene Portionen, plan_entry_id, Bezeichnung und Nährwert-Snapshot (kcal, Eiweiß, Fett, KH), Vollständigkeit | Nur diese Einträge zählen für den Tag |
-| `goal` | gültig ab, kcal-Limit, Eiweiß-, Fett-, KH-Ziel | Historisiert, damit alte Tage gegen das damalige Ziel laufen |
-| `weight` | Datum, kg, Quelle (manuell / Health) | Später per Kurzbefehl |
-| `import_job` | Quelle, Eingabe (URL/ID), Status, Fehlertext | Nachvollziehbarer Massenimport |
+| `diary_entry` | Datum, Mahlzeit, food_id oder recipe_id, Menge + Einheit + Gramm bzw. gegessene Portionen, plan_entry_id, Bezeichnung und Nährwert-Snapshot (kcal, Eiweiß, Fett, KH; seit Migration 0017 auch Ballaststoffe, Zucker, Salz, leer = unbekannt), Vollständigkeit | Nur diese Einträge zählen für den Tag |
+| `goal` *(geplant, 0.6.0 B4)* | Benutzer, gültig ab, kcal-Limit, Eiweiß-, Fett-, KH-Ziel | Historisiert, damit alte Tage gegen das damalige Ziel laufen. Bis dahin gelten die Ziele aus den Add-on-Optionen für alle Tage |
+| `weight` *(geplant, 0.8.0)* | Datum, kg, Quelle (manuell / Health) | Per Kurzbefehl aus Apple Health |
+| `import_job` *(nicht umgesetzt, Idee)* | Quelle, Eingabe (URL/ID), Status, Fehlertext | Nachvollziehbarer Massenimport; bisher nicht nötig, Importe laufen als Datei |
 
 Abgeleitete Werte werden nicht gespeichert, sondern berechnet: Nährwerte pro Rezept und Portion, Matching-Grad eines Rezepts (z. B. 9 von 11 Zutaten zugeordnet) und Tagessummen. Ein Rezept mit offenen Zutaten lässt sich planen; beim Loggen erscheint ein Hinweis, dass der Wert unvollständig ist.
 
@@ -329,7 +330,7 @@ Konzept, nach Gewicht:
 - [x] **K4 HA-Sicherung „hot“** (behoben 0.5.1: `backup: cold`)**:** Home Assistant kopiert `/data` bei laufender SQLite-Datenbank; die Kopie kann inkonsistent sein. Abhilfe: `backup_pre` mit Checkpoint oder `backup: cold`.
 - [x] **K5 Zeitzone:** `date.today()` nutzte die Zeit des Containers. *Behoben:* Zentrale Uhr `clock.py` mit der Zeitzone aus `TZ` (setzt der Supervisor) und den Zeitzonendaten aus dem Paket `tzdata`; der Start schreibt Zeitzone und Datum ins Protokoll.
 - [x] **K6 Planportionen und „eingetragen“** (2026-11-13: kein Befund, Komfort-Idee, zum Abschluss von 0.6.0 bewerten, siehe [[Version-0.6.0]])**:** Ein Planeintrag gilt nach der ersten eingetragenen Portion als erledigt; Reste (Meal-Prep) bildet das Modell nicht ab. Nach dem Verschieben erscheint ein eingetragener Eintrag wieder als offen.
-- [ ] **K7 Doku und Umsetzung:** Das Datenmodell nennt eine historisierte Tabelle `goal`, umgesetzt sind Ziele als Optionen (alte Tage zeigen das neue Ziel). Außerdem fehlen die Tabellen `ingredient_alias`, `weight`, `import_job` noch, und die Systemübersicht zeigt `shopping` nicht.
+- [x] **K7 Doku und Umsetzung** (behoben 0.5.8: Datenmodell und Systemübersicht nachgezogen; `goal`, `weight` als geplant, `import_job` als Idee markiert).
 - [x] **K8 Zwei Schreiber für die Optionen** (behoben 0.5.1: Grundlage sind die Optionen beim Supervisor, gespeichert wird nur Geändertes)**:** Eine Änderung in HA ohne Neustart geht verloren, wenn danach die Einstellseite speichert (letzter Schreiber gewinnt).
 - [x] **K9 Zutat ohne Einheit = Gramm** (geprüft 0.5.3: Parser setzt immer eine Einheit, fehlende Schreibweisen ergänzt)**:** „2 Eier“ ohne Einheit zählt als 2 g. Der Zeilenparser in Stufe 4 muss immer eine Einheit setzen.
 - [x] **K10 Einheiten-Schreibweisen** (behoben 0.5.3: `modules/foods/units.py`, Umrechnung kg/l)**:** Die Einkaufsliste addiert je Einheitstext; „EL“/„el“, „g“/„kg“, „Stück“/„Stk.“ bleiben getrennt.
@@ -337,9 +338,10 @@ Konzept, nach Gewicht:
 - [x] **K12 Ingress-Port im internen Netz offen:** Andere Add-ons erreichten Port 8000 ohne Login. *Behoben mit der Vollbild-App:* Im Add-on nimmt Port 8000 nur Anfragen vom Ingress-Proxy `172.30.32.2` an; lokal ohne Supervisor bleibt er offen.
 - [x] **K13 Browser-Cache nach Updates** (behoben 0.5.3: Inhalts-Hash `?v=` an statischen Dateien)**:** CSS und JS ohne Version im Link; das iPhone kann alte Dateien behalten.
 - [ ] **K14 Port 8099 nur HTTP:** siehe offener Punkt HTTPS unten.
-- [ ] **K15 Snapshot mit vier Nährwerten:** Ballaststoffe, Zucker und Salz fehlen im Tagebuch-Snapshot und lassen sich für alte Tage nicht nachholen.
+- [x] **K15 Snapshot mit vier Nährwerten** (behoben 0.5.8: Migration 0017, `Nutrients` mit Ballaststoffen, Zucker, Salz; unbekannt statt 0).
 - [x] **K18 Keine Statusmeldung nach „Einkaufsliste“** (gefunden 2026-11-13, behoben 0.5.4: Senden im Hintergrund mit Fortschritt).
 - [x] **K19 Bring wird zugemüllt** (gefunden 2026-11-13, behoben 0.5.4/0.5.5): Erneutes Klicken sendete alles doppelt; vorhandene Artikel werden jetzt ergänzt statt neu angelegt, je Rezept abgehakt. [[Version-0.6.0]], A3b.
+- [x] **K23 Plan springt nach dem Bearbeiten zum Tag** (gefunden 2026-11-13, behoben 0.5.8: Plan bleibt an der Stelle).
 - [x] **K22 Gesperrte Knöpfe sehen aktiv aus** (gefunden 2026-11-13, behoben 0.5.6).
 - [x] **K21 Ergänzen in Bring traf den falschen gleichnamigen Eintrag** (gefunden 2026-11-13, behoben 0.5.6: `uid` wird vor dem Update nachgeschlagen).
 - [x] **K20 Produktname statt Grundzutat auf der Einkaufsliste** (gefunden 2026-11-13, behoben 0.5.4: Grundzutat als Name, Produkt in den Details).

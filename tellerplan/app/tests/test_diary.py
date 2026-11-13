@@ -180,3 +180,22 @@ def test_last_amount_takes_latest_day(session: Session) -> None:
 
     assert last_amount(session, egg.id) == (2, "Stück")
     assert last_amount(session, make_food(session, "Neu").id) is None
+
+
+def test_snapshot_keeps_fiber_sugar_and_salt(session: Session) -> None:
+    # K15: Der Snapshot hält alle sieben Nährwerte
+    bread = make_food(session, "Vollkornbrot", kcal=200)
+    bread.fiber_g, bread.sugar_g, bread.salt_g = 8.0, 2.0, 1.2
+
+    entry = log_food(session, DAY, "Frühstück", bread, 50, "g")
+    bread.sugar_g = 50.0  # spätere Änderung am Lebensmittel
+
+    assert (entry.fiber_g, entry.sugar_g, entry.salt_g) == (4.0, 1.0, 0.6)
+    total = day_log(session, DAY, MEALS).total
+    assert (total.fiber_g, total.sugar_g, total.salt_g) == (4.0, 1.0, 0.6)
+
+
+def test_food_without_values_is_stored_as_unknown(session: Session) -> None:
+    entry = log_food(session, DAY, "Snacks", make_food(session), 100, "g")
+
+    assert entry.sugar_g is None

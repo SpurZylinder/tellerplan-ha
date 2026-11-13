@@ -23,18 +23,36 @@ _standard_units: dict[str, tuple[str, float]] = {}
 
 @dataclass(frozen=True)
 class Nutrients:
+    """Nährwerte einer Menge.
+
+    Ballaststoffe, Zucker und Salz fehlen bei manchen Lebensmitteln (z. B. eigenen).
+    `None` heißt dann „unbekannt“, nicht 0: Eine Summe mit einem unbekannten Teil ist
+    unbekannt, damit nie zu wenig Zucker angezeigt wird, nur weil eine Zutat ihn nicht kennt.
+    """
+
     kcal: float = 0.0
     protein_g: float = 0.0
     fat_g: float = 0.0
     carbs_g: float = 0.0
+    fiber_g: float | None = 0.0
+    sugar_g: float | None = 0.0
+    salt_g: float | None = 0.0
 
     def __add__(self, other: Nutrients) -> Nutrients:
         return Nutrients(
-            **{f.name: getattr(self, f.name) + getattr(other, f.name) for f in fields(self)}
+            **{f.name: _add(getattr(self, f.name), getattr(other, f.name)) for f in fields(self)}
         )
 
     def scaled(self, factor: float) -> Nutrients:
-        return Nutrients(**{f.name: getattr(self, f.name) * factor for f in fields(self)})
+        return Nutrients(**{f.name: _scale(getattr(self, f.name), factor) for f in fields(self)})
+
+
+def _add(left: float | None, right: float | None) -> float | None:
+    return None if left is None or right is None else left + right
+
+
+def _scale(value: float | None, factor: float) -> float | None:
+    return None if value is None else value * factor
 
 
 @dataclass(frozen=True)
@@ -114,6 +132,9 @@ def nutrients_for(food: Food, grams: float) -> Nutrients:
         protein_g=food.protein_g * factor,
         fat_g=food.fat_g * factor,
         carbs_g=food.carbs_g * factor,
+        fiber_g=_scale(food.fiber_g, factor),
+        sugar_g=_scale(food.sugar_g, factor),
+        salt_g=_scale(food.salt_g, factor),
     )
 
 
